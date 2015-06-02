@@ -134,8 +134,10 @@ elements_by_atomic_number = ['','H','He','Li','Be','B','C','N','O','F','Ne','Na'
 
 
 class Molecule():	
-	def __init__(self, atoms_or_filename_or_all, bonds=None, angles=None, dihedrals=None, extra_parameters={}): #set atoms, bonds, etc, or assume 'atoms' contains all those things if only one parameter is passed in
-		if type(atoms_or_filename_or_all)==type('string'):
+	def __init__(self, atoms_or_filename_or_all=None, bonds=None, angles=None, dihedrals=None, extra_parameters={}): #set atoms, bonds, etc, or assume 'atoms' contains all those things if only one parameter is passed in
+		if not atoms_or_filename_or_all:
+			return
+		elif type(atoms_or_filename_or_all)==type('string'):
 			self.filename = atoms_or_filename_or_all
 			atoms, bonds, angles, dihedrals = files.read_cml(self.filename, extra_parameters=extra_parameters)
 		elif not bonds:
@@ -174,7 +176,13 @@ class System():
 			self.angles.append( Angle(*[self.atoms[a.index+atom_offset-1] for a in t.atoms], type=t.type) )
 		for t in molecule.dihedrals:
 			self.dihedrals.append( Dihedral(*[self.atoms[a.index+atom_offset-1] for a in t.atoms], type=t.type) )
-		self.molecules.append(molecule) #just a reference, not a copy
+		new_molecule = Molecule()
+		new_molecule.__dict__ = molecule.__dict__.copy()
+		new_molecule.atoms = self.atoms[-len(molecule.atoms):]
+		new_molecule.bonds = self.atoms[-len(molecule.bonds):]
+		new_molecule.angles = self.atoms[-len(molecule.angles):]
+		new_molecule.dihedrals = self.atoms[-len(molecule.dihedrals):]
+		self.molecules.append( new_molecule )
 
 def dist_squared(a,b):
 	return (a.x-b.x)**2 + (a.y-b.y)**2 + (a.z-b.z)**2
