@@ -103,12 +103,13 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, check_convergence=T
 		atoms.append( utils.Atom(element=utils.elements_by_atomic_number[int(columns[1])], x=x, y=y, z=z, index=len(atoms)+1) )
 	
 	#get forces
-	last_forces = contents.rindex('Forces (Hartrees/Bohr)')
-	start = contents.index('---\n', last_forces)+4
-	end = contents.index('\n ---', start)
-	for i,line in enumerate(contents[start:end].splitlines()):
-		columns = line.split()
-		atoms[i].fx, atoms[i].fy, atoms[i].fz = [float(s) for s in columns[2:5]]
+	if 'Forces (Hartrees/Bohr)' in contents:
+		last_forces = contents.rindex('Forces (Hartrees/Bohr)')
+		start = contents.index('---\n', last_forces)+4
+		end = contents.index('\n ---', start)
+		for i,line in enumerate(contents[start:end].splitlines()):
+			columns = line.split()
+			atoms[i].fx, atoms[i].fy, atoms[i].fz = [float(s) for s in columns[2:5]]
 	
 	#return the appropriate values
 	if get_time:

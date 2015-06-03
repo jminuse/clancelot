@@ -70,7 +70,7 @@ def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}):
 	return atoms, bonds, angles, dihedrals
 	
 
-def write_cml(atoms, name=None):
+def write_cml(atoms, bonds, name=None):
 	if name is None:
 		name = 'out' #default filename is out.cml
 	name += '.cml'
@@ -79,11 +79,7 @@ def write_cml(atoms, name=None):
 	#tree._root = xml.fromstring('<molecule></molecule>')
 	#tree.write(name)
 	
-	bonds = {}
-	for a in atoms:
-		for b in a.bonded:
-			bonds[ tuple(sorted((a,b))) ] = True
-	bonds = bonds.keys()
+	bonds = [ (b.atoms[0].index, b.atoms[1].index) for b in bonds ]
 	bonds.sort()
 	
 	f = open(name, 'w')
@@ -137,7 +133,7 @@ def write_xyz(atoms, name_or_file=None):
 	for a in atoms:
 		f.write('%s %f %f %f\n' % (a.element, a.x, a.y, a.z) )
 		
-	if name_or_file==name: #close file if we opened it
+	if type(name_or_file)==str: #close file if we opened it
 		f.close()
 
 def read_opls_parameters(parameter_file):
