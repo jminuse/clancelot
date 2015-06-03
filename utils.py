@@ -134,12 +134,10 @@ elements_by_atomic_number = ['','H','He','Li','Be','B','C','N','O','F','Ne','Na'
 
 
 class Molecule():	
-	def __init__(self, atoms_or_filename_or_all=None, bonds=None, angles=None, dihedrals=None, extra_parameters={}): #set atoms, bonds, etc, or assume 'atoms' contains all those things if only one parameter is passed in
-		if not atoms_or_filename_or_all:
-			return
-		elif type(atoms_or_filename_or_all)==type('string'):
+	def __init__(self, atoms_or_filename_or_all, bonds=None, angles=None, dihedrals=None, parameter_file='oplsaa.prm', extra_parameters={}): #set atoms, bonds, etc, or assume 'atoms' contains all those things if only one parameter is passed in
+		if type(atoms_or_filename_or_all)==type('string'):
 			self.filename = atoms_or_filename_or_all
-			atoms, bonds, angles, dihedrals = files.read_cml(self.filename, extra_parameters=extra_parameters)
+			atoms, bonds, angles, dihedrals = files.read_cml(self.filename, parameter_file=parameter_file, extra_parameters=extra_parameters)
 		elif not bonds:
 			atoms, bonds, angles, dihedrals = atoms_or_filename_or_all
 		else:
@@ -169,15 +167,18 @@ class System():
 	def add(self, molecule, x=0.0, y=0.0, z=0.0):
 		atom_offset = len(self.atoms)
 		for a in molecule.atoms:
-			self.atoms.append( Atom(index=a.index+atom_offset, element=a.element, x=a.x+x, y=a.y+y, z=a.z+z, type=a.type, molecule_index=len(self.molecules)+1) )
+			new_atom = copy.copy(a)
+			new_atom.index=a.index+atom_offset
+			new_atom.x+=x; new_atom.y+=y; new_atom.z+=z
+			new_atom.molecule_index=len(self.molecules)+1
+			self.atoms.append( new_atom )
 		for t in molecule.bonds:
 			self.bonds.append( Bond(*[self.atoms[a.index+atom_offset-1] for a in t.atoms], type=t.type) )
 		for t in molecule.angles:
 			self.angles.append( Angle(*[self.atoms[a.index+atom_offset-1] for a in t.atoms], type=t.type) )
 		for t in molecule.dihedrals:
 			self.dihedrals.append( Dihedral(*[self.atoms[a.index+atom_offset-1] for a in t.atoms], type=t.type) )
-		new_molecule = Molecule()
-		new_molecule.__dict__ = molecule.__dict__.copy()
+		new_molecule = copy.copy(molecule)
 		new_molecule.atoms = self.atoms[-len(molecule.atoms):]
 		new_molecule.bonds = self.atoms[-len(molecule.bonds):]
 		new_molecule.angles = self.atoms[-len(molecule.angles):]
