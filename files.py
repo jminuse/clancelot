@@ -104,13 +104,24 @@ def write_cml(atoms, name=None):
 
 
 def read_xyz(name):
-	atoms = []
-	for line in open(name):
-		columns = line.split()
-		if len(columns)>=4:
-			x,y,z = [float(s) for s in columns[1:4]]
-			atoms.append( utils.Atom(element=columns[0], x=x, y=y, z=z, index=len(atoms)+1) )
-	return atoms
+	lines = open(name).readlines()
+	atom_count = int(lines[0].split()[0])
+	lines_by_frame = [ lines[i:i+atom_count+2] for i in range(0,len(lines),atom_count+2) ]
+	
+	frames = []
+	for frame in lines_by_frame:
+		atoms = []
+		for line in frame:
+			columns = line.split()
+			if len(columns)>=4:
+				x,y,z = [float(s) for s in columns[1:4]]
+				atoms.append( utils.Atom(element=columns[0], x=x, y=y, z=z, index=len(atoms)+1) )
+		frames.append(atoms)
+	
+	if len(frames)==1:
+		return frames[0]
+	else:
+		return frames
 
 def write_xyz(atoms, name_or_file=None):
 	if not name_or_file:
