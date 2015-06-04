@@ -1,5 +1,5 @@
 import os, string, sys, re, shutil
-import utils
+import utils, log
 
 def job(atoms, basis, queue, run_name, job_type, extra_section='', procs=1, alternate_coords=None, charge_and_multiplicity='0,1', title='run by gaussian.py', blurb=None, watch=False, eRec=True, force=False, previous=None):
 	log.chk_gaussian(run_name,force=force)
