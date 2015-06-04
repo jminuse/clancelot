@@ -1,7 +1,8 @@
 import os, string, sys, re, shutil
 import utils
 
-def job(atoms, basis, queue, run_name, job_type, extra_section='', procs=1, alternate_coords=None, charge_and_multiplicity='0,1', title='run by gaussian.py', previous=None):
+def job(atoms, basis, queue, run_name, job_type, extra_section='', procs=1, alternate_coords=None, charge_and_multiplicity='0,1', title='run by gaussian.py', blurb=None, watch=False, eRec=True, force=False, previous=None):
+			log.chk_gaussian(run_name,force=force)
 	head = '#N '+basis+' '+job_type+'\n\n'+title+'\n\n'+charge_and_multiplicity+'\n'
 	if alternate_coords:
 		xyz = '\n'.join( ["%s %f %f %f" % ((a.element,)+tuple(alternate_coords[i])) for i,a in enumerate(atoms)] ) + '\n\n'
@@ -25,6 +26,7 @@ def job(atoms, basis, queue, run_name, job_type, extra_section='', procs=1, alte
 	os.system('g09sub '+run_name+' -chk -queue '+queue+((' -nproc '+str(procs)+' ') if procs else '')+' ') #-xhost sys_eei sys_icse
 	os.system('cp ../'+sys.argv[0]+' '+run_name+'.py')
 	os.chdir('..')
+	log.put_gaussian(run_name,basis,job_type,extra_section,blurb,eRec,force)
 
 def restart_job(old_run_name, job_type='ChkBasis Opt=Restart', queue='batch', procs=None):
 	run_name = old_run_name+'r'
