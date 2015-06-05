@@ -1,6 +1,6 @@
-import os, string, sys, re, shutil
+import os, string, sys, re, shutil, copy
 from subprocess import Popen
-import utils, log
+import utils, log, files
 
 def job(run_name, route, atoms=[], extra_section='', queue='batch', procs=1, alternate_coords=None, charge_and_multiplicity='0,1', title='run by gaussian.py', blurb=None, watch=False, eRec=True, force=False, previous=None):
 	log.chk_gaussian(run_name,force=force)
@@ -220,4 +220,100 @@ def parse_chelpg(input_file):
 		if len(columns)==3:
 			charges.append( float(columns[2]) )
 	return charges
+
+def neb(name, states, theory, k=0.1837): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
+	from scipy.optimize import minimize
+	import numpy as np
+	class NEB:
+		name, states, theory, k = None, None, None, None
+		error, forces = None, None
+		step = 0
+		def __init__(self, name, states, theory, k=1e-2):
+			NEB.name = name
+			NEB.states = states
+			NEB.theory = theory
+			NEB.k = k
+		
+			NEB.coords_start = []
+			for s in states[1:-1]:
+				for a in s:
+					NEB.coords_start += [a.x, a.y, a.z]
+		
+			#NEB.xyz = open(name+'.xyz', 'w')
+	
+		@staticmethod
+		def calculate(coords):
+			coord_count = 0
+			for s in NEB.states[1:-1]:
+				for a in s:
+					a.x, a.y, a.z = coords[coord_count], coords[coord_count+1], coords[coord_count+2]
+					coord_count += 3
+			#start DFT jobs
+			running_jobs = []
+			for i,state in enumerate(NEB.states[1:-1]):
+				guess = '' if NEB.step==0 else ' Guess=Read'
+				running_jobs.append( job('%s-%d-%d'%(NEB.name,i,NEB.step), NEB.theory+' Force'+guess, state, queue=None, force=True, previous=('%s-%d-%d'%(NEB.name,i,NEB.step-1)) if NEB.step>0 else None ) )
+			#wait for jobs to finish
+			for j in running_jobs: j.wait()
+			#get forces and energies from DFT calculations
+			energies = []
+			for i,state in enumerate(NEB.states[1:-1]):
+				try:
+					new_energy, new_atoms = parse_atoms('%s-%d-%d'%(NEB.name,i,NEB.step))
+				except:
+					print 'Job failed: %s-%d-%d'%(NEB.name,i,NEB.step); exit()
+				energies.append(new_energy)
+				for a,b in zip(state, new_atoms):
+					a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
+			dft_energies = copy.deepcopy(energies)
+			#add spring forces to atoms
+			for i,state in enumerate(NEB.states[1:-1]):
+				for a,b,c in zip(NEB.states[i-1], state, NEB.states[i+1]):
+					#print b.element, b.fx, b.fy, b.fz,
+					b.fx += NEB.k*(a.x-b.x) + NEB.k*(c.x-b.x)
+					b.fy += NEB.k*(a.y-b.y) + NEB.k*(c.y-b.y)
+					b.fz += NEB.k*(a.z-b.z) + NEB.k*(c.z-b.z)
+					energies[i] += 0.5*NEB.k*(utils.dist_squared(a,b) + utils.dist_squared(b,c))
+					#print b.element, b.fx, b.fy, b.fz
+			#integrate motion
+			for state in NEB.states[1:-1]:
+				for a in state:
+					a.x += a.fx*0.01
+					a.y += a.fy*0.01
+					a.z += a.fz*0.01
+			#set error
+			NEB.error = sum(energies)
+			#set forces
+			NEB.forces = []
+			for state in NEB.states[1:-1]:
+				for a in state:
+					NEB.forces += [-a.fx, -a.fy, -a.fz] #derivative of the error
+			#increment step
+			NEB.step += 1
+			#write to xyz file
+			NEB.xyz = open(name+'.xyz', 'w')
+			for state in NEB.states:
+				files.write_xyz(state, NEB.xyz)
+			NEB.xyz.close()
+			#print data
+			print NEB.step, NEB.error, ('%10.7g '*len(dft_energies)) % tuple(dft_energies)
+	
+		@staticmethod
+		def get_error(coords):
+			if NEB.error is None:
+				NEB.calculate(coords)
+			error = NEB.error
+			NEB.error = None #set to None so it will recalculate next time
+			return error
+	
+		@staticmethod
+		def get_forces(coords):
+			if NEB.forces is None:
+				NEB.calculate(coords)
+			forces = NEB.forces
+			NEB.forces = None #set to None so it will recalculate next time
+			return np.array(forces)*1.8 #convert from Hartree/Bohr to Hartree/Angstrom
+
+	n = NEB(name, states, theory, k)
+	minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_forces, options={'disp': True})
 

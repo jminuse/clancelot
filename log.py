@@ -15,7 +15,7 @@ def chk_gaussian(run_name,sptr=None,force=False):
 			if(run_name == s[0][:-1]):
 				# Print a warning if force == True, else throw error
 				if force:
-					print('\nWarning! You already have a run called %s in your log file. Will append to run, but the gaussian files will be overwritten.\n' % run_name)
+					#print('\nWarning! You already have a run called %s in your log file. Will append to run, but the gaussian files will be overwritten.\n' % run_name)
 					return i
 				else:
 					raise Exception('\nYou already have a run called %s in your log file. If you want to re-write the gaussian data, please use force=True.\n' % run_name)
