@@ -21,20 +21,19 @@ def chk_gaussian(run_name,sptr=None,force=False):
 					raise Exception('\nError! You have this run already in the data file. If you want to re-write the gaussian data, please use force=True.\n')
 	return -1
 
-def put_gaussian(run_name,basis,job_type,extra_section,blurb,eRec,force=False):
+def put_gaussian(run_name,route,extra_section,blurb,eRec,force=False):
 	if blurb: blurb = blurb.replace('\n\n','\n')
 	if job_type: job_type = job_type.replace('\n\n','\n---Empty Line---\n')
 	chk = True
 	try: s_hold = open('gaussian.log').readlines()
 	except:
 		f = open('gaussian.log','w')
-		f.write('Simulation Name:\n\tFunctional/Basis\n\tGaussian Job Type\n\tDescription of the Simulation\n\tFinal System Energy\n')
+		f.write('Simulation Name:\n\tGaussian Job Type\n\tDescription of the Simulation\n\tFinal System Energy\n')
 		f.close()
 		s_hold = open('gaussian.log').readlines()
 		chk = False
 
-	log_info = '\t'+basis+'\n'
-	log_info += '\t'+job_type+'\n'
+	log_info = '\t'+route+'\n'
 	try: log_info += '\t'+blurb+'\n'
 	except: pass
 	if extra_section != '':
@@ -57,9 +56,9 @@ def put_gaussian(run_name,basis,job_type,extra_section,blurb,eRec,force=False):
 					break
 				index += 1
 
-		if (index > -1): s_hold[index] = '-------\n'+log_info
-		if (index == -1) and (s_hold[-1] == '\n'): s_hold.append(run_name+':\n'+log_info)
-		elif (index == -1): s_hold.append('\n'+run_name+':\n'+log_info)
+	if (index > -1): s_hold[index] = '-------\n'+log_info
+	if (index == -1) and (s_hold[-1] == '\n'): s_hold.append(run_name+':\n'+log_info)
+	elif (index == -1): s_hold.append('\n'+run_name+':\n'+log_info)
 
 	f = open('gaussian.log','w')
 	f.write(''.join(s_hold))

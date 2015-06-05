@@ -1,32 +1,47 @@
 import os, string, sys, re, shutil
 import utils, log
 
-def job(atoms, basis, queue, run_name, job_type, extra_section='', procs=1, alternate_coords=None, charge_and_multiplicity='0,1', title='run by gaussian.py', blurb=None, watch=False, eRec=True, force=False, previous=None):
+def job(run_name, route, atoms=[], extra_section='', queue='batch', procs=1, alternate_coords=None, charge_and_multiplicity='0,1', title='run by gaussian.py', blurb=None, watch=False, eRec=True, force=False, previous=None):
 	log.chk_gaussian(run_name,force=force)
-	head = '#N '+basis+' '+job_type+'\n\n'+title+'\n\n'+charge_and_multiplicity+'\n'
+	head = '#N '+route+'\n\n'+title+'\n\n'+charge_and_multiplicity+'\n'
 	if alternate_coords:
 		xyz = '\n'.join( ["%s %f %f %f" % ((a.element,)+tuple(alternate_coords[i])) for i,a in enumerate(atoms)] ) + '\n\n'
 	else:
 		if atoms and type(atoms[0])==type([]): #multiple lists of atoms (e.g. transistion state calculation)
-			xyz = 'run by gaussian.py\n\n0,1\n'.join([('\n'.join( [( "%s %f %f %f" % (a.element, a.x, a.y, a.z) ) for a in atom_list] ) + '\n\n') for atom_list in atoms])
+			xyz = (title+'\n\n0,1\n').join([('\n'.join( [( "%s %f %f %f" % (a.element, a.x, a.y, a.z) ) for a in atom_list] ) + '\n\n') for atom_list in atoms])
 		else: #single list of atoms
-			if 'oniom' in basis.lower():
+			if 'oniom' in route.lower():
 				xyz = '\n'.join( [( "%s 0 %f %f %f %s" % (a.element, a.x, a.y, a.z, a.layer) ) for a in atoms] ) + '\n\n'
-			elif 'counterpoise' in job_type.lower():
+			elif 'counterpoise' in route.lower():
 				xyz = '\n'.join( [( "%s(Fragment=%d) %f %f %f" % (a.element, a.fragment, a.x, a.y, a.z) ) for a in atoms] ) + '\n\n'
 			elif atoms:
 				xyz = '\n'.join( [( "%s %f %f %f" % (a.element, a.x, a.y, a.z) ) for a in atoms] ) + '\n\n'
 			else:
 				xyz = '\n'
 	os.chdir('gaussian')
-	with open(run_name+'.inp', 'w') as inp:
-		inp.write(head+xyz+extra_section)
-	if previous:	
-		shutil.copyfile(previous+'.chk', run_name+'.chk')
-	os.system('g09sub '+run_name+' -chk -queue '+queue+((' -nproc '+str(procs)+' ') if procs else '')+' ') #-xhost sys_eei sys_icse
+	if queue is not None: #run on queue
+		with open(run_name+'.inp', 'w') as inp:
+			inp.write(head+xyz+extra_section)
+		if previous:	
+			shutil.copyfile(previous+'.chk', run_name+'.chk')
+		os.system('g09sub '+run_name+' -chk -queue '+queue+((' -nproc '+str(procs)+' ') if procs else '')+' ') #-xhost sys_eei sys_icse
+	else: #run not on queue; will hang process until complete
+		with open(run_name+'.inp', 'w') as inp:
+			csh = '''setenv g09root /usr/local/gaussian/g09d01
+source $g09root/g09/bsd/g09.login
+g09 <<END > '''+run_name+'''.log
+%NProcShared=1
+%RWF=/tmp/
+%Chk='''+run_name+'''.chk
+%Mem=1GB
+'''
+			inp.write(csh+head+xyz+extra_section+'\neof\nrm /tmp/*.rwf')
+		if previous:	
+			shutil.copyfile(previous+'.chk', run_name+'.chk')
+		os.system('/bin/csh %s.inp' % run_name)
 	os.system('cp ../'+sys.argv[0]+' '+run_name+'.py')
 	os.chdir('..')
-	log.put_gaussian(run_name,basis,job_type,extra_section,blurb,eRec,force)
+	log.put_gaussian(run_name,route,extra_section,blurb,eRec,force)
 
 def restart_job(old_run_name, job_type='ChkBasis Opt=Restart', queue='batch', procs=None):
 	run_name = old_run_name+'r'
