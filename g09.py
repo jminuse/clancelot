@@ -1,4 +1,5 @@
 import os, string, sys, re, shutil
+from subprocess import Popen
 import utils, log
 
 def job(run_name, route, atoms=[], extra_section='', queue='batch', procs=1, alternate_coords=None, charge_and_multiplicity='0,1', title='run by gaussian.py', blurb=None, watch=False, eRec=True, force=False, previous=None):
@@ -38,10 +39,12 @@ g09 <<END > '''+run_name+'''.log
 			inp.write(csh+head+xyz+extra_section+'\neof\nrm /tmp/*.rwf')
 		if previous:	
 			shutil.copyfile(previous+'.chk', run_name+'.chk')
-		os.system('/bin/csh %s.inp' % run_name)
-	os.system('cp ../'+sys.argv[0]+' '+run_name+'.py')
+		process_handle = Popen('/bin/csh %s.inp' % run_name, shell=True)
+	shutil.copyfile('../'+sys.argv[0], run_name+'.py')
 	os.chdir('..')
 	log.put_gaussian(run_name,route,extra_section,blurb,eRec,force)
+	if queue is None:
+		return process_handle
 
 def restart_job(old_run_name, job_type='ChkBasis Opt=Restart', queue='batch', procs=None):
 	run_name = old_run_name+'r'

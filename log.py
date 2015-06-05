@@ -15,10 +15,10 @@ def chk_gaussian(run_name,sptr=None,force=False):
 			if(run_name == s[0][:-1]):
 				# Print a warning if force == True, else throw error
 				if force:
-					print('\nWarning! You already have a run by this name in your log file. Will append to run, but the gaussian files will be overwritten.\n')
+					print('\nWarning! You already have a run called %s in your log file. Will append to run, but the gaussian files will be overwritten.\n' % run_name)
 					return i
 				else:
-					raise Exception('\nError! You have this run already in the data file. If you want to re-write the gaussian data, please use force=True.\n')
+					raise Exception('\nYou already have a run called %s in your log file. If you want to re-write the gaussian data, please use force=True.\n' % run_name)
 	return -1
 
 def put_gaussian(run_name,route,extra_section,blurb,eRec,force=False):
