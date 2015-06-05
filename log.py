@@ -23,7 +23,7 @@ def chk_gaussian(run_name,sptr=None,force=False):
 
 def put_gaussian(run_name,route,extra_section,blurb,eRec,force=False):
 	if blurb: blurb = blurb.replace('\n\n','\n')
-	if job_type: job_type = job_type.replace('\n\n','\n---Empty Line---\n')
+	if route: route = route.replace('\n\n','\n---Empty Line---\n')
 	chk = True
 	try: s_hold = open('gaussian.log').readlines()
 	except:
@@ -56,9 +56,9 @@ def put_gaussian(run_name,route,extra_section,blurb,eRec,force=False):
 					break
 				index += 1
 
-	if (index > -1): s_hold[index] = '-------\n'+log_info
-	if (index == -1) and (s_hold[-1] == '\n'): s_hold.append(run_name+':\n'+log_info)
-	elif (index == -1): s_hold.append('\n'+run_name+':\n'+log_info)
+		if (index > -1): s_hold[index] = '-------\n'+log_info
+		if (index == -1) and (s_hold[-1] == '\n'): s_hold.append(run_name+':\n'+log_info)
+		elif (index == -1): s_hold.append('\n'+run_name+':\n'+log_info)
 
 	f = open('gaussian.log','w')
 	f.write(''.join(s_hold))
