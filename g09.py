@@ -240,8 +240,8 @@ def neb(name, states, theory, k=0.1837): #Nudged Elastic Band. k for VASP is 5 e
 					NEB.coords_start += [a.x, a.y, a.z]
 		
 			from scipy.linalg import orthogonal_procrustes
-			for i in range(len(states)): #rotate all states to optimal alignment
-				rotation = orthogonal_procrustes([(a.x,a.y,a.z) for a in states[i]],[(a.x,a.y,a.z) for a in states[0]])[0]
+			for i in range(1,len(states)): #rotate all states to optimal alignment
+				rotation = orthogonal_procrustes([(a.x,a.y,a.z) for a in states[i]],[(a.x,a.y,a.z) for a in states[i-1]])[0]
 				for a in states[i]:
 					a.x,a.y,a.z = utils.matvec(rotation, (a.x,a.y,a.z))
 	
