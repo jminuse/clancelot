@@ -119,7 +119,7 @@ def read_xyz(name):
 	else:
 		return frames
 
-def write_xyz(atoms, name_or_file=None):
+def write_xyz(frames, name_or_file=None):
 	if not name_or_file:
 		name_or_file = 'out' #default filename is out.xyz
 	
@@ -129,9 +129,13 @@ def write_xyz(atoms, name_or_file=None):
 	else: #if open file is provided, just append to it
 		f = name_or_file
 	
-	f.write(str(len(atoms))+'\nAtoms\n')
-	for a in atoms:
-		f.write('%s %f %f %f\n' % (a.element, a.x, a.y, a.z) )
+	if isinstance(frames[0],utils.Atom):
+		frames = [frames] #we want to write a list of frames, so make it one
+	
+	for atoms in frames:
+		f.write(str(len(atoms))+'\nAtoms\n')
+		for a in atoms:
+			f.write('%s %f %f %f\n' % (a.element, a.x, a.y, a.z) )
 		
 	if type(name_or_file)==str: #close file if we opened it
 		f.close()
