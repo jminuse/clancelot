@@ -155,12 +155,14 @@ def parse_all(input_file):
 		m = re.search('Job cpu time: +(\S+) +days +(\S+) +hours +(\S+) +minutes +(\S+) +seconds', contents)
 		time = float(m.group(1))*24*60*60 + float(m.group(2))*60*60 + float(m.group(3))*60 + float(m.group(4))
 
-	energies = [float(s) for s in re.findall('SCF Done: +\S+ += +(\S+)', contents)]
-	
+	energies = []
 	atom_frames = []
 	start = 0
 	while True:
 		try:
+			start = contents.index('SCF Done', start)
+			energy_this_step = float( re.search('SCF Done: +\S+ += +(\S+)', contents[start:]).group(1) )
+			start = contents.index('Input orientation:', start)
 			next_coordinates = contents.index('Coordinates (Angstroms)', start)
 		except: break
 		start = contents.index('---\n', next_coordinates)+4
@@ -175,6 +177,7 @@ def parse_all(input_file):
 			x,y,z = columns[3:6]
 			atoms.append( utils.Atom(element=element, x=float(x), y=float(y), z=float(z)) )
 		atom_frames.append(atoms)
+		energies.append(energy_this_step)
 
 	return energies, atom_frames
 	

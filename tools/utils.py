@@ -1,4 +1,5 @@
-import os, math, copy, numpy
+import os, math, copy
+import numpy
 import files
 
 class Struct:
