@@ -1,4 +1,4 @@
-import os, math, copy, subprocess
+import os, math, copy, subprocess, time
 import numpy
 import files
 
@@ -39,7 +39,7 @@ class Job(): #a job on the queue
 	def wait(self):
 		while True:
 			jlist = subprocess.Popen('jlist', shell=True, stdout=subprocess.PIPE).communicate()[0]
-			if not (' '+self.name+' ') in jlist:
+			if (' '+self.name+' ') in jlist:
 				time.sleep(60)
 			else: break
 
