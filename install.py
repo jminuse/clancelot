@@ -29,17 +29,28 @@ INSTALLDIR = os.getcwd()
 if INSTALLDIR[-1] != '/': INSTALLDIR += '/' # Ensure there is a trailing slash
 ZSHRC = '/fs/home/'+USERNAME+'/.zshrc'
 ZSH_CLANCELOT = '/fs/home/' + USERNAME + '/.zsh_clancelot'
+BASHRC = '/fs/home/'+USERNAME+'/.bashrc'
 
 if first_time:
 	f=open(ZSHRC,'a')
-	f.write('''\n############### THE FOLLOWING IS FOR CLANCELOT ################
+	f.write('''\n# The following loads the Clancelot Config File
 if [ -f ~/.zsh_clancelot ]; then
     source ~/.zsh_clancelot
 else
     print '404: ~/.zsh_clancelot not found.'
 fi
-################## END OF THE CLANCELOT CODE ##################''')
+''')
 	f.close()
+	f=open(BASHRC,'a')
+	f.write('''\n# The following loads the Clancelot Config File
+if [ -f ~/.zsh_clancelot ]; then
+    source ~/.zsh_clancelot
+else
+    print '404: ~/.zsh_clancelot not found.'
+fi
+''')
+	f.close()
+
 
 os.system('mkdir -p '+INSTALLDIR) # Ensure the install directory is made
 for key in to_install: # Make directories for what we want to install
@@ -56,95 +67,6 @@ for key in to_install: # Make directories for what we want to install
 	if key == 'vmd default settings': continue
 	if to_install[key]: os.system('mkdir -p '+INSTALLDIR+key+'/')
 
-# Write get_jlist.py
-f = open(INSTALLDIR+'tools/get_jlist.py','w')
-f.write('''import os, sys
-from fnmatch import fnmatch
-from subprocess import Popen, PIPE
-from getpass import getuser
-
-USER_NAME=getuser()
-
-# Get input from jlist as a string
-p = Popen(['jlist'], stdout=PIPE)
-output = p.stdout.read().split()
-
-# Make an empty string to hold our list
-jlist = ""
-
-# Loop through jlist and get file names
-for i,s in enumerate(output):
-	if s==USER_NAME:
-		jlist = jlist + output[i+1] + " "
-
-# Take care of using wildcards in searching jlist.
-# For instance, if I have 'test1' 'test2' and 'ethane' running and want to list 'test*'
-if len(sys.argv) > 1:
-		qlist = ''
-		for s in jlist.split():
-			if(fnmatch(s,sys.argv[-1])):
-				qlist = qlist + s + " "
-		jlist = qlist
-
-# Return your list for script processing
-print jlist''')
-f.close()
-
-# Write get_ext_list.py
-f = open(INSTALLDIR+'tools/get_ext_list.py','w')
-f.write('''import os, sys
-from fnmatch import fnmatch
-
-s_ext = sys.argv[1] # Get the extension you want to search for
-
-ext_list = ''
-d = sys.argv[2]+'/' # Get the directory you want to search
-
-# Loop through and get a string list of all files of the desired extension
-for fptr in os.listdir(d):
-	name, ext = os.path.splitext(fptr)
-	if ext.lower() == s_ext:
-		ext_list += name+s_ext+' '
-
-# If you want to use wildcards (*), this takes care of that
-if len(sys.argv) > 3:
-	flist = ''
-	for s in ext_list.split():
-		if(fnmatch(s,sys.argv[-1])):
-			flist = flist + s + " "
-	ext_list = flist
-
-# Return your list for script processing
-print ext_list''')
-f.close()
-
-# Write get_gauss_list.py
-f = open(INSTALLDIR+'tools/get_gauss_list.py','w')
-f.write('''import os, sys
-from fnmatch import fnmatch
-
-gauss_list = ''
-d = sys.argv[1]+'/gaussian/' # Get the directory you want to search
-
-try:
-	# Loop through and get a string list of all files of the desired extension
-	for fptr in os.listdir(d):
-		name, ext = os.path.splitext(fptr)
-		if ext.lower() == '.log':
-			gauss_list += name+' '
-
-	# If you want to use wildcards (*), this takes care of that
-	if len(sys.argv) > 2:
-		flist = ''
-		for s in gauss_list.split():
-			if(fnmatch(s,sys.argv[-1])):
-				flist = flist + s + " "
-		gauss_list = flist
-
-	# Return your list for script processing
-	print gauss_list
-except: pass''')
-f.close()
 
 # Give Bash Capabilities to ZSH
 f = open(ZSH_CLANCELOT,'w+')
