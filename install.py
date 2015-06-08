@@ -16,6 +16,7 @@ to_install = {
 'cython-0.22':1,
 'numpy':1,
 'scipy':1,
+'matplotlib':1,
 'vmd default settings':1,
 'file_browser':1 # set the file browser not to open a new window per folder
 }
@@ -70,6 +71,7 @@ for key in to_install: # Make directories for what we want to install
 	if key == 'cython-0.22': continue
 	if key == 'vmd default settings': continue
 	if key == 'file_browser': continue
+	if key == 'matplotlib': continue
 	if to_install[key]: os.system('mkdir -p '+INSTALLDIR+key+'/')
 
 
@@ -262,6 +264,15 @@ if to_install['scipy']:
 	f = open(ZSHRC,'a')
 	f.write("\nexport PYTHONPATH=~/lib/Python-2.7.10/lib/python:$PYTHONPATH\n")
 	f.close()
+
+if to_install['matplotlib']:
+	os.system('mkdir -p /fs/home/'+USERNAME+ '/lib/Python-2.7.10')
+	os.system('curl -o ~/lib/matplotlib-1.4.3.tar.gz -LO http://downloads.sourceforge.net/project/matplotlib/matplotlib/matplotlib-1.4.3/matplotlib-1.4.3.tar.gz')
+	os.system('tar xvf /fs/home/'+USERNAME+'/lib/matplotlib-1.4.3.tar.gz -C /fs/home/' + USERNAME + '/lib/')
+	os.chdir('/fs/home/'+USERNAME+'/lib/matplotlib-1.4.3/')
+	os.system('python setup.py build')
+	os.system('python setup.py install')
+	
 
 if to_install['junest (formerly juju)']: 
 	os.system('git clone git://github.com/fsquillace/juju ~/juju --quiet')
