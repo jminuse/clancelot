@@ -16,12 +16,16 @@ to_install = {
 'cython-0.22':1,
 'numpy':1,
 'scipy':1,
-'vmd default settings':1
+'vmd default settings':1,
+'file_browser':1 # set the file browser not to open a new window per folder
 }
 # Is this your first time running this script? (To avoid redundant additions to .zshrc)
 first_time = 1
 
 ####################################################################################################################
+if to_install['file_browser']:
+	os.system('gconftool-2   --type bool --set /apps/nautilus/preferences/always_use_browser true')
+
 USERNAME = getuser()
 
 
@@ -65,6 +69,7 @@ for key in to_install: # Make directories for what we want to install
 	if key == 'scipy': continue
 	if key == 'cython-0.22': continue
 	if key == 'vmd default settings': continue
+	if key == 'file_browser': continue
 	if to_install[key]: os.system('mkdir -p '+INSTALLDIR+key+'/')
 
 
