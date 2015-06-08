@@ -24,12 +24,9 @@ first_time = 1
 ####################################################################################################################
 USERNAME = getuser()
 
-# Defualt INSTALLDIR is /fs/home/USER/clancelot
-#INSTALLDIR = '/fs/home/'+USERNAME+'/clancelot'
+
 INSTALLDIR = os.getcwd()
 if INSTALLDIR[-1] != '/': INSTALLDIR += '/' # Ensure there is a trailing slash
-# Get tools from git, 
-#os.system('git clone https://github.com/jminuse/clancelot.git '+INSTALLDIR+'tools/ --quiet')
 ZSHRC = '/fs/home/'+USERNAME+'/.zshrc'
 ZSH_CLANCELOT = '/fs/home/' + USERNAME + '/.zsh_clancelot'
 
@@ -45,8 +42,6 @@ fi
 	f.close()
 
 os.system('mkdir -p '+INSTALLDIR) # Ensure the install directory is made
-#os.system('mkdir -p '+INSTALLDIR+'tools/') # Build a tools directory where shared stuff goes
-#os.system('cp -r tools/* '+INSTALLDIR+'tools/')
 for key in to_install: # Make directories for what we want to install
 	if key == 'chkg_all': continue
 	if key == 'jdel': continue
