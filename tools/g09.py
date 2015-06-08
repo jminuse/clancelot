@@ -279,12 +279,6 @@ def neb(name, states, theory, extra_section='', k=0.1837): #Nudged Elastic Band.
 					b.fz += NEB.k*(a.z-b.z) + NEB.k*(c.z-b.z)
 					energies[i] += 0.5*NEB.k*(utils.dist_squared(a,b) + utils.dist_squared(b,c))
 					#print b.element, b.fx, b.fy, b.fz
-			#integrate motion
-			for state in NEB.states[1:-1]:
-				for a in state:
-					a.x += a.fx*0.01
-					a.y += a.fy*0.01
-					a.z += a.fz*0.01
 			#set error
 			NEB.error = sum(energies)
 			#set forces
