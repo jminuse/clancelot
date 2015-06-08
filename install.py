@@ -15,7 +15,8 @@ to_install = {
 'python 2.7.10':1,
 'cython-0.22':1,
 'numpy':1,
-'scipy':1
+'scipy':1,
+'vmd default settings':1
 }
 # Is this your first time running this script? (To avoid redundant additions to .zshrc)
 first_time = 1
@@ -57,6 +58,7 @@ for key in to_install: # Make directories for what we want to install
 	if key == 'numpy': continue
 	if key == 'scipy': continue
 	if key == 'cython-0.22': continue
+	if key == 'vmd default settings': continue
 	if to_install[key]: os.system('mkdir -p '+INSTALLDIR+key+'/')
 
 # Write get_jlist.py
@@ -289,7 +291,8 @@ f.write('''\n###############################################################
 ################## END OF THE CLANCELOT CODE ##################
 ###############################################################''')
 f.close()
-os.system("cp /fs/home/jms875/.vmdrc ~/")
+if to_install['vmd default settings']:
+	os.system('cp vmdrc_default.txt ~/.vmdrc')
 
 if to_install['python 2.7.10']:
 	os.system('mkdir -p /fs/home/' + USERNAME + '/lib')
@@ -306,6 +309,7 @@ if to_install['python 2.7.10']:
 	os.system('export PATH=~/lib/Python-2.7.10/bin:$PATH')
 	
 if to_install['cython-0.22']:
+	os.system('mkdir -p /fs/home/' + USERNAME + '/lib')
 	os.system('wget -P ~/lib/ http://cython.org/release/Cython-0.22.tar.gz')
 	os.system('tar xvf /fs/home/'+USERNAME+'/lib/Cython-0.22.tar.gz -C /fs/home/' + USERNAME + '/lib/')
 	os.system('cd ~/lib/Cython-0.22')
@@ -317,6 +321,7 @@ if to_install['cython-0.22']:
 	os.system('export PATH=~/lib/Cython-0.22/bin:$PATH')
 
 if to_install['numpy']:
+	os.system('mkdir -p /fs/home/' + USERNAME + '/lib/Python-2.7.10')
 	os.system('git clone git://github.com/numpy/numpy.git ~/lib/numpy')
 	os.chdir('/fs/home/'+USERNAME+'/lib/numpy')
 	os.system('python setup.py install --home=~/lib/Python-2.7.10/')
@@ -326,6 +331,7 @@ if to_install['numpy']:
 	f.close()
 	
 if to_install['scipy']:
+	os.system('mkdir -p /fs/home/' + USERNAME + '/lib/Python-2.7.10')
 	os.system('git clone git://github.com/scipy/scipy.git ~/lib/scipy')
 	os.chdir('/fs/home/'+USERNAME+'/lib/scipy')
 	os.system('python setup.py install --home=~/lib/Python-2.7.10/')

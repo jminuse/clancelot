@@ -1,0 +1,20 @@
+mol default style VDW
+mol modstyle 0 0 VDW
+display rendermode GLSL
+display depthcue off
+#animate forward
+menu main on
+light 3 on
+light 4 on
+
+axes location off
+color Display Background white
+color Display FPS black
+color Axes Labels white
+
+mol modcolor 0 0 element
+#color Element C black
+color Element Se yellow3
+color Element Cl orange
+color Element I pink
+color Element Si silver
