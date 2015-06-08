@@ -149,6 +149,7 @@ def atoms(input_file, check=False):
 
 def parse_all(input_file):
 	contents = open(input_file).read()
+	time = None
 	if 'Normal termination of Gaussian 09' not in contents:
 		pass
 	else:
@@ -179,7 +180,7 @@ def parse_all(input_file):
 		atom_frames.append(atoms)
 		energies.append(energy_this_step)
 
-	return energies, atom_frames
+	return energies, atom_frames, time
 	
 def parse_scan(input_file):
 	contents = open(input_file).read()
@@ -246,24 +247,26 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 			NEB.theory = theory
 			NEB.k = k
 			
-			#center all states
+			#center all states around spring-held atoms
 			for s in states:
-				center_of_geometry = [sum(a.x for a in s), sum(a.y for a in s), sum(a.z for a in s)]
-				center_of_geometry = [x/len(s) for x in center_of_geometry]
+				center_x = sum([a.x for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
+				center_y = sum([a.y for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
+				center_z = sum([a.z for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
 				for a in s:
-					a.x -= center_of_geometry[0]
-					a.y -= center_of_geometry[0]
-					a.z -= center_of_geometry[0]
+					a.x -= center_x
+					a.y -= center_y
+					a.z -= center_z
 			
 			#rotate all states to be most similar to their neighbors
 			from scipy.linalg import orthogonal_procrustes
 			for i in range(1,len(states)): #rotate all states to optimal alignment
-				rotation = orthogonal_procrustes([(a.x,a.y,a.z) for a in states[i]],[(a.x,a.y,a.z) for a in states[i-1]])[0]
+				#only count spring-held atoms for finding alignment
+				spring_atoms_1 = [(a.x,a.y,a.z) for j,a in enumerate(states[i]) if j in spring_atoms]
+				spring_atoms_2 = [(a.x,a.y,a.z) for j,a in enumerate(states[i-1]) if j in spring_atoms]
+				rotation = orthogonal_procrustes(spring_atoms_1,spring_atoms_2)[0]
+				#rotate all atoms once alignment is found
 				for a in states[i]:
 					a.x,a.y,a.z = utils.matvec(rotation, (a.x,a.y,a.z))
-	
-			#files.write_xyz(states)
-			#exit() #testing
 	
 			#load initial coordinates into flat array for optimizer
 			NEB.coords_start = []
