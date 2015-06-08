@@ -221,7 +221,7 @@ def parse_chelpg(input_file):
 			charges.append( float(columns[2]) )
 	return charges
 
-def neb(name, states, theory, k=0.1837): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
+def neb(name, states, theory, extra_section='', k=0.1837): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
 	from scipy.optimize import minimize
 	import numpy as np
 	class NEB:
@@ -256,7 +256,7 @@ def neb(name, states, theory, k=0.1837): #Nudged Elastic Band. k for VASP is 5 e
 			running_jobs = []
 			for i,state in enumerate(NEB.states[1:-1]):
 				guess = '' if NEB.step==0 else ' Guess=Read'
-				running_jobs.append( job('%s-%d-%d'%(NEB.name,i,NEB.step), NEB.theory+' Force'+guess, state, queue=None, force=True, previous=('%s-%d-%d'%(NEB.name,i,NEB.step-1)) if NEB.step>0 else None ) )
+				running_jobs.append( job('%s-%d-%d'%(NEB.name,i,NEB.step), NEB.theory+' Force'+guess, state, queue=None, force=True, previous=('%s-%d-%d'%(NEB.name,i,NEB.step-1)) if NEB.step>0 else None ), extra_section=extra_section )
 			#wait for jobs to finish
 			for j in running_jobs: j.wait()
 			#get forces and energies from DFT calculations
