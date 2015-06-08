@@ -14,8 +14,8 @@ for e in energies:
 if time:
 	print 'Time = %.2g seconds' % time
 else:
-	print 'Job did not converge'
-	os.system('tail '+input)
+	print 'Job is not converged. Log file says:'
+	os.system('tail -n 5 '+input)
 
 files.write_xyz(frames, output)
 os.system('/fs/europa/g_pc/vmd-1.9 '+output+'.xyz > /dev/null')
