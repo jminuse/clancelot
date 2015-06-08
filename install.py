@@ -286,6 +286,7 @@ f.write('''\n###############################################################
 ################## END OF THE CLANCELOT CODE ##################
 ###############################################################''')
 f.close()
+
 if to_install['vmd default settings']:
 	os.system('cp vmdrc_default.txt ~/.vmdrc')
 

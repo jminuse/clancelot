@@ -45,6 +45,8 @@ g09 <<END > '''+run_name+'''.log
 	log.put_gaussian(run_name,route,extra_section,blurb,eRec,force)
 	if queue is None:
 		return process_handle
+	else:
+		return utils.Job(run_name)
 
 def restart_job(old_run_name, job_type='ChkBasis Opt=Restart', queue='batch', procs=None):
 	run_name = old_run_name+'r'
@@ -221,9 +223,16 @@ def parse_chelpg(input_file):
 			charges.append( float(columns[2]) )
 	return charges
 
-def neb(name, states, theory, k=0.1837): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
+def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k=0.1837): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
 	from scipy.optimize import minimize
 	import numpy as np
+	#set which atoms will be affected by virtual springs
+	if not spring_atoms:#if not given, select all
+		spring_atoms = range(len(states[0]))
+	elif type(spring_atoms)==str: #a list of element names
+		elements = spring_atoms.split()
+		spring_atoms = [i for i,a in enumerate(states[0]) if a.element in elements]
+	#class to contain working variables
 	class NEB:
 		name, states, theory, k = None, None, None, None
 		error, forces = None, None
@@ -233,13 +242,31 @@ def neb(name, states, theory, k=0.1837): #Nudged Elastic Band. k for VASP is 5 e
 			NEB.states = states
 			NEB.theory = theory
 			NEB.k = k
-		
+			
+			#center all states
+			for s in states:
+				center_of_geometry = [sum(a.x for a in s), sum(a.y for a in s), sum(a.z for a in s)]
+				center_of_geometry = [x/len(s) for x in center_of_geometry]
+				for a in s:
+					a.x -= center_of_geometry[0]
+					a.y -= center_of_geometry[0]
+					a.z -= center_of_geometry[0]
+			
+			#rotate all states to be most similar to their neighbors
+			from scipy.linalg import orthogonal_procrustes
+			for i in range(1,len(states)): #rotate all states to optimal alignment
+				rotation = orthogonal_procrustes([(a.x,a.y,a.z) for a in states[i]],[(a.x,a.y,a.z) for a in states[i-1]])[0]
+				for a in states[i]:
+					a.x,a.y,a.z = utils.matvec(rotation, (a.x,a.y,a.z))
+	
+			#files.write_xyz(states)
+			#exit() #testing
+	
+			#load initial coordinates into flat array for optimizer
 			NEB.coords_start = []
 			for s in states[1:-1]:
 				for a in s:
 					NEB.coords_start += [a.x, a.y, a.z]
-		
-			#NEB.xyz = open(name+'.xyz', 'w')
 	
 		@staticmethod
 		def calculate(coords):
@@ -252,7 +279,7 @@ def neb(name, states, theory, k=0.1837): #Nudged Elastic Band. k for VASP is 5 e
 			running_jobs = []
 			for i,state in enumerate(NEB.states[1:-1]):
 				guess = '' if NEB.step==0 else ' Guess=Read'
-				running_jobs.append( job('%s-%d-%d'%(NEB.name,i,NEB.step), NEB.theory+' Force'+guess, state, queue=None, force=True, previous=('%s-%d-%d'%(NEB.name,i,NEB.step-1)) if NEB.step>0 else None ) )
+				running_jobs.append( job('%s-%d-%d'%(NEB.name,i,NEB.step), NEB.theory+' Force'+guess, state, queue=queue, force=True, previous=('%s-%d-%d'%(NEB.name,i,NEB.step-1)) if NEB.step>0 else None, extra_section=extra_section) )
 			#wait for jobs to finish
 			for j in running_jobs: j.wait()
 			#get forces and energies from DFT calculations
@@ -268,19 +295,13 @@ def neb(name, states, theory, k=0.1837): #Nudged Elastic Band. k for VASP is 5 e
 			dft_energies = copy.deepcopy(energies)
 			#add spring forces to atoms
 			for i,state in enumerate(NEB.states[1:-1]):
-				for a,b,c in zip(NEB.states[i-1], state, NEB.states[i+1]):
-					#print b.element, b.fx, b.fy, b.fz,
-					b.fx += NEB.k*(a.x-b.x) + NEB.k*(c.x-b.x)
-					b.fy += NEB.k*(a.y-b.y) + NEB.k*(c.y-b.y)
-					b.fz += NEB.k*(a.z-b.z) + NEB.k*(c.z-b.z)
-					energies[i] += 0.5*NEB.k*(utils.dist_squared(a,b) + utils.dist_squared(b,c))
-					#print b.element, b.fx, b.fy, b.fz
-			#integrate motion
-			for state in NEB.states[1:-1]:
-				for a in state:
-					a.x += a.fx*0.01
-					a.y += a.fy*0.01
-					a.z += a.fz*0.01
+				for j,b in enumerate(state):
+					a,c = NEB.states[i-1][j], NEB.states[i+1][j]
+					if j in spring_atoms:
+						b.fx += NEB.k*(a.x-b.x) + NEB.k*(c.x-b.x)
+						b.fy += NEB.k*(a.y-b.y) + NEB.k*(c.y-b.y)
+						b.fz += NEB.k*(a.z-b.z) + NEB.k*(c.z-b.z)
+						energies[i] += 0.5*NEB.k*(utils.dist_squared(a,b) + utils.dist_squared(b,c))
 			#set error
 			NEB.error = sum(energies)
 			#set forces

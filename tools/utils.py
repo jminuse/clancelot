@@ -30,7 +30,17 @@ class Angle():
 class Dihedral():
 	def __init__(self, a, b, c, d, type=None):
 		self.atoms = (a,b,c,d)
-		self.type = type	
+		self.type = type
+
+class Job(): #a job on the queue
+	def __init__(self, name):
+		self.name = name
+	def wait(self):
+		while True:
+			jlist = subprocess.Popen('jlist', shell=True, stdout=subprocess.PIPE).communicate()[0]
+			if not (' '+self.name+' ') in jlist:
+				time.sleep(60)
+			else: break
 
 def get_bonds(atoms):
 	bonds = []
