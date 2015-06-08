@@ -7,11 +7,15 @@ if not input.endswith('.log'):
 
 output = sys.argv[2] if len(sys.argv)>2 else 'out'
 
-energies, frames = g09.parse_all(input)
+energies, frames, time = g09.parse_all(input)
 for e in energies:
 	print e
 
-print len(energies), 'should be the same as', len(frames)
+if time:
+	print 'Time = %.2g seconds' % time
+else:
+	print 'Job did not converge'
+	os.system('tail '+input)
 
 files.write_xyz(frames, output)
 os.system('/fs/europa/g_pc/vmd-1.9 '+output+'.xyz > /dev/null')

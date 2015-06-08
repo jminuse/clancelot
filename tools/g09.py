@@ -149,6 +149,7 @@ def atoms(input_file, check=False):
 
 def parse_all(input_file):
 	contents = open(input_file).read()
+	time = None
 	if 'Normal termination of Gaussian 09' not in contents:
 		pass
 	else:
@@ -179,7 +180,7 @@ def parse_all(input_file):
 		atom_frames.append(atoms)
 		energies.append(energy_this_step)
 
-	return energies, atom_frames
+	return energies, atom_frames, time
 	
 def parse_scan(input_file):
 	contents = open(input_file).read()
