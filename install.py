@@ -11,11 +11,11 @@ to_install = {
 'chkg':1,
 'chkg_all':1,
 'scang':1,
-'junest (formerly juju)':1,
-'python 2.7.10':1,
-'cython-0.22':1,
-'numpy':1,
-'scipy':1
+'junest (formerly juju)':0,
+'python 2.7.10':0,
+'cython-0.22':0,
+'numpy':0,
+'scipy':0
 }
 # Is this your first time running this script? (To avoid redundant additions to .zshrc)
 first_time = 1
@@ -289,7 +289,7 @@ f.write('''\n###############################################################
 ################## END OF THE CLANCELOT CODE ##################
 ###############################################################''')
 f.close()
-os.system("cp /fs/home/jms875/.vmdrc ~/")
+#os.system("cp /fs/home/jms875/.vmdrc ~/")
 
 if to_install['python 2.7.10']:
 	os.system('mkdir -p /fs/home/' + USERNAME + '/lib')
