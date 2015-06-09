@@ -34,7 +34,7 @@ g09 <<END > '''+run_name+'''.log
 %NProcShared=1
 %RWF=/tmp/
 %Chk='''+run_name+'''.chk
-%Mem=1GB
+%Mem=2GB
 '''
 			inp.write(csh+head+xyz+extra_section+'\neof\nrm /tmp/*.rwf')
 		if previous:	
@@ -346,15 +346,9 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 	n = NEB(name, states, theory, k)
 	minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_forces, options={'disp': True})
 
-def optimize_pm6(name, examples, queue=None): #optimize a custom PM6 semi-empirical method based on Gaussian examples at a higher level of theory
+def optimize_pm6(name, examples, param_string, starting_params, queue=None): #optimize a custom PM6 semi-empirical method based on Gaussian examples at a higher level of theory
 	from scipy.optimize import minimize
 	import numpy as np
-	
-	#get starting parameters
-	param_string = '''****
-Pb\nDCore=8,3,%f,%f CoreKO=%f\n****\n''' # DipHyp=%f does nothing with Pb(OA)2 monomer system
-	
-	starting_params = [0.9330505460, 0.7825060000,  2.5895242617]
 	
 	examples = [utils.Struct(name=example, atoms=atoms(example)) for example in examples]
 	for e in examples:
@@ -375,7 +369,9 @@ Pb\nDCore=8,3,%f,%f CoreKO=%f\n****\n''' # DipHyp=%f does nothing with Pb(OA)2 m
 				new_energy, new_atoms = parse_atoms('%s-%d-%d'%(name,counter[0],i), check_convergence=False)
 			except:
 				print '%s-%d-%d'%(name,counter[0],i), 'failed'
-				return 1e6 #return large error for failed parameters
+				exit()
+			if parse_atoms('%s-%d-%d'%(name,counter[0],i)) is None:
+				geom_error += 10.0 #discourage failure
 		#compare results
 			#for a,b in zip(example.atoms, new_atoms):
 				#geom_error += (a.x - b.x)**2 + (a.y - b.y)**2 + (a.z - b.z)**2
