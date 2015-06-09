@@ -81,6 +81,8 @@ f = open(ZSH_CLANCELOT,'w+')
 f.write('''###############################################################
 ############### THE FOLLOWING IS FOR CLANCELOT ################
 ###############################################################
+# Append Path
+export PYTHONPATH=$$$$$$/tools:$PYTHONPATH
 
 # Aliases for our tools
 alias get_ext_list='python $$$$$$/tools/get_ext_list.py'
