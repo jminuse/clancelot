@@ -48,8 +48,8 @@ def get_bonds(atoms):
 	for i,a in enumerate(atoms):
 		a.bonded = []
 		for b in atoms[i+1:]:
-			d = dist_squared(a,b)**0.5
-			if (a.element not in [1,'H'] and b.element not in [1,'H'] and d<2.) or (d < 1.2 and (a.element in [1,'H'])!=(b.element in [1,'H']) ):
+			dd = dist_squared(a,b)
+			if (a.element not in [1,'H'] and b.element not in [1,'H'] and dd<2**2) or (dd < 1.2**2 and (a.element in [1,'H'])!=(b.element in [1,'H']) ) or (dd < 2.8**2 and (a.element in ['Pb',82] or b.element in ['Pb',82]) ):
 				bonds.append( Bond(a,b) ) #offset from current, distance
 	return bonds
 

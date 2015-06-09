@@ -352,40 +352,47 @@ def optimize_pm6(name, examples, queue=None): #optimize a custom PM6 semi-empiri
 	
 	#get starting parameters
 	param_string = '''****
-Pb\nDCore=8,3,%f,%f\n****\n'''
+Pb\nDCore=8,3,%f,%f CoreKO=%f\n****\n''' # DipHyp=%f does nothing with Pb(OA)2 monomer system
 	
-	starting_params = [ 1.05653282,  1.09900074]
+	starting_params = [0.9330505460, 0.7825060000,  2.5895242617]
 	
-	print starting_params
-	print [ (x*0.9,x*1.1) for x in starting_params]
+	examples = [utils.Struct(name=example, atoms=atoms(example)) for example in examples]
+	for e in examples:
+		e.bonds = [ (b.atoms[0].index-1, b.atoms[1].index-1) for b in utils.get_bonds(e.atoms) ]
 	
 	counter = [0]
 	def pm6_error(params):
 		#run Gaussian jobs with new parameters
 		for i,example in enumerate(examples):
-			running_jobs = [ job('%s-%d-%d' % (name,counter[0],i), 'PM6=(Input,Print) Force', atoms(example), extra_section=param_string%tuple(params), queue=queue, force=True)  ]
+			running_jobs = [ job('%s-%d-%d' % (name,counter[0],i), 'PM6=(Input,Print) Opt=Loose', example.atoms, extra_section=param_string%tuple(params), queue=queue, force=True)  ]
 		#wait for all jobs to finish
 		for j in running_jobs: j.wait()
 		#get forces and energies resulting from new parameters
-		energies = []
-		error = 0.0
+		geom_error = 0.0
+		force_error = 0.0
 		for i,example in enumerate(examples):
 			try:
-				new_energy, new_atoms = parse_atoms('%s-%d-%d'%(name,counter[0],i))
+				new_energy, new_atoms = parse_atoms('%s-%d-%d'%(name,counter[0],i), check_convergence=False)
 			except:
+				print '%s-%d-%d'%(name,counter[0],i), 'failed'
 				return 1e6 #return large error for failed parameters
-			energies.append(new_energy)
-		#compare forces
-			for a,b in zip(atoms(example), new_atoms):
-				force_error = (a.fx - b.fx)**2 + (a.fy - b.fy)**2 + (a.fz - b.fz)**2
-				error += force_error
+		#compare results
+			#for a,b in zip(example.atoms, new_atoms):
+				#geom_error += (a.x - b.x)**2 + (a.y - b.y)**2 + (a.z - b.z)**2
+				#force_error += (a.fx - b.fx)**2 + (a.fy - b.fy)**2 + (a.fz - b.fz)**2
+			for b in example.bonds:
+				d1 = utils.dist( example.atoms[b[0]], example.atoms[b[1]] )
+				d2 = utils.dist( new_atoms[b[0]], new_atoms[b[1]] )
+				geom_error += (d1-d2)**2
+		
+		error = geom_error
 		
 		print error, params
 		
-		counter[0]+=1
+		#counter[0]+=1
 		
 		return error
 	
-	minimize(pm6_error, starting_params, method='Nelder-Mead', options={'disp': True}, bounds=[ (x*0.9,x*1.1) for x in starting_params] )
+	minimize(pm6_error, starting_params, method='Nelder-Mead', options={'disp': True} )
 	
 
