@@ -113,8 +113,11 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, check_convergence=T
 			return energy
 
 	#get coordinates
-	last_coordinates = contents.rindex('Input orientation:')
-	last_coordinates = contents.index('Coordinates (Angstroms)', last_coordinates)
+	try:
+		last_coordinates = contents.rindex('Input orientation:')
+		last_coordinates = contents.index('Coordinates (Angstroms)', last_coordinates)
+	except ValueError:
+		last_coordinates = contents.index('Coordinates (Angstroms)')
 	start = contents.index('---\n', last_coordinates)+4
 	end = contents.index('\n ---', start)
 	atoms = []
@@ -296,6 +299,7 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 				try:
 					new_energy, new_atoms = parse_atoms('%s-%d-%d'%(NEB.name,NEB.step,i))
 				except:
+					print "Unexpected error in 'parse_atoms':", sys.exc_info()[0]
 					print 'Job failed: %s-%d-%d'%(NEB.name,NEB.step,i); exit()
 				energies.append(new_energy)
 				for a,b in zip(state, new_atoms):
