@@ -14,13 +14,12 @@ def notify(job_name, cell):
 	msg = MIMEText(job_name + " has finished")
 
 	msg['Subject'] = job_name + " has finished"
-	msg['From'] = "hherbol@gmail.com"
+	msg['From'] = "g_pc@cbe.cornell.edu"
 	msg['To'] = cell
 
-	# Send the message via our own SMTP server, but don't include the
-	# envelope header.
+	# Send the message via our own SMTP server, but don't include the envelope header.
 	s = smtplib.SMTP('localhost')
-	s.sendmail("hherbol@gmail.com", [cell], msg.as_string())
+	s.sendmail("g_pc@cbe.cornell.edu", [cell], msg.as_string())
 	s.quit()
 
 def watch(job_name, cell):
