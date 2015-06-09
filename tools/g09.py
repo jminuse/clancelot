@@ -2,23 +2,24 @@ import os, string, sys, re, shutil, copy
 from subprocess import Popen
 import utils, log, files
 
-def job(run_name, route, atoms=[], extra_section='', queue='batch', procs=1, alternate_coords=None, charge_and_multiplicity='0,1', title='run by gaussian.py', blurb=None, watch=False, eRec=True, force=False, previous=None):
-	log.chk_gaussian(run_name,force=force)
-	head = '#N '+route+'\n\n'+title+'\n\n'+charge_and_multiplicity+'\n'
-	if alternate_coords:
-		xyz = '\n'.join( ["%s %f %f %f" % ((a.element,)+tuple(alternate_coords[i])) for i,a in enumerate(atoms)] ) + '\n\n'
-	else:
-		if atoms and type(atoms[0])==type([]): #multiple lists of atoms (e.g. transistion state calculation)
-			xyz = (title+'\n\n0,1\n').join([('\n'.join( [( "%s %f %f %f" % (a.element, a.x, a.y, a.z) ) for a in atom_list] ) + '\n\n') for atom_list in atoms])
-		else: #single list of atoms
-			if 'oniom' in route.lower():
-				xyz = '\n'.join( [( "%s 0 %f %f %f %s" % (a.element, a.x, a.y, a.z, a.layer) ) for a in atoms] ) + '\n\n'
-			elif 'counterpoise' in route.lower():
-				xyz = '\n'.join( [( "%s(Fragment=%d) %f %f %f" % (a.element, a.fragment, a.x, a.y, a.z) ) for a in atoms] ) + '\n\n'
-			elif atoms:
-				xyz = '\n'.join( [( "%s %f %f %f" % (a.element, a.x, a.y, a.z) ) for a in atoms] ) + '\n\n'
-			else:
-				xyz = '\n'
+def job(run_name, route, atoms=[], extra_section='', queue='batch', procs=1, charge_and_multiplicity='0,1', title='run by gaussian.py', blurb=None, watch=False, eRec=True, force=False, previous=None):
+	log.chk_gaussian(run_name,force=force) # Checks if run exists
+	head = '#N '+route+'\n\n'+title+'\n\n'+charge_and_multiplicity+'\n' # Header for inp file
+
+	# Setup list of atoms for inp file --------------------------------------------------------------------------------------------
+	if atoms and type(atoms[0])==type([]): #multiple lists of atoms (e.g. transistion state calculation)
+		xyz = (title+'\n\n0,1\n').join([('\n'.join( [( "%s %f %f %f" % (a.element, a.x, a.y, a.z) ) for a in atom_list] ) + '\n\n') for atom_list in atoms])
+	else: #single list of atoms
+		if 'oniom' in route.lower():
+			xyz = '\n'.join( [( "%s 0 %f %f %f %s" % (a.element, a.x, a.y, a.z, a.layer) ) for a in atoms] ) + '\n\n'
+		elif 'counterpoise' in route.lower():
+			xyz = '\n'.join( [( "%s(Fragment=%d) %f %f %f" % (a.element, a.fragment, a.x, a.y, a.z) ) for a in atoms] ) + '\n\n'
+		elif atoms:
+			xyz = '\n'.join( [( "%s %f %f %f" % (a.element, a.x, a.y, a.z) ) for a in atoms] ) + '\n\n'
+		else:
+			xyz = '\n'
+
+	# Cd into gaussian, setup inp, run simulation, cd out -------------------------------------------------------------------------
 	os.chdir('gaussian')
 	if queue is not None: #run on queue
 		with open(run_name+'.inp', 'w') as inp:
@@ -42,11 +43,13 @@ g09 <<END > '''+run_name+'''.log
 		process_handle = Popen('/bin/csh %s.inp' % run_name, shell=True)
 	shutil.copyfile('../'+sys.argv[0], run_name+'.py')
 	os.chdir('..')
-	log.put_gaussian(run_name,route,extra_section,blurb,eRec,force)
+
+	log.put_gaussian(run_name,route,extra_section,blurb,eRec,force) # Places info in log if simulation is run
 	if queue is None:
 		return process_handle
 	else:
 		return utils.Job(run_name)
+	# ----------------------------------------------------------------------------------------------------------------------------
 
 def restart_job(old_run_name, job_type='ChkBasis Opt=Restart', queue='batch', procs=None):
 	run_name = old_run_name+'r'

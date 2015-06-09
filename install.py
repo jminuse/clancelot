@@ -11,12 +11,12 @@ to_install = {
 'chkg':1,
 'chkg_all':1,
 'scang':1,
-'junest (formerly juju)':1,
-'python 2.7.10':1,
-'cython-0.22':1,
-'numpy':1,
-'scipy':1,
-'matplotlib':1,
+'junest (formerly juju)':0,
+'python 2.7.10':0,
+'cython-0.22':0,
+'numpy':0,
+'scipy':0,
+'matplotlib':0,
 'vmd default settings':1,
 'file_browser':1 # set the file browser not to open a new window per folder
 }
