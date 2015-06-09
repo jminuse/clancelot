@@ -264,7 +264,7 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 				spring_atoms_1 = [(a.x,a.y,a.z) for j,a in enumerate(states[i]) if j in spring_atoms]
 				spring_atoms_2 = [(a.x,a.y,a.z) for j,a in enumerate(states[i-1]) if j in spring_atoms]
 				rotation = orthogonal_procrustes(spring_atoms_1,spring_atoms_2)[0]
-				#rotate all atoms once alignment is found
+				#rotate all atoms into alignment
 				for a in states[i]:
 					a.x,a.y,a.z = utils.matvec(rotation, (a.x,a.y,a.z))
 	
@@ -285,16 +285,16 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 			running_jobs = []
 			for i,state in enumerate(NEB.states[1:-1]):
 				guess = '' if NEB.step==0 else ' Guess=Read'
-				running_jobs.append( job('%s-%d-%d'%(NEB.name,i,NEB.step), NEB.theory+' Force'+guess, state, queue=queue, force=True, previous=('%s-%d-%d'%(NEB.name,i,NEB.step-1)) if NEB.step>0 else None, extra_section=extra_section) )
+				running_jobs.append( job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+' Force'+guess, state, queue=queue, force=True, previous=('%s-%d-%d'%(NEB.name,NEB.step-1,i)) if NEB.step>0 else None, extra_section=extra_section) )
 			#wait for jobs to finish
 			for j in running_jobs: j.wait()
 			#get forces and energies from DFT calculations
 			energies = []
 			for i,state in enumerate(NEB.states[1:-1]):
 				try:
-					new_energy, new_atoms = parse_atoms('%s-%d-%d'%(NEB.name,i,NEB.step))
+					new_energy, new_atoms = parse_atoms('%s-%d-%d'%(NEB.name,NEB.step,i))
 				except:
-					print 'Job failed: %s-%d-%d'%(NEB.name,i,NEB.step); exit()
+					print 'Job failed: %s-%d-%d'%(NEB.name,NEB.step,i); exit()
 				energies.append(new_energy)
 				for a,b in zip(state, new_atoms):
 					a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
@@ -343,4 +343,69 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 
 	n = NEB(name, states, theory, k)
 	minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_forces, options={'disp': True})
+
+def optimize_pm6(name, examples, queue=None): #optimize a custom PM6 semi-empirical method based on Gaussian examples at a higher level of theory
+	from scipy.optimize import minimize
+	import numpy as np
+	
+	def pm6_error(params, params_by_section):
+		#set parameters by element section
+		params_count = 0
+		for section in params_by_section:
+			section.params = params[ params_count : params_count+len(section.params) ]
+			params_count += len(section.params)
+		#run Gaussian jobs with new parameters
+		for i,example in enumerate(examples):
+			#set input parameter string
+			example_atoms = atoms(example)
+			example_elements = dict( [(a.element,True) for a in example_atoms] ).keys()
+			param_string = 'Method=40 CoreType=2 PM6R6=0.0000124488 PM6R12=0.0000007621\n****\n'
+			for section in params_by_section:
+				if section.element in example_elements:
+					param_string += (section.param_string%tuple(section.params)) + '****\n'
+			#get list of running jobs
+			running_jobs = [ job('%s-%d' % (name,i), 'PM6=(Input,Print) Geom=(Check,NewDefinition)', extra_section=param_string, previous=example, queue=queue, force=True)  ]
+		#wait for all jobs to finish
+		for j in running_jobs: j.wait()
+		#get forces and energies resulting from new parameters
+		energies = []
+		error = 0.0
+		for i,example in enumerate(examples):
+			try:
+				new_energy, new_atoms = parse_atoms('%s-%d-%d'%(NEB.name,NEB.step,i))
+			except:
+				return 1e6 #return large error for failed parameters
+			energies.append(new_energy)
+		#compare forces
+			for a,b in zip(example, new_atoms):
+				force_error = (a.fx - b.fx)**2 + (a.fy - b.fy)**2 + (a.fz - b.fz)**2
+				error += force_error
+		
+		print error
+		
+		return error
+	
+	#get starting parameters
+	unique_atoms = dict([ (a.element,a) for ex in examples for a in atoms(ex)]).values()
+	
+	job(name, 'PM6=(Print)', unique_atoms, queue=queue, force=True).wait()
+	
+	contents = open('gaussian/'+name+'.log').read()
+	start = contents.index('Semi-emprical parameters in input format:')
+	end = contents.index('****\n \n', start)
+	
+	sections = contents[start:end].replace('\n ', '\n').split('****\n')
+	sections_by_element = dict( [ (s.splitlines()[0].strip(),s) for s in sections if len(s.splitlines())>4 ] )
+	#modify all floats in all sections each step
+	
+	params_by_section = []
+	for element, section in sections_by_element.items():
+		params = [float(s) for s in re.findall(r'[-+]?[0-9]*\.[0-9]+', section)]
+		param_string = re.sub(r'[-+]?[0-9]*\.[0-9]+', '%f', section)
+		params_by_section.append( utils.Struct( params=params, param_string=param_string, element=element ) )
+	
+	params_by_section.sort(key=lambda p:utils.elements_by_atomic_number.index(p.element))
+	starting_params = [x for p in params_by_section for x in p.params]
+	minimize(pm6_error, starting_params, method='Nelder-Mead', options={'disp': True}, args=(params_by_section,) )
+	
 
