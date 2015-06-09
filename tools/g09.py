@@ -325,11 +325,6 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 					NEB.forces += [-a.fx, -a.fy, -a.fz] #derivative of the error
 			#increment step
 			NEB.step += 1
-			#write to xyz file
-			NEB.xyz = open(name+'.xyz', 'w')
-			for state in NEB.states:
-				files.write_xyz(state, NEB.xyz)
-			NEB.xyz.close()
 			#print data
 			print NEB.step, NEB.error, ('%10.7g '*len(dft_energies)) % tuple(dft_energies)
 	
