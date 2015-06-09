@@ -166,7 +166,9 @@ def parse_all(input_file):
 		try:
 			start = contents.index('SCF Done', start)
 			energy_this_step = float( re.search('SCF Done: +\S+ += +(\S+)', contents[start:]).group(1) )
-			start = contents.find('Input orientation:', start)
+			input_orientation = contents.find('Input orientation:', start)
+			if input_orientation >= 0:
+				start = input_orientation
 			next_coordinates = contents.index('Coordinates (Angstroms)', start)
 		except: break
 		start = contents.index('---\n', next_coordinates)+4
