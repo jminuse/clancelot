@@ -2,8 +2,10 @@ mol default style VDW
 mol modstyle 0 0 VDW
 display rendermode GLSL
 display depthcue off
-#animate forward
+animate pause
+animate goto end
 menu main on
+menu graphics on
 light 3 on
 light 4 on
 
