@@ -163,7 +163,7 @@ def parse_all(input_file):
 	atom_frames = []
 	start = 0
 	while True:
-		try:
+		try: #match energy
 			start = contents.index('SCF Done', start)
 			energy_this_step = float( re.search('SCF Done: +\S+ += +(\S+)', contents[start:]).group(1) )
 			input_orientation = contents.find('Input orientation:', start)
