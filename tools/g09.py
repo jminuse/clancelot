@@ -19,7 +19,7 @@ def job(run_name, route, atoms=[], extra_section='', queue='batch', procs=1, cha
 		else:
 			xyz = '\n'
 
-	# Cd into gaussian, setup inp, run simulation, cd out -------------------------------------------------------------------------
+	# cd into gaussian directory, set up .inp file, run simulation, cd out -------------------------------------------------------------------------
 	os.chdir('gaussian')
 	if queue is not None: #run on queue
 		with open(run_name+'.inp', 'w') as inp:
