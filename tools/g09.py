@@ -34,7 +34,7 @@ g09 <<END > '''+run_name+'''.log
 %NProcShared=1
 %RWF=/tmp/
 %Chk='''+run_name+'''.chk
-%Mem=2GB
+%Mem=1GB
 '''
 			inp.write(csh+head+xyz+extra_section+'\neof\nrm /tmp/*.rwf')
 		if previous:	
@@ -354,13 +354,17 @@ def optimize_pm6(name, examples, param_string, starting_params, queue=None): #op
 	for e in examples:
 		e.bonds = [ (b.atoms[0].index-1, b.atoms[1].index-1) for b in utils.get_bonds(e.atoms) ]
 	
+	n_bonds = sum( [len(e.bonds) for e in examples] )
+	
 	counter = [0]
 	def pm6_error(params):
 		#run Gaussian jobs with new parameters
 		for i,example in enumerate(examples):
 			running_jobs = [ job('%s-%d-%d' % (name,counter[0],i), 'PM6=(Input,Print) Opt=Loose', example.atoms, extra_section=param_string%tuple(params), queue=queue, force=True)  ]
 		#wait for all jobs to finish
-		for j in running_jobs: j.wait()
+		for j in running_jobs:
+			j.wait()
+		
 		#get forces and energies resulting from new parameters
 		geom_error = 0.0
 		force_error = 0.0
@@ -368,24 +372,22 @@ def optimize_pm6(name, examples, param_string, starting_params, queue=None): #op
 			try:
 				new_energy, new_atoms = parse_atoms('%s-%d-%d'%(name,counter[0],i), check_convergence=False)
 			except:
-				print '%s-%d-%d'%(name,counter[0],i), 'failed'
+				print '%s-%d-%d'%(name,counter[0],i), 'has no data'
 				exit()
 			if parse_atoms('%s-%d-%d'%(name,counter[0],i)) is None:
-				geom_error += 10.0 #discourage failure
+				print '%s-%d-%d'%(name,counter[0],i), 'did not converge fully'
+				#geom_error += 10.0 #discourage failure
 		#compare results
-			#for a,b in zip(example.atoms, new_atoms):
-				#geom_error += (a.x - b.x)**2 + (a.y - b.y)**2 + (a.z - b.z)**2
-				#force_error += (a.fx - b.fx)**2 + (a.fy - b.fy)**2 + (a.fz - b.fz)**2
 			for b in example.bonds:
 				d1 = utils.dist( example.atoms[b[0]], example.atoms[b[1]] )
 				d2 = utils.dist( new_atoms[b[0]], new_atoms[b[1]] )
 				geom_error += (d1-d2)**2
 		
-		error = geom_error
+		error = geom_error/n_bonds
 		
-		print error, params
+		print error**0.5, params
 		
-		#counter[0]+=1
+		counter[0]+=1
 		
 		return error
 	
