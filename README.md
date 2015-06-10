@@ -1,7 +1,7 @@
 # clancelot
 A set of computational chemistry Python libraries and tools developed by the Clancy Group, Cornell University.
 
-# Contributing
+## Contributing
 If added to the project and you want to contribute, you can do the following:
 
 1. Setup an ssh key as described [here](https://help.github.com/articles/generating-ssh-keys/)
@@ -11,5 +11,5 @@ If added to the project and you want to contribute, you can do the following:
 3. Run the following to make sure you have your ssh id's stored:
 
 		`ssh-add ~/.ssh/id_rsa`
-		
+
 		`ssh-add`
