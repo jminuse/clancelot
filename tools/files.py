@@ -282,9 +282,6 @@ def read_col(filename, c=None, s_ptr=None, s_count=1, d_end=-1, start=0, stop=No
 	#		4. s_count > # data blocks
 	#		5. d_end > # data blocks
 
-	# Quickly convert c from int to list if it isn't
-	if type(c) != type([]): c = [c]
-
 	# Open File, begin reading in data to the ith instance of s_ptr where i = s_count 
 	f = open(filename, 'r')
 	data = []
@@ -314,6 +311,8 @@ def read_col(filename, c=None, s_ptr=None, s_count=1, d_end=-1, start=0, stop=No
 			except NameError: num_c = len(col)
 
 			if(c == None): c = [i for i in range(num_c)] # If we are scanning in all columns
+			# Quickly convert c from int to list if it isn't
+			if type(c) != type([]): c = [c]
 
 			# Get tmp data sized
 			tmp_data = [0 for i in range(len(c))]
