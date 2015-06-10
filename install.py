@@ -11,15 +11,16 @@ to_install = {
 'chkg':1,
 'chkg_all':1,
 'scang':1,
-'junest (formerly juju)':0,
-'python 2.7.10':0,
-'cython-0.22':0,
-'numpy':0,
-'scipy':0,
-'matplotlib':0,
+'junest (formerly juju)':1,
+'python 2.7.10':1,
+'cython-0.22':1,
+'numpy':1,
+'scipy':1,
+'matplotlib':1,
 'vmd default settings':1,
-'file_browser':1 # set the file browser not to open a new window per folder
-'merlin':1
+'file_browser':1, # set the file browser not to open a new window per folder
+'merlin':1,
+'sublime_text_3_build_3083':1
 }
 # Is this your first time running this script? (To avoid redundant additions to .zshrc)
 first_time = 1
@@ -73,6 +74,7 @@ for key in to_install: # Make directories for what we want to install
 	if key == 'vmd default settings': continue
 	if key == 'file_browser': continue
 	if key == 'matplotlib': continue
+	if key == 'sublime_text_3_build_3083': continue
 	if to_install[key]: os.system('mkdir -p '+INSTALLDIR+key+'/')
 
 
@@ -220,13 +222,27 @@ f.write('''\n###############################################################
 ###############################################################''')
 f.close()
 
+downloaded_tarball=False
+def reinstall(str):
+	while True:
+		print(str+' y/n:')
+		resp=raw_input()
+		if resp=='y':
+			return True
+		if resp=='n':
+			return False
+
 if to_install['vmd default settings']:
+	if os.path.exists('/fs/home/'+USERNAME+'/.vmdrc'):
+		if reinstall('Previous vmd settings found, backup old ~/.vmdrc to ~/.vmdrc_history?'):
+			os.system('mv ~/.vmdrc ~/.vmdrc_history')
 	os.system('cp vmdrc_default.txt ~/.vmdrc')
 
-if to_install['python 2.7.10']:
+def python_install():
 	os.system('mkdir -p /fs/home/' + USERNAME + '/lib')
 	os.system('wget -P /fs/home/'+USERNAME+'/lib/ https://www.python.org/ftp/python/2.7.10/Python-2.7.10.tar.xz')
 	os.system('tar xvf /fs/home/'+USERNAME+'/lib/Python-2.7.10.tar.xz -C /fs/home/' + USERNAME + '/lib/')
+	downloaded_tarball=True
 	os.system('cd ~/lib/Python-2.7.10/')
 	os.chdir('/fs/home/'+USERNAME+'/lib/Python-2.7.10/')
 	os.system('bash /fs/home/'+USERNAME+'/lib/Python-2.7.10/configure --prefix=/fs/home/'+USERNAME+'/lib/Python-2.7.10/')
@@ -236,11 +252,12 @@ if to_install['python 2.7.10']:
 	f.write("\nexport PATH=$HOME/lib/Python-2.7.10/bin:$PATH\n")
 	f.close()
 	os.system('export PATH=~/lib/Python-2.7.10/bin:$PATH')
-	
-if to_install['cython-0.22']:
+
+def cython_install():
 	os.system('mkdir -p /fs/home/' + USERNAME + '/lib')
 	os.system('wget -P ~/lib/ http://cython.org/release/Cython-0.22.tar.gz')
 	os.system('tar xvf /fs/home/'+USERNAME+'/lib/Cython-0.22.tar.gz -C /fs/home/' + USERNAME + '/lib/')
+	downloaded_tarball=True
 	os.system('cd ~/lib/Cython-0.22')
 	os.chdir('/fs/home/'+USERNAME+'/lib/Cython-0.22')
 	os.system('python setup.py install')
@@ -249,7 +266,7 @@ if to_install['cython-0.22']:
 	f.close()
 	os.system('export PATH=~/lib/Cython-0.22/bin:$PATH')
 
-if to_install['numpy']:
+def numpy_install():
 	os.system('mkdir -p /fs/home/' + USERNAME + '/lib/Python-2.7.10')
 	os.system('git clone git://github.com/numpy/numpy.git ~/lib/numpy')
 	os.chdir('/fs/home/'+USERNAME+'/lib/numpy')
@@ -258,8 +275,8 @@ if to_install['numpy']:
 	f = open(ZSHRC,'a')
 	f.write("\nexport PYTHONPATH=~/lib/Python-2.7.10/lib/python:$PYTHONPATH\n")
 	f.close()
-	
-if to_install['scipy']:
+
+def scipy_install():
 	os.system('mkdir -p /fs/home/' + USERNAME + '/lib/Python-2.7.10')
 	os.system('git clone git://github.com/scipy/scipy.git ~/lib/scipy')
 	os.chdir('/fs/home/'+USERNAME+'/lib/scipy')
@@ -269,16 +286,26 @@ if to_install['scipy']:
 	f.write("\nexport PYTHONPATH=~/lib/Python-2.7.10/lib/python:$PYTHONPATH\n")
 	f.close()
 
-if to_install['matplotlib']:
+def matplotlib_install():
 	os.system('mkdir -p /fs/home/'+USERNAME+ '/lib/Python-2.7.10')
 	os.system('curl -o ~/lib/matplotlib-1.4.3.tar.gz -LO http://downloads.sourceforge.net/project/matplotlib/matplotlib/matplotlib-1.4.3/matplotlib-1.4.3.tar.gz')
 	os.system('tar xvf /fs/home/'+USERNAME+'/lib/matplotlib-1.4.3.tar.gz -C /fs/home/' + USERNAME + '/lib/')
+	downloaded_tarball=True
 	os.chdir('/fs/home/'+USERNAME+'/lib/matplotlib-1.4.3/')
 	os.system('python setup.py build')
 	os.system('python setup.py install')
-	
 
-if to_install['junest (formerly juju)']: 
+def sublime_install():
+	os.system('mkdir -p /fs/home/'+USERNAME+'/lib')
+	os.system('wget -P ~/lib/ http://c758482.r82.cf2.rackcdn.com/sublime_text_3_build_3083_x64.tar.bz2')
+	os.system('tar xvf /fs/home/'+USERNAME+'/lib/sublime_text_3_build_3083_x64.tar.bz2 -C /fs/home/' + USERNAME + '/lib/')
+	downloaded_tarball=True
+	f = open(ZSHRC,'a')
+	f.write("\nalias sublime='~/lib/sublime_text_3/sublime_text'\n")
+	f.write("\nalias subl='~/lib/sublime_text_3/sublime_text'\n")
+	f.close()
+
+def junest_install():
 	os.system('git clone git://github.com/fsquillace/juju ~/juju --quiet')
 	f = open(ZSHRC,'a')
 	f.write("\nexport PATH=~/juju/bin:$PATH\n")
@@ -287,4 +314,81 @@ if to_install['junest (formerly juju)']:
 	print("\nTo finish installing 'junest' please run:\n'pacman -Syyu pacman-mirrorlist && pacman -S gtk2 avogadro grep make ttf-liberation gedit'\n\n(when prompted for GL version, pick option 2, nvidia)\n\n\n")
 	os.system("zsh -c 'junest -f'")
 
+
+if to_install['python 2.7.10']:
+	if os.path.exists('/fs/home/'+USERNAME+'/lib/Python-2.7.10') & os.path.isdir('/fs/home/'+USERNAME+'/lib/Python-2.7.10'):
+		if reinstall('Previous installation found, reinstall Python-2.7.10?'):
+			os.system('rm -rf /fs/home/'+USERNAME+'/lib/Python-2.7.10')
+			python_install()
+		else:
+			print('...SKIPPING PYTHON (RE)INSTALLATION...')
+	else:
+		python_install()
+
+	
+if to_install['cython-0.22']:
+	if os.path.exists('/fs/home/'+USERNAME+'/lib/Cython-0.22') & os.path.isdir('/fs/home/'+USERNAME+'/lib/Cython-0.22'):
+		if reinstall('Previous installation found, reinstall Cython-0.22?'):
+			os.system('rm -rf /fs/home/'+USERNAME+'/lib/Cython-0.22')
+			cython_install()
+		else:
+			print('...SKIPPING CYTHON (RE)INSTALLATION...')
+	else:
+		cython_install()
+
+if to_install['numpy']:
+	if os.path.exists('/fs/home/'+USERNAME+'/lib/numpy') & os.path.isdir('/fs/home/'+USERNAME+'/lib/numpy'):
+		if reinstall('Previous installation found, reinstall numpy?'):
+			os.system('rm -rf /fs/home/'+USERNAME+'/lib/numpy')
+			numpy_install()
+		else:
+			print('...SKIPPING NUMPY (RE)INSTALLATION...')
+	else:
+		numpy_install()
+	
+if to_install['scipy']:
+	if os.path.exists('/fs/home/'+USERNAME+'/lib/scipy') & os.path.isdir('/fs/home/'+USERNAME+'/lib/scipy'):
+		if reinstall('Previous installation found, reinstall scipy?'):
+			os.system('rm -rf /fs/home/'+USERNAME+'/lib/scipy')
+			scipy_install()
+		else:
+			print('...SKIPPING SCIPY (RE)INSTALLATION...')
+	else:
+		scipy_install()
+
+if to_install['matplotlib']:
+	if os.path.exists('/fs/home/'+USERNAME+'/lib/matplotlib-1.4.3') & os.path.isdir('/fs/home/'+USERNAME+'/lib/matplotlib-1.4.3'):
+		if reinstall('Previous installation found, reinstall matplotlib?'):
+			os.system('rm -rf /fs/home/'+USERNAME+'/lib/matplotlib-1.4.3')
+			matplotlib_install()
+		else:
+			print('...SKIPPING MATPLOTLIB (RE)INSTALLATION...')
+	else:
+		matplotlib_install()
+
+if to_install['sublime_text_3_build_3083']:
+	if os.path.exists('/fs/home/'+USERNAME+'/lib/sublime_text_3') & os.path.isdir('/fs/home/'+USERNAME+'/lib/sublime_text_3'):
+		if reinstall('Previous installation found, reinstall Sublime Text 3?'):
+			os.system('rm -rf /fs/home/'+USERNAME+'/lib/sublime_text_3')
+			sublime_install()
+		else:
+			print('...SKIPPING SUBLIME (RE)INSTALLATION...')
+	else:
+		sublime_install()
+
+if to_install['junest (formerly juju)']: 
+	if os.path.exists('/fs/home/'+USERNAME+'/juju') & os.path.isdir('/fs/home/'+USERNAME+'/juju'):
+		if reinstall('Previous installation found, reinstall juju/junest?'):
+			os.system('rm -rf /fs/home/'+USERNAME+'/.juju /fs/home/'+USERNAME+'/.junest')
+			junest_install()
+		else:
+			print('...SKIPPING JUJU/JUNEST (RE)INSTALLATION...')
+	else:
+		junest_install()
+
+if downloaded_tarball:
+	print('Removing previously downloaded tarballs')
+	os.system('rm -i /fs/home/'+USERNAME+'/lib/*.tar.*')
+
+print("\n\n--------------Installation Finished--------------\nPlease reopen Terminal to apply changes.")
 
