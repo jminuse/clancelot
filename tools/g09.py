@@ -236,6 +236,7 @@ def parse_chelpg(input_file):
 	return charges
 
 def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k=0.1837, fit_rigid=True): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
+#Note: this is just an elastic band method, not Nudged Elastic Band, because it does not yet decompose the forces into perpendicular/parallel components. See http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
 	from scipy.optimize import minimize
 	import numpy as np
 	#set which atoms will be affected by virtual springs
