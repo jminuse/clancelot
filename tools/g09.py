@@ -432,17 +432,16 @@ def neb_verlet(name, states, theory, extra_section='', queue=None, spring_atoms=
 			a.ax, a.ay, a.az = 0.0, 0.0, 0.0
 	for step in range(10):
 		#start DFT jobs
-		if step>1:
-			running_jobs = []
-			for i,state in enumerate(states):
-				if step>0:
-					if (i==0 or i==len(states)-1): #only perform evaluations of endpoints on first step
-						continue
-					guess = ' Guess=Read'
-				else: guess = '' #no previous guess for first step
-				running_jobs.append( job('%s-%d-%d'%(name,step,i), theory+' Force'+guess, state, queue=queue, force=True, previous=('%s-%d-%d'%(name,step-1,i)) if step>0 else None, extra_section=extra_section) )
-			#wait for jobs to finish
-			for j in running_jobs: j.wait()
+		running_jobs = []
+		for i,state in enumerate(states):
+			if step>0:
+				if (i==0 or i==len(states)-1): #only perform evaluations of endpoints on first step
+					continue
+				guess = ' Guess=Read'
+			else: guess = '' #no previous guess for first step
+			running_jobs.append( job('%s-%d-%d'%(name,step,i), theory+' Force'+guess, state, queue=queue, force=True, previous=('%s-%d-%d'%(name,step-1,i)) if step>0 else None, extra_section=extra_section) )
+		#wait for jobs to finish
+		for j in running_jobs: j.wait()
 		#get forces and energies from DFT calculations
 		V = [] #potential energy
 		for i,state in enumerate(states):
