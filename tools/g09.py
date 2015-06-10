@@ -292,14 +292,14 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 					coord_count += 3
 			#start DFT jobs
 			running_jobs = []
-			for i,state in enumerate(NEB.states[1:-1]):
+			for i,state in enumerate(NEB.states): #TODO: only perform evaluations of endpoints once
 				guess = '' if NEB.step==0 else ' Guess=Read'
 				running_jobs.append( job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+' Force'+guess, state, queue=queue, force=True, previous=('%s-%d-%d'%(NEB.name,NEB.step-1,i)) if NEB.step>0 else None, extra_section=extra_section) )
 			#wait for jobs to finish
 			for j in running_jobs: j.wait()
 			#get forces and energies from DFT calculations
 			energies = []
-			for i,state in enumerate(NEB.states[1:-1]):
+			for i,state in enumerate(NEB.states):
 				try:
 					new_energy, new_atoms = parse_atoms('%s-%d-%d'%(NEB.name,NEB.step,i))
 				except:
@@ -308,27 +308,61 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 				energies.append(new_energy)
 				for a,b in zip(state, new_atoms):
 					a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
-			dft_energies = copy.deepcopy(energies)
+			V = copy.deepcopy(energies) # V = potential energy from DFT. energies = V+springs
 			#add spring forces to atoms
-			for i,state in enumerate(NEB.states[1:-1]):
+			for i,state in enumerate(NEB.states):
+				if i==0 or i==len(NEB.states)-1: continue #don't change first or last state
 				for j,b in enumerate(state):
-					a,c = NEB.states[i-1][j], NEB.states[i+1][j]
 					if j in spring_atoms:
-						b.fx += NEB.k*(a.x-b.x) + NEB.k*(c.x-b.x)
-						b.fy += NEB.k*(a.y-b.y) + NEB.k*(c.y-b.y)
-						b.fz += NEB.k*(a.z-b.z) + NEB.k*(c.z-b.z)
+						a,c = NEB.states[i-1][j], NEB.states[i+1][j]
+						
+						#find tangent
+						tplus = np.array( [ c.x-b.x, c.y-b.y, c.z-b.z ] )
+						tminus = np.array( [ a.x-b.x, a.y-b.y, a.z-b.z ] )
+						dVmin = min(V[i+1]-V[i], V[i-1]-V[i])
+						dVmax = max(V[i+1]-V[i], V[i-1]-V[i])
+						if V[i+1]>V[i] and V[i]>V[i-1]: #not at an extremum, trend of V is up
+							tangent = tplus
+						elif V[i+1]<V[i] and V[i]<V[i-1]: #not at an extremum, trend of V is down
+							tangent = tminus
+						elif V[i+1]>V[i-1]: #at local extremum, next V is higher
+							tangent = tplus*dVmax + tminus*dVmin
+						else: #at local extremum, previous V is higher
+							tangent = tplus*dVmin + tminus*dVmax
+								
+						#normalize tangent
+						tangent /= np.linalg.norm(tangent)
+						
+						#find spring forces parallel to tangent
+						F_spring_parallel = NEB.k*( utils.dist(c,b) - utils.dist(b,a) ) * tangent
+						
+						#find DFT forces perpendicular to tangent
+						real_force = np.array( [b.fx,b.fz,b.fz] )
+						F_real_perpendicular = real_force - np.dot(real_force, tangent)
+						
+						#set NEB forces
+						b.fx, b.fy, b.fz = F_spring_parallel + F_real_perpendicular
+						
+						#TODO: get NEB energies rigorously such that NEB force = -gradient(NEB energy)
+						#this is good enough for now:
 						energies[i] += 0.5*NEB.k*(utils.dist_squared(a,b) + utils.dist_squared(b,c))
+						
+						#old method
+						#b.fx += NEB.k*(a.x-b.x) + NEB.k*(c.x-b.x)
+						#b.fy += NEB.k*(a.y-b.y) + NEB.k*(c.y-b.y)
+						#b.fz += NEB.k*(a.z-b.z) + NEB.k*(c.z-b.z)
+						#energies[i] += 0.5*NEB.k*(utils.dist_squared(a,b) + utils.dist_squared(b,c))
 			#set error
 			NEB.error = sum(energies)
 			#set forces
 			NEB.forces = []
 			for state in NEB.states[1:-1]:
 				for a in state:
-					NEB.forces += [-a.fx, -a.fy, -a.fz] #derivative of the error
+					NEB.forces += [-a.fx, -a.fy, -a.fz] #gradient of NEB.error
 			#increment step
 			NEB.step += 1
 			#print data
-			print NEB.step, NEB.error, ('%10.7g '*len(dft_energies)) % tuple(dft_energies)
+			print NEB.step, NEB.error, ('%9.6g '*len(V)) % tuple(V)
 	
 		@staticmethod
 		def get_error(coords):
