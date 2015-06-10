@@ -35,7 +35,7 @@ g09 <<END > '''+run_name+'''.log
 %NProcShared=1
 %RWF=/tmp/
 %Chk='''+run_name+'''.chk
-%Mem=50MW
+%Mem=25MW
 '''
 			inp.write(csh+head+xyz+extra_section+'\neof\nrm /tmp/*.rwf')
 		if previous:	
@@ -353,7 +353,7 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 						
 						#TODO: get NEB energies rigorously such that NEB force = -gradient(NEB energy)
 						#this is good enough for now:
-						energies[i] += 0.5*NEB.k*(utils.dist_squared(a,b) + utils.dist_squared(b,c))
+						#energies[i] += 0.5*NEB.k*(utils.dist_squared(a,b) + utils.dist_squared(b,c))
 						
 						#old method
 						#b.fx += NEB.k*(a.x-b.x) + NEB.k*(c.x-b.x)
@@ -391,6 +391,131 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 
 	n = NEB(name, states, theory, k)
 	minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_forces, options={'disp': True})
+
+
+def neb_verlet(name, states, theory, extra_section='', queue=None, spring_atoms=None, k=0.1837, fit_rigid=True, dt=1.0): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
+#Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
+	from scipy.optimize import minimize
+	import numpy as np
+	#set which atoms will be affected by virtual springs
+	if not spring_atoms:#if not given, select all
+		spring_atoms = range(len(states[0]))
+	elif type(spring_atoms)==str: #a list of element names
+		elements = spring_atoms.split()
+		spring_atoms = [i for i,a in enumerate(states[0]) if a.element in elements]
+	#class to contain working variables
+			
+	if fit_rigid:
+		#center all states around spring-held atoms
+		for s in states:
+			center_x = sum([a.x for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
+			center_y = sum([a.y for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
+			center_z = sum([a.z for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
+			for a in s:
+				a.x -= center_x
+				a.y -= center_y
+				a.z -= center_z
+		#rotate all states to be as similar to their neighbors as possible
+		from scipy.linalg import orthogonal_procrustes
+		for i in range(1,len(states)): #rotate all states to optimal alignment
+			#only count spring-held atoms for finding alignment
+			spring_atoms_1 = [(a.x,a.y,a.z) for j,a in enumerate(states[i]) if j in spring_atoms]
+			spring_atoms_2 = [(a.x,a.y,a.z) for j,a in enumerate(states[i-1]) if j in spring_atoms]
+			rotation = orthogonal_procrustes(spring_atoms_1,spring_atoms_2)[0]
+			#rotate all atoms into alignment
+			for a in states[i]:
+				a.x,a.y,a.z = utils.matvec(rotation, (a.x,a.y,a.z))
+	
+	for s in states:
+		for a in s:
+			a.vx, a.vy, a.vz = 0.0, 0.0, 0.0
+			a.ax, a.ay, a.az = 0.0, 0.0, 0.0
+	for step in range(10):
+		#start DFT jobs
+		if step>1:
+			running_jobs = []
+			for i,state in enumerate(states):
+				if step>0:
+					if (i==0 or i==len(states)-1): #only perform evaluations of endpoints on first step
+						continue
+					guess = ' Guess=Read'
+				else: guess = '' #no previous guess for first step
+				running_jobs.append( job('%s-%d-%d'%(name,step,i), theory+' Force'+guess, state, queue=queue, force=True, previous=('%s-%d-%d'%(name,step-1,i)) if step>0 else None, extra_section=extra_section) )
+			#wait for jobs to finish
+			for j in running_jobs: j.wait()
+		#get forces and energies from DFT calculations
+		V = [] #potential energy
+		for i,state in enumerate(states):
+			try:
+				if (i==0 or i==len(states)-1): # if at an endpoint, just use first step's result
+					step_to_use = 0
+				else:
+					step_to_use = step
+				new_energy, new_atoms = parse_atoms('%s-%d-%d' % (name, step_to_use, i), check_convergence=False)
+			except:
+				print "Unexpected error in 'parse_atoms':", sys.exc_info()[0]
+				print 'Job failed: %s-%d-%d'%(name,step,i); exit()
+			V.append(new_energy)
+			for a,b in zip(state, new_atoms):
+				a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
+		#add spring forces to atoms
+		for i,state in enumerate(states):
+			if i==0 or i==len(states)-1: continue #don't change first or last state
+			for j,b in enumerate(state):
+				if j in spring_atoms:
+					a,c = states[i-1][j], states[i+1][j]
+					#find tangent
+					tplus = np.array( [ c.x-b.x, c.y-b.y, c.z-b.z ] )
+					tminus = np.array( [ a.x-b.x, a.y-b.y, a.z-b.z ] )
+					dVmin = min(V[i+1]-V[i], V[i-1]-V[i])
+					dVmax = max(V[i+1]-V[i], V[i-1]-V[i])
+					if V[i+1]>V[i] and V[i]>V[i-1]: #not at an extremum, trend of V is up
+						tangent = tplus
+					elif V[i+1]<V[i] and V[i]<V[i-1]: #not at an extremum, trend of V is down
+						tangent = tminus
+					elif V[i+1]>V[i-1]: #at local extremum, next V is higher
+						tangent = tplus*dVmax + tminus*dVmin
+					else: #at local extremum, previous V is higher
+						tangent = tplus*dVmin + tminus*dVmax
+					#normalize tangent
+					tangent /= np.linalg.norm(tangent)
+					#find spring forces parallel to tangent
+					F_spring_parallel = k*( utils.dist(c,b) - utils.dist(b,a) ) * tangent
+					#find DFT forces perpendicular to tangent
+					real_force = np.array( [b.fx,b.fz,b.fz] )
+					F_real_perpendicular = real_force - np.dot(real_force, tangent)
+					#set forces
+					b.fx, b.fy, b.fz = F_spring_parallel + F_real_perpendicular
+		# Projected Velocity Verlet, http://theory.cm.utexas.edu/henkelman/pubs/henkelman00_269.pdf
+		masses = {'H':1.0008,'C':12.001,'O':15.998,'Si':28.085,'S':32.06,'Pb':208.2}
+		for state in states:
+			for a in state:
+				#a = F/m
+				a.ax_new = a.fx/masses[a.element]
+				a.ay_new = a.fy/masses[a.element]
+				a.az_new = a.fz/masses[a.element]
+				#project velocity along direction of force
+				a.vx, a.vy, a.vz = np.linalg.norm([a.vx,a.vy,a.vz]) * np.array([a.fx,a.fy,a.fz]) / np.linalg.norm([a.fx,a.fy,a.fz])
+				#zero velocity if it points opposite to force
+				if a.vx*a.fx < 0.0: a.vx = 0.0
+				if a.vy*a.fy < 0.0: a.vy = 0.0
+				if a.vz*a.fz < 0.0: a.vz = 0.0
+				#update position
+				a.x += a.vx*dt + 0.5*a.ax * dt**2
+				a.y += a.vy*dt + 0.5*a.ay * dt**2
+				a.z += a.vz*dt + 0.5*a.az * dt**2
+				#update velocity
+				a.vx += (a.ax + a.ax_new)*0.5*dt
+				a.vy += (a.ay + a.ay_new)*0.5*dt
+				a.vz += (a.az + a.az_new)*0.5*dt
+				#update acceleration
+				a.ax, a.ay, a.az = a.ax_new, a.ay_new, a.az_new
+		#print data
+		V = V[:1] + [ (e-V[0])/0.001 for e in V[1:] ]
+		print step, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:])
+		#increment step
+		step += 1
+
 
 def optimize_pm6(name, examples, param_string, starting_params, queue=None): #optimize a custom PM6 semi-empirical method based on Gaussian examples at a higher level of theory
 	from scipy.optimize import minimize
