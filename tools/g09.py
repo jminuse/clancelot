@@ -236,7 +236,7 @@ def parse_chelpg(input_file):
 	return charges
 
 def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k=0.1837, fit_rigid=True): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
-#Note: this is just an elastic band method, not Nudged Elastic Band, because it does not yet decompose the forces into perpendicular/parallel components. See http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
+#Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
 	from scipy.optimize import minimize
 	import numpy as np
 	#set which atoms will be affected by virtual springs
@@ -296,8 +296,8 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 				if NEB.step>0:
 					if (i==0 or i==len(NEB.states)-1): #only perform evaluations of endpoints on first step
 						continue
-					guess = '' #no previous guess for first step
-				else: guess = ' Guess=Read'
+					guess = ' Guess=Read'
+				else: guess = '' #no previous guess for first step
 				running_jobs.append( job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+' Force'+guess, state, queue=queue, force=True, previous=('%s-%d-%d'%(NEB.name,NEB.step-1,i)) if NEB.step>0 else None, extra_section=extra_section) )
 			#wait for jobs to finish
 			for j in running_jobs: j.wait()
@@ -309,7 +309,7 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 						step_to_use = 0
 					else:
 						step_to_use = NEB.step
-					new_energy, new_atoms = parse_atoms('%s-%d-%d' % (NEB.name, step_to_use, i))
+					new_energy, new_atoms = parse_atoms('%s-%d-%d' % (NEB.name, step_to_use, i), check_convergence=False)
 				except:
 					print "Unexpected error in 'parse_atoms':", sys.exc_info()[0]
 					print 'Job failed: %s-%d-%d'%(NEB.name,NEB.step,i); exit()
