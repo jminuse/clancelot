@@ -292,8 +292,12 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 					coord_count += 3
 			#start DFT jobs
 			running_jobs = []
-			for i,state in enumerate(NEB.states): #TODO: only perform evaluations of endpoints once
-				guess = '' if NEB.step==0 else ' Guess=Read'
+			for i,state in enumerate(NEB.states):
+				if NEB.step>0:
+					if (i==0 or i==len(NEB.states)-1): #only perform evaluations of endpoints on first step
+						continue
+					guess = '' #no previous guess for first step
+				else: guess = ' Guess=Read'
 				running_jobs.append( job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+' Force'+guess, state, queue=queue, force=True, previous=('%s-%d-%d'%(NEB.name,NEB.step-1,i)) if NEB.step>0 else None, extra_section=extra_section) )
 			#wait for jobs to finish
 			for j in running_jobs: j.wait()
@@ -301,7 +305,11 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 			energies = []
 			for i,state in enumerate(NEB.states):
 				try:
-					new_energy, new_atoms = parse_atoms('%s-%d-%d'%(NEB.name,NEB.step,i))
+					if (i==0 or i==len(NEB.states)-1): # if at an endpoint, just use first step's result
+						step_to_use = 0
+					else:
+						step_to_use = NEB.step
+					new_energy, new_atoms = parse_atoms('%s-%d-%d' % (NEB.name, step_to_use, i))
 				except:
 					print "Unexpected error in 'parse_atoms':", sys.exc_info()[0]
 					print 'Job failed: %s-%d-%d'%(NEB.name,NEB.step,i); exit()
@@ -359,10 +367,11 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 			for state in NEB.states[1:-1]:
 				for a in state:
 					NEB.forces += [-a.fx, -a.fy, -a.fz] #gradient of NEB.error
+			#print data
+			V = V[:1] + [ (e-V[0])/0.001 for e in V[1:] ]
+			print NEB.step, '%8.6g:' % NEB.error, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:])
 			#increment step
 			NEB.step += 1
-			#print data
-			print NEB.step, NEB.error, ('%9.6g '*len(V)) % tuple(V)
 	
 		@staticmethod
 		def get_error(coords):
