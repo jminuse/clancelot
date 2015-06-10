@@ -12,18 +12,12 @@ to_install = {
 'chkg_all':1,
 'scang':1,
 'junest (formerly juju)':1,
-'python 2.7.10':1,
-'cython-0.22':1,
-'numpy':1,
-'scipy':1,
-'matplotlib':1,
-'vmd default settings':1,
-'file_browser':1, # set the file browser not to open a new window per folder
+'anaconda':1, 				# a Python 2.7.9 distribution that installs to ~/anaconda
+'vmd default settings':1,	# improves the default settings of vmd
+'file_browser':1, 			# set the file browser not to open a new window per folder
 'merlin':1,
 'sublime_text_3_build_3083':1
 }
-# Is this your first time running this script? (To avoid redundant additions to .zshrc)
-first_time = 1
 
 ####################################################################################################################
 if to_install['file_browser']:
@@ -37,8 +31,17 @@ if INSTALLDIR[-1] != '/': INSTALLDIR += '/' # Ensure there is a trailing slash
 ZSHRC = '/fs/home/'+USERNAME+'/.zshrc'
 ZSH_CLANCELOT = '/fs/home/' + USERNAME + '/.zsh_clancelot'
 BASHRC = '/fs/home/'+USERNAME+'/.bashrc'
+temp=open(ZSHRC)
+zshrc_string=temp.read()
+temp.close()
 
-if first_time:
+def zshrc_check_add(st,path,zshrc_contents):
+	if st not in zshrc_contents:
+		f=open(ZSHRC,'a')
+		f.write('\n'+st+'\n')
+		f.close
+
+if 'source ~/.zsh_clancelot' not in zshrc_string:
 	f=open(ZSHRC,'a')
 	f.write('''\n# The following loads the Clancelot Config File
 if [ -f ~/.zsh_clancelot ]; then
@@ -74,6 +77,7 @@ for key in to_install: # Make directories for what we want to install
 	if key == 'vmd default settings': continue
 	if key == 'file_browser': continue
 	if key == 'matplotlib': continue
+	if key == 'anaconda': continue
 	if key == 'sublime_text_3_build_3083': continue
 	if to_install[key]: os.system('mkdir -p '+INSTALLDIR+key+'/')
 
@@ -90,6 +94,7 @@ export PYTHONPATH=$$$$$$/tools:$PYTHONPATH
 alias get_ext_list='python $$$$$$/tools/get_ext_list.py'
 alias get_gauss_list='python $$$$$$/tools/get_gauss_list.py'
 alias get_jlist='python $$$$$$/tools/get_jlist.py'
+alias merlin='python -i $$$$$$/tools/merlin.py'
 
 '''.replace('$$$$$$/',INSTALLDIR))
 
@@ -223,10 +228,46 @@ f.write('''\n###############################################################
 f.close()
 
 downloaded_tarball=False
+
+#####The following is from http://code.activestate.com/recipes/134892/
+#####As opposed to raw_input() it does not require '\n' to end the input
+class _Getch:
+    """Gets a single character from standard input.  Does not echo to the screen."""
+    def __init__(self):
+        try:
+            self.impl = _GetchUnix()
+        except ImportError:
+            self.impl = _GetchWindows()
+
+    def __call__(self): return self.impl()
+class _GetchUnix:
+    def __init__(self):
+        import tty, sys
+
+    def __call__(self):
+        import sys, tty, termios
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch
+class _GetchWindows:
+    def __init__(self):
+        import msvcrt
+
+    def __call__(self):
+        import msvcrt
+        return msvcrt.getch()
+getch = _Getch()
+#####
+
 def reinstall(str):
 	while True:
 		print(str+' y/n:')
-		resp=raw_input()
+		resp=getch()
 		if resp=='y':
 			return True
 		if resp=='n':
@@ -238,153 +279,59 @@ if to_install['vmd default settings']:
 			os.system('mv ~/.vmdrc ~/.vmdrc_history')
 	os.system('cp vmdrc_default.txt ~/.vmdrc')
 
-def python_install():
-	os.system('mkdir -p /fs/home/' + USERNAME + '/lib')
-	os.system('wget -P /fs/home/'+USERNAME+'/lib/ https://www.python.org/ftp/python/2.7.10/Python-2.7.10.tar.xz')
-	os.system('tar xvf /fs/home/'+USERNAME+'/lib/Python-2.7.10.tar.xz -C /fs/home/' + USERNAME + '/lib/')
-	downloaded_tarball=True
-	os.system('cd ~/lib/Python-2.7.10/')
-	os.chdir('/fs/home/'+USERNAME+'/lib/Python-2.7.10/')
-	os.system('bash /fs/home/'+USERNAME+'/lib/Python-2.7.10/configure --prefix=/fs/home/'+USERNAME+'/lib/Python-2.7.10/')
-	os.system('make')
-	os.system('make install')
-	f = open(ZSHRC,'a')
-	f.write("\nexport PATH=$HOME/lib/Python-2.7.10/bin:$PATH\n")
-	f.close()
-	os.system('export PATH=~/lib/Python-2.7.10/bin:$PATH')
-
-def cython_install():
-	os.system('mkdir -p /fs/home/' + USERNAME + '/lib')
-	os.system('wget -P ~/lib/ http://cython.org/release/Cython-0.22.tar.gz')
-	os.system('tar xvf /fs/home/'+USERNAME+'/lib/Cython-0.22.tar.gz -C /fs/home/' + USERNAME + '/lib/')
-	downloaded_tarball=True
-	os.system('cd ~/lib/Cython-0.22')
-	os.chdir('/fs/home/'+USERNAME+'/lib/Cython-0.22')
-	os.system('python setup.py install')
-	f = open(ZSHRC,'a')
-	f.write("\nexport PATH=~/lib/Cython-0.22/bin:$PATH\n")
-	f.close()
-	os.system('export PATH=~/lib/Cython-0.22/bin:$PATH')
-
-def numpy_install():
-	os.system('mkdir -p /fs/home/' + USERNAME + '/lib/Python-2.7.10')
-	os.system('git clone git://github.com/numpy/numpy.git ~/lib/numpy')
-	os.chdir('/fs/home/'+USERNAME+'/lib/numpy')
-	os.system('python setup.py install --home=~/lib/Python-2.7.10/')
-	os.system('export PYTHONPATH=~/lib/Python-2.7.10/lib/python:$PYTHONPATH')
-	f = open(ZSHRC,'a')
-	f.write("\nexport PYTHONPATH=~/lib/Python-2.7.10/lib/python:$PYTHONPATH\n")
-	f.close()
-
-def scipy_install():
-	os.system('mkdir -p /fs/home/' + USERNAME + '/lib/Python-2.7.10')
-	os.system('git clone git://github.com/scipy/scipy.git ~/lib/scipy')
-	os.chdir('/fs/home/'+USERNAME+'/lib/scipy')
-	os.system('python setup.py install --home=~/lib/Python-2.7.10/')
-	os.system('export PYTHONPATH=~/lib/Python-2.7.10/lib/python:$PYTHONPATH')
-	f = open(ZSHRC,'a')
-	f.write("\nexport PYTHONPATH=~/lib/Python-2.7.10/lib/python:$PYTHONPATH\n")
-	f.close()
-
-def matplotlib_install():
-	os.system('mkdir -p /fs/home/'+USERNAME+ '/lib/Python-2.7.10')
-	os.system('curl -o ~/lib/matplotlib-1.4.3.tar.gz -LO http://downloads.sourceforge.net/project/matplotlib/matplotlib/matplotlib-1.4.3/matplotlib-1.4.3.tar.gz')
-	os.system('tar xvf /fs/home/'+USERNAME+'/lib/matplotlib-1.4.3.tar.gz -C /fs/home/' + USERNAME + '/lib/')
-	downloaded_tarball=True
-	os.chdir('/fs/home/'+USERNAME+'/lib/matplotlib-1.4.3/')
-	os.system('python setup.py build')
-	os.system('python setup.py install')
+def anaconda_install():
+	os.system('wget -P ~/lib/ https://repo.continuum.io/archive/Anaconda-2.2.0-Linux-x86_64.sh')
+	os.system('bash ~/lib/Anaconda-2.2.0-Linux-x86_64.sh -fb')
+	zshrc_check_add('export PATH=~/anaconda/bin:$PATH',ZSHRC,zshrc_string)
+	zshrc_check_add('export PYTHONPATH=~/anaconda/pkgs/python-2.7.9-2/bin/python:$PYTHONPATH',ZSHRC,zshrc_string)
+	os.system('rm ~/lib/Anaconda-2.2.0-Linux-x86_64.sh')
 
 def sublime_install():
 	os.system('mkdir -p /fs/home/'+USERNAME+'/lib')
 	os.system('wget -P ~/lib/ http://c758482.r82.cf2.rackcdn.com/sublime_text_3_build_3083_x64.tar.bz2')
 	os.system('tar xvf /fs/home/'+USERNAME+'/lib/sublime_text_3_build_3083_x64.tar.bz2 -C /fs/home/' + USERNAME + '/lib/')
-	downloaded_tarball=True
-	f = open(ZSHRC,'a')
-	f.write("\nalias sublime='~/lib/sublime_text_3/sublime_text'\n")
-	f.write("\nalias subl='~/lib/sublime_text_3/sublime_text'\n")
-	f.close()
+	zshrc_check_add("alias sublime='~/lib/sublime_text_3/sublime_text",ZSHRC,zshrc_string)
+	zshrc_check_add("alias subl='~/lib/sublime_text_3/sublime_text",ZSHRC,zshrc_string)
 
 def junest_install():
 	os.system('git clone git://github.com/fsquillace/juju ~/juju --quiet')
-	f = open(ZSHRC,'a')
-	f.write("\nexport PATH=~/juju/bin:$PATH\n")
-#	f.write("alias juju='junest'")
-	f.close()
-	print("\nTo finish installing 'junest' please run:\n'pacman -Syyu pacman-mirrorlist && pacman -S gtk2 avogadro grep make ttf-liberation gedit'\n\n(when prompted for GL version, pick option 2, nvidia)\n\n\n")
-	os.system("zsh -c 'junest -f'")
+	zshrc_check_add("export PATH=~/juju/bin:$PATH",ZSHRC,zshrc_string)
+	zshrc_check_add("alias juju='junest'",ZSHRC,zshrc_string)
 
-
-if to_install['python 2.7.10']:
-	if os.path.exists('/fs/home/'+USERNAME+'/lib/Python-2.7.10') & os.path.isdir('/fs/home/'+USERNAME+'/lib/Python-2.7.10'):
-		if reinstall('Previous installation found, reinstall Python-2.7.10?'):
-			os.system('rm -rf /fs/home/'+USERNAME+'/lib/Python-2.7.10')
-			python_install()
+if to_install['anaconda']:
+	if os.path.exists('/fs/home/'+USERNAME+'/anaconda') & os.path.isdir('/fs/home/'+USERNAME+'/anaconda'):
+		if reinstall('Previous installation found, reinstall Anaconda (Python 2.7.9 and packages)?'):
+			anaconda_install()
 		else:
-			print('...SKIPPING PYTHON (RE)INSTALLATION...')
+			print('...SKIPPING ANACONDA (RE)INSTALLATION...')
 	else:
-		python_install()
-
-	
-if to_install['cython-0.22']:
-	if os.path.exists('/fs/home/'+USERNAME+'/lib/Cython-0.22') & os.path.isdir('/fs/home/'+USERNAME+'/lib/Cython-0.22'):
-		if reinstall('Previous installation found, reinstall Cython-0.22?'):
-			os.system('rm -rf /fs/home/'+USERNAME+'/lib/Cython-0.22')
-			cython_install()
-		else:
-			print('...SKIPPING CYTHON (RE)INSTALLATION...')
-	else:
-		cython_install()
-
-if to_install['numpy']:
-	if os.path.exists('/fs/home/'+USERNAME+'/lib/numpy') & os.path.isdir('/fs/home/'+USERNAME+'/lib/numpy'):
-		if reinstall('Previous installation found, reinstall numpy?'):
-			os.system('rm -rf /fs/home/'+USERNAME+'/lib/numpy')
-			numpy_install()
-		else:
-			print('...SKIPPING NUMPY (RE)INSTALLATION...')
-	else:
-		numpy_install()
-	
-if to_install['scipy']:
-	if os.path.exists('/fs/home/'+USERNAME+'/lib/scipy') & os.path.isdir('/fs/home/'+USERNAME+'/lib/scipy'):
-		if reinstall('Previous installation found, reinstall scipy?'):
-			os.system('rm -rf /fs/home/'+USERNAME+'/lib/scipy')
-			scipy_install()
-		else:
-			print('...SKIPPING SCIPY (RE)INSTALLATION...')
-	else:
-		scipy_install()
-
-if to_install['matplotlib']:
-	if os.path.exists('/fs/home/'+USERNAME+'/lib/matplotlib-1.4.3') & os.path.isdir('/fs/home/'+USERNAME+'/lib/matplotlib-1.4.3'):
-		if reinstall('Previous installation found, reinstall matplotlib?'):
-			os.system('rm -rf /fs/home/'+USERNAME+'/lib/matplotlib-1.4.3')
-			matplotlib_install()
-		else:
-			print('...SKIPPING MATPLOTLIB (RE)INSTALLATION...')
-	else:
-		matplotlib_install()
+		anaconda_install()
 
 if to_install['sublime_text_3_build_3083']:
 	if os.path.exists('/fs/home/'+USERNAME+'/lib/sublime_text_3') & os.path.isdir('/fs/home/'+USERNAME+'/lib/sublime_text_3'):
 		if reinstall('Previous installation found, reinstall Sublime Text 3?'):
 			os.system('rm -rf /fs/home/'+USERNAME+'/lib/sublime_text_3')
 			sublime_install()
+			downloaded_tarball=True
 		else:
 			print('...SKIPPING SUBLIME (RE)INSTALLATION...')
 	else:
 		sublime_install()
+		downloaded_tarball=True
 
 if to_install['junest (formerly juju)']: 
 	if os.path.exists('/fs/home/'+USERNAME+'/juju') & os.path.isdir('/fs/home/'+USERNAME+'/juju'):
 		if reinstall('Previous installation found, reinstall juju/junest?'):
 			os.system('rm -rf /fs/home/'+USERNAME+'/.juju /fs/home/'+USERNAME+'/.junest')
 			junest_install()
+			print("\nTo finish installing 'junest' please run:\n'pacman -Syyu pacman-mirrorlist && pacman -S gtk2 avogadro grep make ttf-liberation gedit'\n\n(when prompted for GL version, pick option 2, nvidia)\n\n\n")
+			os.system("zsh -c 'junest -f'")
 		else:
 			print('...SKIPPING JUJU/JUNEST (RE)INSTALLATION...')
 	else:
 		junest_install()
+		print("\nTo finish installing 'junest' please run:\n'pacman -Syyu pacman-mirrorlist && pacman -S gtk2 avogadro grep make ttf-liberation gedit'\n\n(when prompted for GL version, pick option 2, nvidia)\n\n\n")
+		os.system("zsh -c 'junest -f'")
 
 if downloaded_tarball:
 	print('Removing previously downloaded tarballs')
