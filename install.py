@@ -90,6 +90,7 @@ export PYTHONPATH=$$$$$$/tools:$PYTHONPATH
 alias get_ext_list='python $$$$$$/tools/get_ext_list.py'
 alias get_gauss_list='python $$$$$$/tools/get_gauss_list.py'
 alias get_jlist='python $$$$$$/tools/get_jlist.py'
+alias merlin='python -i $$$$$$/tools/merlin.py'
 
 '''.replace('$$$$$$/',INSTALLDIR))
 
