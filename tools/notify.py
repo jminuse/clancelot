@@ -6,11 +6,10 @@ from email.mime.text import MIMEText
 msg = MIMEText(sys.argv[1] + " has finished")
 
 msg['Subject'] = "Simulation Notification"
-msg['From'] = "hherbol@gmail.com"
+msg['From'] = "g_pc@cbe.cornell.edu"
 msg['To'] = sys.argv[2]
 
-# Send the message via our own SMTP server, but don't include the
-# envelope header.
+# Send the message via our own SMTP server, but don't include the envelope header.
 s = smtplib.SMTP('localhost')
-s.sendmail("hherbol@gmail.com", [sys.argv[2]], msg.as_string())
+s.sendmail("g_pc@cbe.cornell.edu", [sys.argv[2]], msg.as_string())
 s.quit()

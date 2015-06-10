@@ -19,6 +19,7 @@ to_install = {
 'matplotlib':0,
 'vmd default settings':1,
 'file_browser':1 # set the file browser not to open a new window per folder
+'merlin':1
 }
 # Is this your first time running this script? (To avoid redundant additions to .zshrc)
 first_time = 1
@@ -80,6 +81,8 @@ f = open(ZSH_CLANCELOT,'w+')
 f.write('''###############################################################
 ############### THE FOLLOWING IS FOR CLANCELOT ################
 ###############################################################
+# Append Path
+export PYTHONPATH=$$$$$$/tools:$PYTHONPATH
 
 # Aliases for our tools
 alias get_ext_list='python $$$$$$/tools/get_ext_list.py'
@@ -209,6 +212,7 @@ if to_install['chkg']:
 	g.close()
 	os.system('chmod 755 '+INSTALLDIR+'chkg/chkg.sh')
 if to_install['chkg_all']: f.write("alias chkg_all='python "+INSTALLDIR+"tools/chkg_all.py'\n")
+if to_install['merlin']: f.write("alias merlin='python "+INSTALLDIR+"tools/merlin.py'\n")
 if to_install['scang']: f.write("\nalias scang='python /fs/home/jms875/scan.py'\n")
 
 f.write('''\n###############################################################
