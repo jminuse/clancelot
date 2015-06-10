@@ -12,13 +12,14 @@ to_install = {
 'chkg_all':1,
 'scang':1,
 'junest (formerly juju)':1,
-'python 2.7.10':1,
-'cython-0.22':1,
-'numpy':1,
-'scipy':1,
-'matplotlib':1,
-'vmd default settings':1,
-'file_browser':1, # set the file browser not to open a new window per folder
+# 'python 2.7.10':0,
+# 'cython-0.22':0,
+# 'numpy':0,
+# 'scipy':0,
+# 'matplotlib':0,
+'anaconda':1, 				# a Python 2.7.9 distribution that installs to ~/anaconda
+'vmd default settings':1,	# improves the default settings of vmd
+'file_browser':1, 			# set the file browser not to open a new window per folder
 'merlin':1,
 'sublime_text_3_build_3083':1
 }
@@ -74,6 +75,7 @@ for key in to_install: # Make directories for what we want to install
 	if key == 'vmd default settings': continue
 	if key == 'file_browser': continue
 	if key == 'matplotlib': continue
+	if key == 'anaconda': continue
 	if key == 'sublime_text_3_build_3083': continue
 	if to_install[key]: os.system('mkdir -p '+INSTALLDIR+key+'/')
 
@@ -275,62 +277,71 @@ if to_install['vmd default settings']:
 			os.system('mv ~/.vmdrc ~/.vmdrc_history')
 	os.system('cp vmdrc_default.txt ~/.vmdrc')
 
-def python_install():
-	os.system('mkdir -p /fs/home/' + USERNAME + '/lib')
-	os.system('wget -P /fs/home/'+USERNAME+'/lib/ https://www.python.org/ftp/python/2.7.10/Python-2.7.10.tar.xz')
-	os.system('tar xvf /fs/home/'+USERNAME+'/lib/Python-2.7.10.tar.xz -C /fs/home/' + USERNAME + '/lib/')
-	downloaded_tarball=True
-	os.system('cd ~/lib/Python-2.7.10/')
-	os.chdir('/fs/home/'+USERNAME+'/lib/Python-2.7.10/')
-	os.system('bash /fs/home/'+USERNAME+'/lib/Python-2.7.10/configure --prefix=/fs/home/'+USERNAME+'/lib/Python-2.7.10/')
-	os.system('make')
-	os.system('make install')
-	f = open(ZSHRC,'a')
-	f.write("\nexport PATH=$HOME/lib/Python-2.7.10/bin:$PATH\n")
-	f.close()
-	os.system('export PATH=~/lib/Python-2.7.10/bin:$PATH')
+# def python_install():
+# 	os.system('mkdir -p /fs/home/' + USERNAME + '/lib')
+# 	os.system('wget -P /fs/home/'+USERNAME+'/lib/ https://www.python.org/ftp/python/2.7.10/Python-2.7.10.tar.xz')
+# 	os.system('tar xvf /fs/home/'+USERNAME+'/lib/Python-2.7.10.tar.xz -C /fs/home/' + USERNAME + '/lib/')
+# 	downloaded_tarball=True
+# 	os.system('cd ~/lib/Python-2.7.10/')
+# 	os.chdir('/fs/home/'+USERNAME+'/lib/Python-2.7.10/')
+# 	os.system('bash /fs/home/'+USERNAME+'/lib/Python-2.7.10/configure --prefix=/fs/home/'+USERNAME+'/lib/Python-2.7.10/')
+# 	os.system('make')
+# 	os.system('make install')
+# 	f = open(ZSHRC,'a')
+# 	f.write("\nexport PATH=$HOME/lib/Python-2.7.10/bin:$PATH\n")
+# 	f.close()
+# 	os.system('export PATH=~/lib/Python-2.7.10/bin:$PATH')
 
-def cython_install():
-	os.system('mkdir -p /fs/home/' + USERNAME + '/lib')
-	os.system('wget -P ~/lib/ http://cython.org/release/Cython-0.22.tar.gz')
-	os.system('tar xvf /fs/home/'+USERNAME+'/lib/Cython-0.22.tar.gz -C /fs/home/' + USERNAME + '/lib/')
-	downloaded_tarball=True
-	os.system('cd ~/lib/Cython-0.22')
-	os.chdir('/fs/home/'+USERNAME+'/lib/Cython-0.22')
-	os.system('python setup.py install')
-	f = open(ZSHRC,'a')
-	f.write("\nexport PATH=~/lib/Cython-0.22/bin:$PATH\n")
-	f.close()
-	os.system('export PATH=~/lib/Cython-0.22/bin:$PATH')
+# def cython_install():
+# 	os.system('mkdir -p /fs/home/' + USERNAME + '/lib')
+# 	os.system('wget -P ~/lib/ http://cython.org/release/Cython-0.22.tar.gz')
+# 	os.system('tar xvf /fs/home/'+USERNAME+'/lib/Cython-0.22.tar.gz -C /fs/home/' + USERNAME + '/lib/')
+# 	downloaded_tarball=True
+# 	os.system('cd ~/lib/Cython-0.22')
+# 	os.chdir('/fs/home/'+USERNAME+'/lib/Cython-0.22')
+# 	os.system('python setup.py install')
+# 	f = open(ZSHRC,'a')
+# 	f.write("\nexport PATH=~/lib/Cython-0.22/bin:$PATH\n")
+# 	f.close()
+# 	os.system('export PATH=~/lib/Cython-0.22/bin:$PATH')
 
-def numpy_install():
-	os.system('mkdir -p /fs/home/' + USERNAME + '/lib/Python-2.7.10')
-	os.system('git clone git://github.com/numpy/numpy.git ~/lib/numpy')
-	os.chdir('/fs/home/'+USERNAME+'/lib/numpy')
-	os.system('python setup.py install --home=~/lib/Python-2.7.10/')
-	os.system('export PYTHONPATH=~/lib/Python-2.7.10/lib/python:$PYTHONPATH')
-	f = open(ZSHRC,'a')
-	f.write("\nexport PYTHONPATH=~/lib/Python-2.7.10/lib/python:$PYTHONPATH\n")
-	f.close()
+# def numpy_install():
+# 	os.system('mkdir -p /fs/home/' + USERNAME + '/lib/Python-2.7.10')
+# 	os.system('git clone git://github.com/numpy/numpy.git ~/lib/numpy')
+# 	os.chdir('/fs/home/'+USERNAME+'/lib/numpy')
+# 	os.system('python setup.py install --home=~/lib/Python-2.7.10/')
+# 	os.system('export PYTHONPATH=~/lib/Python-2.7.10/lib/python:$PYTHONPATH')
+# 	f = open(ZSHRC,'a')
+# 	f.write("\nexport PYTHONPATH=~/lib/Python-2.7.10/lib/python:$PYTHONPATH\n")
+# 	f.close()
 
-def scipy_install():
-	os.system('mkdir -p /fs/home/' + USERNAME + '/lib/Python-2.7.10')
-	os.system('git clone git://github.com/scipy/scipy.git ~/lib/scipy')
-	os.chdir('/fs/home/'+USERNAME+'/lib/scipy')
-	os.system('python setup.py install --home=~/lib/Python-2.7.10/')
-	os.system('export PYTHONPATH=~/lib/Python-2.7.10/lib/python:$PYTHONPATH')
-	f = open(ZSHRC,'a')
-	f.write("\nexport PYTHONPATH=~/lib/Python-2.7.10/lib/python:$PYTHONPATH\n")
-	f.close()
+# def scipy_install():
+# 	os.system('mkdir -p /fs/home/' + USERNAME + '/lib/Python-2.7.10')
+# 	os.system('git clone git://github.com/scipy/scipy.git ~/lib/scipy')
+# 	os.chdir('/fs/home/'+USERNAME+'/lib/scipy')
+# 	os.system('python setup.py install --home=~/lib/Python-2.7.10/')
+# 	os.system('export PYTHONPATH=~/lib/Python-2.7.10/lib/python:$PYTHONPATH')
+# 	f = open(ZSHRC,'a')
+# 	f.write("\nexport PYTHONPATH=~/lib/Python-2.7.10/lib/python:$PYTHONPATH\n")
+# 	f.close()
 
-def matplotlib_install():
-	os.system('mkdir -p /fs/home/'+USERNAME+ '/lib/Python-2.7.10')
-	os.system('curl -o ~/lib/matplotlib-1.4.3.tar.gz -LO http://downloads.sourceforge.net/project/matplotlib/matplotlib/matplotlib-1.4.3/matplotlib-1.4.3.tar.gz')
-	os.system('tar xvf /fs/home/'+USERNAME+'/lib/matplotlib-1.4.3.tar.gz -C /fs/home/' + USERNAME + '/lib/')
-	downloaded_tarball=True
-	os.chdir('/fs/home/'+USERNAME+'/lib/matplotlib-1.4.3/')
-	os.system('python setup.py build')
-	os.system('python setup.py install')
+# def matplotlib_install():
+# 	os.system('mkdir -p /fs/home/'+USERNAME+ '/lib/Python-2.7.10')
+# 	os.system('curl -o ~/lib/matplotlib-1.4.3.tar.gz -LO http://downloads.sourceforge.net/project/matplotlib/matplotlib/matplotlib-1.4.3/matplotlib-1.4.3.tar.gz')
+# 	os.system('tar xvf /fs/home/'+USERNAME+'/lib/matplotlib-1.4.3.tar.gz -C /fs/home/' + USERNAME + '/lib/')
+# 	downloaded_tarball=True
+# 	os.chdir('/fs/home/'+USERNAME+'/lib/matplotlib-1.4.3/')
+# 	os.system('python setup.py build')
+# 	os.system('python setup.py install')
+
+def anaconda_install():
+	os.system('wget -P ~/lib/ https://repo.continuum.io/archive/Anaconda-2.2.0-Linux-x86_64.sh')
+	os.system('bash ~/lib/Anaconda-2.2.0-Linux-x86_64.sh -fb')
+	f = open(ZSHRC,'a')
+	f.write("\nexport PATH=~/anaconda/bin:$PATH\n")
+	f.write("\nexport PYTHONPATH=~/anaconda/pkgs/python-2.7.9-2/bin/python:$PYTHONPATH\n")
+	f.close()
+	os.system('rm ~/lib/Anaconda-2.2.0-Linux-x86_64.sh')
 
 def sublime_install():
 	os.system('mkdir -p /fs/home/'+USERNAME+'/lib')
@@ -352,56 +363,66 @@ def junest_install():
 	os.system("zsh -c 'junest -f'")
 
 
-if to_install['python 2.7.10']:
-	if os.path.exists('/fs/home/'+USERNAME+'/lib/Python-2.7.10') & os.path.isdir('/fs/home/'+USERNAME+'/lib/Python-2.7.10'):
-		if reinstall('Previous installation found, reinstall Python-2.7.10?'):
-			os.system('rm -rf /fs/home/'+USERNAME+'/lib/Python-2.7.10')
-			python_install()
-		else:
-			print('...SKIPPING PYTHON (RE)INSTALLATION...')
-	else:
-		python_install()
+# if to_install['python 2.7.10']:
+# 	if os.path.exists('/fs/home/'+USERNAME+'/lib/Python-2.7.10') & os.path.isdir('/fs/home/'+USERNAME+'/lib/Python-2.7.10'):
+# 		if reinstall('Previous installation found, reinstall Python-2.7.10?'):
+# 			os.system('rm -rf /fs/home/'+USERNAME+'/lib/Python-2.7.10')
+# 			python_install()
+# 		else:
+# 			print('...SKIPPING PYTHON (RE)INSTALLATION...')
+# 	else:
+# 		python_install()
 
 	
-if to_install['cython-0.22']:
-	if os.path.exists('/fs/home/'+USERNAME+'/lib/Cython-0.22') & os.path.isdir('/fs/home/'+USERNAME+'/lib/Cython-0.22'):
-		if reinstall('Previous installation found, reinstall Cython-0.22?'):
-			os.system('rm -rf /fs/home/'+USERNAME+'/lib/Cython-0.22')
-			cython_install()
-		else:
-			print('...SKIPPING CYTHON (RE)INSTALLATION...')
-	else:
-		cython_install()
+# if to_install['cython-0.22']:
+# 	if os.path.exists('/fs/home/'+USERNAME+'/lib/Cython-0.22') & os.path.isdir('/fs/home/'+USERNAME+'/lib/Cython-0.22'):
+# 		if reinstall('Previous installation found, reinstall Cython-0.22?'):
+# 			os.system('rm -rf /fs/home/'+USERNAME+'/lib/Cython-0.22')
+# 			cython_install()
+# 		else:
+# 			print('...SKIPPING CYTHON (RE)INSTALLATION...')
+# 	else:
+# 		cython_install()
 
-if to_install['numpy']:
-	if os.path.exists('/fs/home/'+USERNAME+'/lib/numpy') & os.path.isdir('/fs/home/'+USERNAME+'/lib/numpy'):
-		if reinstall('Previous installation found, reinstall numpy?'):
-			os.system('rm -rf /fs/home/'+USERNAME+'/lib/numpy')
-			numpy_install()
-		else:
-			print('...SKIPPING NUMPY (RE)INSTALLATION...')
-	else:
-		numpy_install()
+# if to_install['numpy']:
+# 	if os.path.exists('/fs/home/'+USERNAME+'/lib/numpy') & os.path.isdir('/fs/home/'+USERNAME+'/lib/numpy'):
+# 		if reinstall('Previous installation found, reinstall numpy?'):
+# 			os.system('rm -rf /fs/home/'+USERNAME+'/lib/numpy')
+# 			numpy_install()
+# 		else:
+# 			print('...SKIPPING NUMPY (RE)INSTALLATION...')
+# 	else:
+# 		numpy_install()
 	
-if to_install['scipy']:
-	if os.path.exists('/fs/home/'+USERNAME+'/lib/scipy') & os.path.isdir('/fs/home/'+USERNAME+'/lib/scipy'):
-		if reinstall('Previous installation found, reinstall scipy?'):
-			os.system('rm -rf /fs/home/'+USERNAME+'/lib/scipy')
-			scipy_install()
-		else:
-			print('...SKIPPING SCIPY (RE)INSTALLATION...')
-	else:
-		scipy_install()
+# if to_install['scipy']:
+# 	if os.path.exists('/fs/home/'+USERNAME+'/lib/scipy') & os.path.isdir('/fs/home/'+USERNAME+'/lib/scipy'):
+# 		if reinstall('Previous installation found, reinstall scipy?'):
+# 			os.system('rm -rf /fs/home/'+USERNAME+'/lib/scipy')
+# 			scipy_install()
+# 		else:
+# 			print('...SKIPPING SCIPY (RE)INSTALLATION...')
+# 	else:
+# 		scipy_install()
 
-if to_install['matplotlib']:
-	if os.path.exists('/fs/home/'+USERNAME+'/lib/matplotlib-1.4.3') & os.path.isdir('/fs/home/'+USERNAME+'/lib/matplotlib-1.4.3'):
-		if reinstall('Previous installation found, reinstall matplotlib?'):
-			os.system('rm -rf /fs/home/'+USERNAME+'/lib/matplotlib-1.4.3')
-			matplotlib_install()
+# if to_install['matplotlib']:
+# 	if os.path.exists('/fs/home/'+USERNAME+'/lib/matplotlib-1.4.3') & os.path.isdir('/fs/home/'+USERNAME+'/lib/matplotlib-1.4.3'):
+# 		if reinstall('Previous installation found, reinstall matplotlib?'):
+# 			os.system('rm -rf /fs/home/'+USERNAME+'/lib/matplotlib-1.4.3')
+# 			matplotlib_install()
+# 		else:
+# 			print('...SKIPPING MATPLOTLIB (RE)INSTALLATION...')
+# 	else:
+# 		matplotlib_install()
+
+if to_install['anaconda']:
+	if os.path.exists('/fs/home/'+USERNAME+'/anaconda') & os.path.isdir('/fs/home/'+USERNAME+'/anaconda'):
+		if reinstall('Previous installation found, reinstall Anaconda (Python 2.7.9 and packages)?'):
+			anaconda_install()
 		else:
-			print('...SKIPPING MATPLOTLIB (RE)INSTALLATION...')
+			print('...SKIPPING ANACONDA (RE)INSTALLATION...')
 	else:
-		matplotlib_install()
+		anaconda_install()
+
 
 if to_install['sublime_text_3_build_3083']:
 	if os.path.exists('/fs/home/'+USERNAME+'/lib/sublime_text_3') & os.path.isdir('/fs/home/'+USERNAME+'/lib/sublime_text_3'):
