@@ -229,45 +229,25 @@ f.close()
 
 downloaded_tarball=False
 
-#####The following is from http://code.activestate.com/recipes/134892/
-#####As opposed to raw_input() it does not require '\n' to end the input
-class _Getch:
-    """Gets a single character from standard input.  Does not echo to the screen."""
-    def __init__(self):
-        try:
-            self.impl = _GetchUnix()
-        except ImportError:
-            self.impl = _GetchWindows()
-
-    def __call__(self): return self.impl()
-class _GetchUnix:
-    def __init__(self):
-        import tty, sys
-
-    def __call__(self):
-        import sys, tty, termios
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
-        try:
-            tty.setraw(sys.stdin.fileno())
-            ch = sys.stdin.read(1)
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-        return ch
-class _GetchWindows:
-    def __init__(self):
-        import msvcrt
-
-    def __call__(self):
-        import msvcrt
-        return msvcrt.getch()
-getch = _Getch()
+#####The following is modified from http://code.activestate.com/recipes/134892/
+#####As opposed to raw_input(), getchar() does not wait for a new line (*enter*)
+def getchar():
+    import tty, termios
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(sys.stdin.fileno())
+        ch = sys.stdin.read(1)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    return ch
 #####
+
 
 def reinstall(str):
 	while True:
 		print(str+' y/n:')
-		resp=getch()
+		resp=getchar()
 		if resp=='y':
 			return True
 		if resp=='n':
@@ -283,7 +263,7 @@ def anaconda_install():
 	os.system('wget -P ~/lib/ https://repo.continuum.io/archive/Anaconda-2.2.0-Linux-x86_64.sh')
 	os.system('bash ~/lib/Anaconda-2.2.0-Linux-x86_64.sh -fb')
 	zshrc_check_add('export PATH=~/anaconda/bin:$PATH',ZSHRC,zshrc_string)
-	zshrc_check_add('export PYTHONPATH=~/anaconda/pkgs/python-2.7.9-2/bin/python:$PYTHONPATH',ZSHRC,zshrc_string)
+	zshrc_check_add("export PYTHONPATH=''",ZSHRC,zshrc_string)
 	os.system('rm ~/lib/Anaconda-2.2.0-Linux-x86_64.sh')
 
 def sublime_install():
@@ -322,7 +302,9 @@ if to_install['sublime_text_3_build_3083']:
 if to_install['junest (formerly juju)']: 
 	if os.path.exists('/fs/home/'+USERNAME+'/juju') & os.path.isdir('/fs/home/'+USERNAME+'/juju'):
 		if reinstall('Previous installation found, reinstall juju/junest?'):
-			os.system('rm -rf /fs/home/'+USERNAME+'/.juju /fs/home/'+USERNAME+'/.junest')
+			os.system('mv /fs/home/'+USERNAME+'/juju /fs/home/'+USERNAME+'/.trash/')
+			if os.path.exists('/fs/home/'+USERNAME+'/.junest') & os.path.isdir('/fs/home/'+USERNAME+'/.junest'):
+				os.system('mv /fs/home/'+USERNAME+'/.junest /fs/home/'+USERNAME+'/.trash/')
 			junest_install()
 			print("\nTo finish installing 'junest' please run:\n'pacman -Syyu pacman-mirrorlist && pacman -S gtk2 avogadro grep make ttf-liberation gedit'\n\n(when prompted for GL version, pick option 2, nvidia)\n\n\n")
 			os.system("zsh -c 'junest -f'")

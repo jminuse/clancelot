@@ -19,7 +19,7 @@ def get_jlist():
 		if s==USER_NAME:
 			jlist = jlist + output[i+1] + " "
 
-	return jlist
+	return jlist.split()
 
 # A function that checks if the gaussian job 'run_name' exists in gaussian.log
 def chk_gaussian(run_name,sptr=None,force=False):
@@ -87,30 +87,30 @@ def put_gaussian(run_name,route,extra_section,blurb,eRec,force=False):
 	f.close()
 
 # A function to get energy data for output to screen and/or record to gaussian.log
-def chkg_E(fptr,record=False,unit='Ha',suppress=False):
+def chkg_E(fptr,unit='Ha',record=False,e_list=False,suppress=False):
 	# Read in data from file
 	energies, _, time = g09.parse_all("gaussian/"+fptr+".log")
 
 	# If you want the standard output to terminal, do this
 	if not suppress:
 		# Get all energy values
-		for e in energies: print(e)
+		if e_list:
+			for e in energies: print(e)
 		print('\n---------------------------------------------------')
 		print('Energy Data Points: '+str(len(energies)))
 		if len(energies)>2: print('dE 2nd last = '+str(units.convert_energy('Ha',unit,energies[-2]-energies[-3]))+' '+unit)
 		if len(energies)>1: print('dE last = '+str(units.convert_energy('Ha',unit,energies[-1]-energies[-2]))+' '+unit)
 		if len(energies)>0: print('Last Energy = '+str(energies[-1])+' Ha')
 		print('---------------------------------------------------')
-		print('CONVERGENCE CRITERIA GOES HERE')
+		if time: print 'Job finished in %.2g seconds' % time
+		elif (' '+fptr+' ') in get_jlist(): print 'Job is still running'
+		else: 
+			print 'Job failed to converge. Log file says:\n~~~~ End Of File Info'
+			os.system('tail -n 5 '+"gaussian/"+fptr+".log")
+			print '~~~~ Convergenge Criteria'
+			s = open('gaussian/'+fptr+'.log').read()
+			print('\n'.join(s[s.rfind("Converged?"):].split('\n')[1:5]))
 		print('---------------------------------------------------\n')
-		if time:
-			print 'Job finished in %.2g seconds' % time
-		elif (' '+fptr+' ') in jlist:
-			print 'Job is still running'
-		else:
-			print 'Job failed to converge. Log file says:'
-			os.system('tail -n 5 '+input)
-
 	# If you want to record data, do this
 	if record:
 		try: s = open('gaussian.log').read().replace('##$$@@#'+fptr+'#$@$#@#$',str(units.convert_energy('Ha',unit,energies[-1]))+' '+unit)
