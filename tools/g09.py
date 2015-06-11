@@ -120,7 +120,7 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, check_convergence=T
 		last_coordinates = contents.rindex('Input orientation:')
 		last_coordinates = contents.index('Coordinates (Angstroms)', last_coordinates)
 	except ValueError:
-		last_coordinates = contents.index('Coordinates (Angstroms)')
+		last_coordinates = contents.rindex('Coordinates (Angstroms)')
 	start = contents.index('---\n', last_coordinates)+4
 	end = contents.index('\n ---', start)
 	atoms = []
