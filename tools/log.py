@@ -108,7 +108,8 @@ def chkg_E(fptr,unit='Ha',record=False,e_list=False,suppress=False):
 			print 'Job failed to converge. Log file says:\n~~~~ End Of File Info'
 			os.system('tail -n 5 '+"gaussian/"+fptr+".log")
 			print '~~~~ Convergenge Criteria'
-			print('CONVERGENCE CRITERIA GOES HERE')
+			s = open('gaussian/'+fptr+'.log').read()
+			print('\n'.join(s[s.rfind("Converged?"):].split('\n')[1:5]))
 		print('---------------------------------------------------\n')
 	# If you want to record data, do this
 	if record:
