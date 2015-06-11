@@ -220,7 +220,7 @@ if to_install['chkg']:
 	os.system('chmod 755 '+INSTALLDIR+'chkg/chkg.sh')
 if to_install['chkg_all']: f.write("alias chkg_all='python "+INSTALLDIR+"tools/chkg_all.py'\n")
 if to_install['merlin']: f.write("alias merlin='python "+INSTALLDIR+"tools/merlin.py'\n")
-if to_install['scang']: f.write("\nalias scang='python /fs/home/jms875/scan.py'\n")
+if to_install['scang']: f.write("\nalias scang='python "+INSTALLDIR+"tools/scan.py'\n")
 
 f.write('''\n###############################################################
 ################## END OF THE CLANCELOT CODE ##################
@@ -263,7 +263,7 @@ def anaconda_install():
 	os.system('wget -P ~/lib/ https://repo.continuum.io/archive/Anaconda-2.2.0-Linux-x86_64.sh')
 	os.system('bash ~/lib/Anaconda-2.2.0-Linux-x86_64.sh -fb')
 	zshrc_check_add('export PATH=~/anaconda/bin:$PATH',ZSHRC,zshrc_string)
-	zshrc_check_add("export PYTHONPATH=''",ZSHRC,zshrc_string)
+	zshrc_check_add("export PYTHONPATH='"+INSTALLDIR+"/tools/'",ZSHRC,zshrc_string)
 	os.system('rm ~/lib/Anaconda-2.2.0-Linux-x86_64.sh')
 
 def sublime_install():
