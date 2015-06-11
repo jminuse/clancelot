@@ -351,22 +351,14 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 						#set NEB forces
 						b.fx, b.fy, b.fz = F_spring_parallel + F_real_perpendicular
 						
-						#TODO: get NEB energies rigorously such that NEB force = -gradient(NEB energy)
-						#this is good enough for now:
-						#energies[i] += 0.5*NEB.k*(utils.dist_squared(a,b) + utils.dist_squared(b,c))
-						
-						#old method
-						#b.fx += NEB.k*(a.x-b.x) + NEB.k*(c.x-b.x)
-						#b.fy += NEB.k*(a.y-b.y) + NEB.k*(c.y-b.y)
-						#b.fz += NEB.k*(a.z-b.z) + NEB.k*(c.z-b.z)
-						#energies[i] += 0.5*NEB.k*(utils.dist_squared(a,b) + utils.dist_squared(b,c))
+						#TODO: get NEB total energies such that NEB force = -gradient(NEB energy). For now, using plan DFT energy. 
 			#set error
 			NEB.error = sum(energies)
 			#set forces
 			NEB.forces = []
 			for state in NEB.states[1:-1]:
 				for a in state:
-					NEB.forces += [-a.fx, -a.fy, -a.fz] #gradient of NEB.error
+					NEB.forces += [-a.fx*1.8897, -a.fy*1.8897, -a.fz*1.8897] #gradient of NEB.error, Hartee/Angstrom
 			#print data
 			V = V[:1] + [ (e-V[0])/0.001 for e in V[1:] ]
 			print NEB.step, '%8.6g:' % NEB.error, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:])
