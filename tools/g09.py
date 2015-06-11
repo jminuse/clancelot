@@ -235,7 +235,7 @@ def parse_chelpg(input_file):
 			charges.append( float(columns[2]) )
 	return charges
 
-def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k=0.1837, fit_rigid=True): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
+def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k=0.1837): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
 #Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
 	from scipy.optimize import minimize
 	import numpy as np
@@ -246,6 +246,27 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 		elements = spring_atoms.split()
 		spring_atoms = [i for i,a in enumerate(states[0]) if a.element in elements]
 	#class to contain working variables
+	
+	def procrustes(frames):
+		for s in frames:
+			center_x = sum([a.x for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
+			center_y = sum([a.y for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
+			center_z = sum([a.z for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
+			for a in s:
+				a.x -= center_x
+				a.y -= center_y
+				a.z -= center_z
+		#rotate all frames to be as similar to their neighbors as possible
+		from scipy.linalg import orthogonal_procrustes
+		for i in range(1,len(frames)): #rotate all frames to optimal alignment
+			#only count spring-held atoms for finding alignment
+			spring_atoms_1 = [(a.x,a.y,a.z) for j,a in enumerate(frames[i]) if j in spring_atoms]
+			spring_atoms_2 = [(a.x,a.y,a.z) for j,a in enumerate(frames[i-1]) if j in spring_atoms]
+			rotation = orthogonal_procrustes(spring_atoms_1,spring_atoms_2)[0]
+			#rotate all atoms into alignment
+			for a in frames[i]:
+				a.x,a.y,a.z = utils.matvec(rotation, (a.x,a.y,a.z))
+	
 	class NEB:
 		name, states, theory, k = None, None, None, None
 		error, forces = None, None
@@ -256,26 +277,7 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 			NEB.theory = theory
 			NEB.k = k
 			
-			if fit_rigid:
-				#center all states around spring-held atoms
-				for s in states:
-					center_x = sum([a.x for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
-					center_y = sum([a.y for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
-					center_z = sum([a.z for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
-					for a in s:
-						a.x -= center_x
-						a.y -= center_y
-						a.z -= center_z
-				#rotate all states to be as similar to their neighbors as possible
-				from scipy.linalg import orthogonal_procrustes
-				for i in range(1,len(states)): #rotate all states to optimal alignment
-					#only count spring-held atoms for finding alignment
-					spring_atoms_1 = [(a.x,a.y,a.z) for j,a in enumerate(states[i]) if j in spring_atoms]
-					spring_atoms_2 = [(a.x,a.y,a.z) for j,a in enumerate(states[i-1]) if j in spring_atoms]
-					rotation = orthogonal_procrustes(spring_atoms_1,spring_atoms_2)[0]
-					#rotate all atoms into alignment
-					for a in states[i]:
-						a.x,a.y,a.z = utils.matvec(rotation, (a.x,a.y,a.z))
+			procrustes(NEB.states) #fit rigid before relaxing
 	
 			#load initial coordinates into flat array for optimizer
 			NEB.coords_start = []
@@ -317,6 +319,8 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 				for a,b in zip(state, new_atoms):
 					a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
 			V = copy.deepcopy(energies) # V = potential energy from DFT. energies = V+springs
+			#rigidly rotate jobs into alignment before calculating forces
+			procrustes(NEB.states)
 			#add spring forces to atoms
 			for i,state in enumerate(NEB.states):
 				if i==0 or i==len(NEB.states)-1: continue #don't change first or last state
