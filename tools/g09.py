@@ -361,7 +361,7 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 					NEB.forces += [-a.fx*1.8897, -a.fy*1.8897, -a.fz*1.8897] #gradient of NEB.error, Hartee/Angstrom
 			#print data
 			V = V[:1] + [ (e-V[0])/0.001 for e in V[1:] ]
-			print NEB.step, '%8.6g:' % NEB.error, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:])
+			print NEB.step, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:])
 			#increment step
 			NEB.step += 1
 	
@@ -395,8 +395,6 @@ def neb_verlet(name, states, theory, extra_section='', queue=None, spring_atoms=
 	elif type(spring_atoms)==str: #a list of element names
 		elements = spring_atoms.split()
 		spring_atoms = [i for i,a in enumerate(states[0]) if a.element in elements]
-	#class to contain working variables
-			
 	if fit_rigid:
 		#center all states around spring-held atoms
 		for s in states:
