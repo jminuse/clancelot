@@ -283,7 +283,7 @@ def anaconda_install():
 	os.system('wget -P ~/lib/ https://repo.continuum.io/archive/Anaconda-2.2.0-Linux-x86_64.sh')
 	os.system('bash ~/lib/Anaconda-2.2.0-Linux-x86_64.sh -fb')
 	zshrc_check_add('export PATH=~/anaconda/bin:$PATH',ZSHRC,zshrc_string)
-	zshrc_check_add('export PYTHONPATH=~/anaconda/pkgs/python-2.7.9-2/bin/python:$PYTHONPATH',ZSHRC,zshrc_string)
+	zshrc_check_add("export PYTHONPATH=''",ZSHRC,zshrc_string)
 	os.system('rm ~/lib/Anaconda-2.2.0-Linux-x86_64.sh')
 
 def sublime_install():
@@ -322,7 +322,9 @@ if to_install['sublime_text_3_build_3083']:
 if to_install['junest (formerly juju)']: 
 	if os.path.exists('/fs/home/'+USERNAME+'/juju') & os.path.isdir('/fs/home/'+USERNAME+'/juju'):
 		if reinstall('Previous installation found, reinstall juju/junest?'):
-			os.system('rm -rf /fs/home/'+USERNAME+'/.juju /fs/home/'+USERNAME+'/.junest')
+			os.system('mv /fs/home/'+USERNAME+'/juju /fs/home/'+USERNAME+'/.trash/')
+			if os.path.exists('/fs/home/'+USERNAME+'/.junest') & os.path.isdir('/fs/home/'+USERNAME+'/.junest'):
+				os.system('mv /fs/home/'+USERNAME+'/.junest /fs/home/'+USERNAME+'/.trash/')
 			junest_install()
 			print("\nTo finish installing 'junest' please run:\n'pacman -Syyu pacman-mirrorlist && pacman -S gtk2 avogadro grep make ttf-liberation gedit'\n\n(when prompted for GL version, pick option 2, nvidia)\n\n\n")
 			os.system("zsh -c 'junest -f'")
