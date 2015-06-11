@@ -430,7 +430,8 @@ def neb_verlet(name, states, theory, extra_section='', queue=None, spring_atoms=
 		for a in s:
 			a.vx, a.vy, a.vz = 0.0, 0.0, 0.0
 			a.ax, a.ay, a.az = 0.0, 0.0, 0.0
-	for step in range(10):
+	step = 0
+	while True:
 		#start DFT jobs
 		running_jobs = []
 		for i,state in enumerate(states):
@@ -456,7 +457,7 @@ def neb_verlet(name, states, theory, extra_section='', queue=None, spring_atoms=
 				print 'Job failed: %s-%d-%d'%(name,step,i); exit()
 			V.append(new_energy)
 			for a,b in zip(state, new_atoms):
-				a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
+				a.fx = b.fx; a.fy = b.fy; a.fz = b.fz #forces in Hartree/Bohr
 		#add spring forces to atoms
 		for i,state in enumerate(states):
 			if i==0 or i==len(states)-1: continue #don't change first or last state
@@ -490,12 +491,16 @@ def neb_verlet(name, states, theory, extra_section='', queue=None, spring_atoms=
 		for state in states:
 			for a in state:
 				#a = F/m
-				a.ax_new = a.fx/masses[a.element]
-				a.ay_new = a.fy/masses[a.element]
-				a.az_new = a.fz/masses[a.element]
+				convert_to_amu_fs = 1/0.496
+				a.ax_new = a.fx/masses[a.element] * convert_to_amu_fs
+				a.ay_new = a.fy/masses[a.element] * convert_to_amu_fs
+				a.az_new = a.fz/masses[a.element] * convert_to_amu_fs
+				#if step 0, guess previous force
+				if step==0:
+					a.ax, a.ay, a.az = 0.5*a.ax_new, 0.5*a.ay_new, 0.5*a.az_new
 				#project velocity along direction of force
 				a.vx, a.vy, a.vz = np.linalg.norm([a.vx,a.vy,a.vz]) * np.array([a.fx,a.fy,a.fz]) / np.linalg.norm([a.fx,a.fy,a.fz])
-				#zero velocity if it points opposite to force
+				#zero the velocity if it points opposite to the force
 				if a.vx*a.fx < 0.0: a.vx = 0.0
 				if a.vy*a.fy < 0.0: a.vy = 0.0
 				if a.vz*a.fz < 0.0: a.vz = 0.0
@@ -512,9 +517,13 @@ def neb_verlet(name, states, theory, extra_section='', queue=None, spring_atoms=
 		#print data
 		V = V[:1] + [ (e-V[0])/0.001 for e in V[1:] ]
 		print step, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:])
+		#calculate convergence criterion
+		RMS_force = sum([a.fx**2+a.fy**2+a.fz**2 for state in states for a in state])**0.5
+		if RMS_force < 20.0:
+			print 'Optimization complete; RMS force = %g' % RMS_force
+			return
 		#increment step
 		step += 1
-
 
 def optimize_pm6(name, examples, param_string, starting_params, queue=None): #optimize a custom PM6 semi-empirical method based on Gaussian examples at a higher level of theory
 	from scipy.optimize import minimize
