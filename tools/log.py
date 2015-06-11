@@ -1,6 +1,27 @@
 import os, sys, re
-import units
+import units, g09
+from fnmatch import fnmatch
+from subprocess import Popen, PIPE
+from getpass import getuser
 
+def get_jlist():
+	USER_NAME=getuser()
+
+	# Get input from jlist as a string
+	p = Popen(['jlist'], stdout=PIPE)
+	output = p.stdout.read().split()
+
+	# Make an empty string to hold our list
+	jlist = ""
+
+	# Loop through jlist and get file names
+	for i,s in enumerate(output):
+		if s==USER_NAME:
+			jlist = jlist + output[i+1] + " "
+
+	return jlist
+
+# A function that checks if the gaussian job 'run_name' exists in gaussian.log
 def chk_gaussian(run_name,sptr=None,force=False):
 	if sptr == None: 
 		try: sptr = open('gaussian.log').readlines()
@@ -21,6 +42,7 @@ def chk_gaussian(run_name,sptr=None,force=False):
 					raise Exception('\nYou already have a run called %s in your log file. If you want to re-write the gaussian data, please use force=True.\n' % run_name)
 	return -1
 
+# A function that puts information in the log file
 def put_gaussian(run_name,route,extra_section,blurb,eRec,force=False):
 	if blurb: blurb = blurb.replace('\n\n','\n')
 	if route: route = route.replace('\n\n','\n---Empty Line---\n')
@@ -64,28 +86,34 @@ def put_gaussian(run_name,route,extra_section,blurb,eRec,force=False):
 	f.write(''.join(s_hold))
 	f.close()
 
+# A function to get energy data for output to screen and/or record to gaussian.log
 def chkg_E(fptr,record=False,unit='Ha',suppress=False):
-	contents = open('gaussian/'+fptr+'.log').read()
+	# Read in data from file
+	energies, _, time = g09.parse_all("gaussian/"+fptr+".log")
 
+	# If you want the standard output to terminal, do this
 	if not suppress:
-		print '\n'.join(re.findall('SCF Done: +\S+ += +(\S+)', contents))
-		print '\n'
-		print('Final Energy = '+str(units.convert_energy('Ha',unit,float(re.findall('SCF Done: +\S+ += +(\S+)', contents)[-1])))+' '+unit+'\n')
-
-		if 'Normal termination of Gaussian 09' not in contents:
-			print 'Job did not finish'
+		# Get all energy values
+		for e in energies: print(e)
+		print('\n---------------------------------------------------')
+		print('Energy Data Points: '+str(len(energies)))
+		if len(energies)>2: print('dE 2nd last = '+str(units.convert_energy('Ha',unit,energies[-2]-energies[-3]))+' '+unit)
+		if len(energies)>1: print('dE last = '+str(units.convert_energy('Ha',unit,energies[-1]-energies[-2]))+' '+unit)
+		if len(energies)>0: print('Last Energy = '+str(energies[-1])+' Ha')
+		print('---------------------------------------------------')
+		print('CONVERGENCE CRITERIA GOES HERE')
+		print('---------------------------------------------------\n')
+		if time:
+			print 'Job finished in %.2g seconds' % time
+		elif (' '+fptr+' ') in jlist:
+			print 'Job is still running'
 		else:
-			m = re.search('Job cpu time: +(\S+) +days +(\S+) +hours +(\S+) +minutes +(\S+) +seconds', contents)
-			time = float(m.group(1))*24*60*60 + float(m.group(2))*60*60 + float(m.group(3))*60 + float(m.group(4))
-			print m.group(0)
-			print "%.2e s" % time
+			print 'Job failed to converge. Log file says:'
+			os.system('tail -n 5 '+input)
 
-		if 'Counterpoise: corrected energy =' in contents:
-			print 'Counterpoise E = ',
-			print '\n'.join(re.findall('Counterpoise: corrected energy = +(\S+)', contents))
-
+	# If you want to record data, do this
 	if record:
-		try: s = open('gaussian.log').read().replace('##$$@@#'+fptr+'#$@$#@#$',str(units.convert_energy('Ha',unit,float(re.findall('SCF Done: +\S+ += +(\S+)', contents)[-1])))+' '+unit)
+		try: s = open('gaussian.log').read().replace('##$$@@#'+fptr+'#$@$#@#$',str(units.convert_energy('Ha',unit,energies[-1]))+' '+unit)
 		except:
 			s = open('gaussian.log').read().replace('##$$@@#'+fptr+'#$@$#@#$','Error - Could not get the energy from file')
 			print('\nWarning - Could not get the energy for '+fptr+'.\n')
