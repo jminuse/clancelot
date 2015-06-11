@@ -1,5 +1,5 @@
 import os, sys, subprocess
-import files, g09
+import files, g09, log
 
 input = sys.argv[1]
 if not input.endswith('.log'):
@@ -11,12 +11,11 @@ energies, frames, time = g09.parse_all(input)
 for e in energies:
 	print e
 
-jlist = subprocess.Popen('jlist', shell=True, stdout=subprocess.PIPE).communicate()[0]
 job_name = input[ input.rindex('/')+1 : input.rindex('.') ]
 
 if time:
 	print 'Job finished in %.2g seconds' % time
-elif (' '+job_name+' ') in jlist:
+elif (job_name) in log.get_jlist():
 	print 'Job is still running'
 else:
 	print 'Job failed to converge. Log file says:'
