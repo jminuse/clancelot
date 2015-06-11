@@ -382,7 +382,7 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 			return np.array(forces)*1.8 #convert from Hartree/Bohr to Hartree/Angstrom
 
 	n = NEB(name, states, theory, k)
-	minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_forces, options={'disp': True})
+	minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_forces, options={'disp': True}) # BFGS is the best method, cite http://theory.cm.utexas.edu/henkelman/pubs/sheppard08_134106.pdf
 
 
 def neb_verlet(name, states, theory, extra_section='', queue=None, spring_atoms=None, k=0.1837, fit_rigid=True, dt=1.0): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
@@ -490,12 +490,11 @@ def neb_verlet(name, states, theory, extra_section='', queue=None, spring_atoms=
 				#if step 0, guess previous force
 				if step==0:
 					a.ax, a.ay, a.az = 0.5*a.ax_new, 0.5*a.ay_new, 0.5*a.az_new
+				#zero the velocity if it points opposite to the force
+				if np.dot( np.array([a.fx,a.fy,a.fz]), np.array([a.vx,a.vy,a.vz]) ) < 0.0:
+					a.vx, a.vy, a.vz = 0.0, 0.0, 0.0
 				#project velocity along direction of force
 				a.vx, a.vy, a.vz = np.linalg.norm([a.vx,a.vy,a.vz]) * np.array([a.fx,a.fy,a.fz]) / np.linalg.norm([a.fx,a.fy,a.fz])
-				#zero the velocity if it points opposite to the force
-				if a.vx*a.fx < 0.0: a.vx = 0.0
-				if a.vy*a.fy < 0.0: a.vy = 0.0
-				if a.vz*a.fz < 0.0: a.vz = 0.0
 				#update position
 				a.x += a.vx*dt + 0.5*a.ax * dt**2
 				a.y += a.vy*dt + 0.5*a.ay * dt**2
@@ -506,12 +505,13 @@ def neb_verlet(name, states, theory, extra_section='', queue=None, spring_atoms=
 				a.vz += (a.az + a.az_new)*0.5*dt
 				#update acceleration
 				a.ax, a.ay, a.az = a.ax_new, a.ay_new, a.az_new
-		#print data
-		V = V[:1] + [ (e-V[0])/0.001 for e in V[1:] ]
-		print step, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:])
 		#calculate convergence criterion
 		RMS_force = sum([a.fx**2+a.fy**2+a.fz**2 for state in states for a in state])**0.5
-		if RMS_force < 20.0:
+		#print data
+		V = V[:1] + [ (e-V[0])/0.001 for e in V[1:] ]
+		print step, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:]), RMS_force, sum([a.vx**2+a.vy**2+a.vz**2 for state in states for a in state])**0.5
+		#test for convergence
+		if RMS_force < 0.0017: #Gaussian 09's "Opt=Loose" convergence criterion
 			print 'Optimization complete; RMS force = %g' % RMS_force
 			return
 		#increment step
