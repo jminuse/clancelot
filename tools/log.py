@@ -9,7 +9,7 @@ def get_jlist(verbose=False):
 	p = Popen(['jlist'], stdout=PIPE)
 	output = p.stdout.read()
 
-	pattern = getuser()+'''[\s]+([\S]+)[\s]+[\S]+[\s]+([\S]+)'''
+	pattern = getuser()+'''[\s]+([\S]+)[\s]+([\S]+)[\s]+([\S]+)'''
 
 	info = re.findall(pattern,output)
 
