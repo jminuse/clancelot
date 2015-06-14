@@ -97,13 +97,18 @@ def chkg_E(fptr,unit='Ha',record=False,e_list=False,suppress=False):
 		if e_list:
 			for e in energies: print(e)
 		print('\n---------------------------------------------------')
+		print('Job Name: '+fptr)
 		print('Energy Data Points: '+str(len(energies)))
 		if len(energies)>2: print('dE 2nd last = '+str(units.convert_energy('Ha',unit,energies[-2]-energies[-3]))+' '+unit)
 		if len(energies)>1: print('dE last = '+str(units.convert_energy('Ha',unit,energies[-1]-energies[-2]))+' '+unit)
 		if len(energies)>0: print('Last Energy = '+str(energies[-1])+' Ha')
 		print('---------------------------------------------------')
 		if time: print 'Job finished in %.2g seconds' % time
-		elif (' '+fptr+' ') in get_jlist(): print 'Job is still running'
+		elif (fptr) in get_jlist(): 
+			print 'Job is still running'
+			print '~~~~ Convergenge Criteria'
+			s = open('gaussian/'+fptr+'.log').read()
+			print('\n'.join(s[s.rfind("Converged?"):].split('\n')[1:5]))
 		else: 
 			print 'Job failed to converge. Log file says:\n~~~~ End Of File Info'
 			os.system('tail -n 5 '+"gaussian/"+fptr+".log")
