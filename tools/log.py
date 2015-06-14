@@ -4,22 +4,20 @@ from fnmatch import fnmatch
 from subprocess import Popen, PIPE
 from getpass import getuser
 
-def get_jlist():
-	USER_NAME=getuser()
-
+def get_jlist(verbose=False):
 	# Get input from jlist as a string
 	p = Popen(['jlist'], stdout=PIPE)
-	output = p.stdout.read().split()
+	output = p.stdout.read()
 
-	# Make an empty string to hold our list
-	jlist = ""
+	pattern = getuser()+'''[\s]+([\S]+)[\s]+[\S]+[\s]+([\S]+)'''
 
-	# Loop through jlist and get file names
-	for i,s in enumerate(output):
-		if s==USER_NAME:
-			jlist = jlist + output[i+1] + " "
+	info = re.findall(pattern,output)
 
-	return jlist.split()
+	names = []
+	for a in info: names.append(a[0])
+
+	if verbose: return info
+	else: return names
 
 # A function that checks if the gaussian job 'run_name' exists in gaussian.log
 def chk_gaussian(run_name,sptr=None,force=False):
