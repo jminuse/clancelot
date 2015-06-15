@@ -279,7 +279,7 @@ def junest_install():
 	zshrc_check_add("alias juju='junest'",ZSHRC,zshrc_string)
 
 if to_install['anaconda']:
-	if os.path.exists('/fs/home/'+USERNAME+'/anaconda') & os.path.isdir('/fs/home/'+USERNAME+'/anaconda'):
+	if os.path.exists('/fs/home/'+USERNAME+'/anaconda')andos.path.isdir('/fs/home/'+USERNAME+'/anaconda'):
 		if reinstall('Previous installation found, reinstall Anaconda (Python 2.7.9 and packages)?'):
 			anaconda_install()
 		else:
@@ -288,7 +288,7 @@ if to_install['anaconda']:
 		anaconda_install()
 
 if to_install['sublime_text_3_build_3083']:
-	if os.path.exists('/fs/home/'+USERNAME+'/lib/sublime_text_3') & os.path.isdir('/fs/home/'+USERNAME+'/lib/sublime_text_3'):
+	if os.path.exists('/fs/home/'+USERNAME+'/lib/sublime_text_3')andos.path.isdir('/fs/home/'+USERNAME+'/lib/sublime_text_3'):
 		if reinstall('Previous installation found, reinstall Sublime Text 3?'):
 			os.system('rm -rf /fs/home/'+USERNAME+'/lib/sublime_text_3')
 			sublime_install()
@@ -300,10 +300,10 @@ if to_install['sublime_text_3_build_3083']:
 		downloaded_tarball=True
 
 if to_install['junest (formerly juju)']: 
-	if os.path.exists('/fs/home/'+USERNAME+'/juju') & os.path.isdir('/fs/home/'+USERNAME+'/juju'):
+	if os.path.exists('/fs/home/'+USERNAME+'/juju')andos.path.isdir('/fs/home/'+USERNAME+'/juju'):
 		if reinstall('Previous installation found, reinstall juju/junest?'):
 			os.system('mv /fs/home/'+USERNAME+'/juju /fs/home/'+USERNAME+'/.trash/')
-			if os.path.exists('/fs/home/'+USERNAME+'/.junest') & os.path.isdir('/fs/home/'+USERNAME+'/.junest'):
+			if os.path.exists('/fs/home/'+USERNAME+'/.junest')andos.path.isdir('/fs/home/'+USERNAME+'/.junest'):
 				os.system('mv /fs/home/'+USERNAME+'/.junest /fs/home/'+USERNAME+'/.trash/')
 			junest_install()
 			print("\nTo finish installing 'junest' please run:\n'pacman -Syyu pacman-mirrorlist && pacman -S gtk2 avogadro grep make ttf-liberation gedit'\n\n(when prompted for GL version, pick option 2, nvidia)\n\n\n")
