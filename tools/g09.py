@@ -79,6 +79,12 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, check_convergence=T
 
 	if check_convergence and get_energy and not parse_all and 'Normal termination of Gaussian 09' not in contents:
 		return None
+	if ('Normal termination of Gaussian 09' in contents) & (get_time | parse_all):
+		m = re.search('Job cpu time: +(\S+) +days +(\S+) +hours +(\S+) +minutes +(\S+) +seconds', contents)
+		try:
+			time = float(m.group(1))*24*60*60 + float(m.group(2))*60*60 + float(m.group(3))*60 + float(m.group(4))
+		except:
+			pass
 
 	if 'Summary of Optimized Potential Surface Scan' in contents and not parse_all:
 		end_section = contents[contents.rindex('Summary of Optimized Potential Surface Scan'):]
@@ -116,13 +122,6 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, check_convergence=T
 				energy = float(re.search('SCF Done: +\S+ += +(\S+)', energy_line).group(1))
 			else:
 				energy = float(re.findall('Counterpoise: corrected energy = +(\S+)', contents)[-1])
-	
-	if get_time | parse_all:
-		m = re.search('Job cpu time: +(\S+) +days +(\S+) +hours +(\S+) +minutes +(\S+) +seconds', contents)
-		try:
-			time = float(m.group(1))*24*60*60 + float(m.group(2))*60*60 + float(m.group(3))*60 + float(m.group(4))
-		except:
-			pass
 
 	if parse_all:
 		energies = []
