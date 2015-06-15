@@ -60,15 +60,27 @@ def restart_job(old_run_name, job_type='ChkBasis Opt=Restart', queue='batch', pr
 	os.system('g09sub '+run_name+' -chk -queue '+queue+((' -nproc '+str(procs)+' ') if procs else '')+' -xhost sys_eei sys_icse')
 	os.chdir('..')
 
-def parse_atoms(input_file, get_atoms=True, get_energy=True, check_convergence=True, get_time=False, counterpoise=False):
+def parse_atoms(input_file, get_atoms=True, get_energy=True, check_convergence=True, get_time=False, counterpoise=False, parse_all=False):
+	"""
+	@input_file [str] : string name of log file
+
+	Returns: (? energy, ? atoms, ? time) | None
+	@energy [float] : If get_energy or parse_all, otherwise return omitted.
+	@atoms |[atom list] : Iff parse_all, returns atom list list.
+		   |[atom list list] : Iff not parse_all and get_atoms, atom list. Otherwise omitted.
+	@time [float] : If get_time returns float (seconds). Otherwise, return omitted.
+
+	Note that None may be returned in the event that Gaussian did not terminate normally (see 7 lines down).
+	"""
 	if input_file[-4:] != '.log':
 		input_file = 'gaussian/'+input_file+'.log'
-	
 	contents = open(input_file).read()
-	if check_convergence and get_energy and 'Normal termination of Gaussian 09' not in contents:
+	time = None	
+
+	if check_convergence and get_energy and not parse_all and 'Normal termination of Gaussian 09' not in contents:
 		return None
 
-	if 'Summary of Optimized Potential Surface Scan' in contents:
+	if 'Summary of Optimized Potential Surface Scan' in contents and not parse_all:
 		end_section = contents[contents.rindex('Summary of Optimized Potential Surface Scan'):]
 		energy_lines = re.findall('Eigenvalues -- ([^\\n]+)', end_section)
 		energy = [float(s) for line in energy_lines for s in re.findall('-[\d]+\.[\d]+', line)]
@@ -90,7 +102,7 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, check_convergence=T
 		if get_energy:
 			return energy, atoms
 		
-	elif get_energy:
+	elif get_energy and not parse_all:
 		if ' MP2/' in contents: # MP2 files don't have just SCF energy
 			energy = float(re.findall('EUMP2 = +(\S+)', contents)[-1].replace('D','e'))
 		elif ' CCSD/' in contents:
@@ -105,10 +117,40 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, check_convergence=T
 			else:
 				energy = float(re.findall('Counterpoise: corrected energy = +(\S+)', contents)[-1])
 	
-	if get_time:
+	if get_time | parse_all:
 		m = re.search('Job cpu time: +(\S+) +days +(\S+) +hours +(\S+) +minutes +(\S+) +seconds', contents)
-		time = float(m.group(1))*24*60*60 + float(m.group(2))*60*60 + float(m.group(3))*60 + float(m.group(4))
-	
+		try:
+			time = float(m.group(1))*24*60*60 + float(m.group(2))*60*60 + float(m.group(3))*60 + float(m.group(4))
+		except:
+			pass
+
+	if parse_all:
+		energies = []
+		atom_frames = []
+		start=0
+		while True:
+			try: #match energy
+				start = contents.index('SCF Done', start)
+				energies.append(float( re.search('SCF Done: +\S+ += +(\S+)', contents[start:]).group(1) ) )
+				input_orientation = contents.find('Input orientation:', start)
+				if input_orientation >= 0:
+					start = input_orientation
+				next_coordinates = contents.index('Coordinates (Angstroms)', start)
+			except: break
+			start = contents.index('---\n', next_coordinates)+4
+			end = contents.index('\n ---', start)
+			lines = contents[start:end].splitlines()
+			start = end
+
+			atoms = []
+			for line in lines:
+				columns = line.split()
+				element = columns[1]
+				x,y,z = columns[3:6]
+				atoms.append( utils.Atom(element=element, x=float(x), y=float(y), z=float(z)) )
+			atom_frames.append(atoms)
+		return energies, atom_frames, time
+
 	if get_energy and not get_atoms:
 		if get_time:
 			return energy, time
@@ -152,43 +194,6 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, check_convergence=T
 		
 def atoms(input_file, check=False):
 	return parse_atoms(input_file, get_atoms=True, get_energy=False, check_convergence=check, get_time=False, counterpoise=False)
-
-def parse_all(input_file):
-	contents = open(input_file).read()
-	time = None
-	if 'Normal termination of Gaussian 09' not in contents:
-		pass
-	else:
-		m = re.search('Job cpu time: +(\S+) +days +(\S+) +hours +(\S+) +minutes +(\S+) +seconds', contents)
-		time = float(m.group(1))*24*60*60 + float(m.group(2))*60*60 + float(m.group(3))*60 + float(m.group(4))
-
-	energies = []
-	atom_frames = []
-	start = 0
-	while True:
-		try: #match energy
-			start = contents.index('SCF Done', start)
-			energy_this_step = float( re.search('SCF Done: +\S+ += +(\S+)', contents[start:]).group(1) )
-			input_orientation = contents.find('Input orientation:', start)
-			if input_orientation >= 0:
-				start = input_orientation
-			next_coordinates = contents.index('Coordinates (Angstroms)', start)
-		except: break
-		start = contents.index('---\n', next_coordinates)+4
-		end = contents.index('\n ---', start)
-		lines = contents[start:end].splitlines()
-		start = end
-
-		atoms = []
-		for line in lines:
-			columns = line.split()
-			element = columns[1]
-			x,y,z = columns[3:6]
-			atoms.append( utils.Atom(element=element, x=float(x), y=float(y), z=float(z)) )
-		atom_frames.append(atoms)
-		energies.append(energy_this_step)
-
-	return energies, atom_frames, time
 	
 def parse_scan(input_file):
 	contents = open(input_file).read()
