@@ -87,7 +87,7 @@ def put_gaussian(run_name,route,extra_section,blurb,eRec,force=False):
 # A function to get energy data for output to screen and/or record to gaussian.log
 def chkg_E(fptr,unit='Ha',record=False,e_list=False,suppress=False):
 	# Read in data from file
-	energies, _, time = g09.parse_all("gaussian/"+fptr+".log")
+	energies, _, time = g09.parse_atoms("gaussian/"+fptr+".log",parse_all=True)
 
 	# If you want the standard output to terminal, do this
 	if not suppress:
