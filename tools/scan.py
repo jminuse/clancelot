@@ -4,7 +4,7 @@ import g09, files
 
 # From within a folder with a 'gaussian', scang will show energy landscape over
 # several configurations, given logfiles 'name%.log' % step. using the command:
-# scang ['name'|'gaussian/name'] [OPTIONAL: start step] [end step] [OPTIONAL: -t='title'] [OPTIONAL: -s=number] [OPTIONAL: -a="lowy highy"]
+# scang ['name'|'gaussian/name'] [OPTIONAL: start step] [end step] [OPTIONAL: -t='title'] [OPTIONAL: -a="lowy highy"]
 
 # ex. 'scang gaussian/ranthisjobnumer3- 2 7 -t="Energy Plot"'
 
@@ -25,16 +25,6 @@ else:
 	# Default
 	custom_axis=False
 
-#stage number?
-if (sys.argv[len(sys.argv)-1]).startswith('-s='):
-	stage=(sys.argv[len(sys.argv)-1])[3:]+'-'
-	sys.argv=sys.argv[:-1]
-	zeroth=True
-else:
-	# Default stage addition is empty string
-	stage=''
-	zeroth=False
-
 # look for title
 if (sys.argv[len(sys.argv)-1]).startswith('-t='):
 	title=(sys.argv[len(sys.argv)-1])[3:]
@@ -52,25 +42,13 @@ if len(sys.argv)==4:
 
 f = open('out.xyz', 'w')
 energies = []
-if zeroth==True:
-	energy, atoms = g09.parse_atoms(name+'0-0', check_convergence=False)
-	files.write_xyz(atoms, f)
-	print '0', energy, int(g09.parse_atoms(name+'0-0')!=None)
-	energies.append(energy)
 
 print 'Step', 'E (Har)', 'Converged?'
 for step in range(low,count):
-	energy, atoms = g09.parse_atoms(name+stage+str(step), check_convergence=False)
+	energy, atoms = g09.parse_atoms(name+str(step), check_convergence=False)
 	files.write_xyz(atoms, f)
-	print step, energy, int(g09.parse_atoms(name+stage+str(step))!=None)
+	print step, energy, int(g09.parse_atoms(name+str(step))!=None)
 	energies.append(energy)
-
-if zeroth==True:
-	energy, atoms = g09.parse_atoms(name+'0-'+str(count), check_convergence=False)
-	files.write_xyz(atoms, f)
-	print str(count), energy, int(g09.parse_atoms(name+'0-'+str(count))!=None)
-	energies.append(energy)
-f.close()
 
 def matplot(y):
 	import matplotlib.pyplot as plt
