@@ -3,20 +3,20 @@ from getpass import getuser
 
 # In the following list, please ensure you have chosen what you want to install.  By default everything is selected
 to_install = {
-'vmd':1,
-'pysub':1,
-'jsub':1,
-'jdel':1,
-'viewg':1,
-'chkg':1,
-'chkg_all':1,
-'scang':1,
-'junest (formerly juju)':1,
+'vmd':0,
+'pysub':0,
+'jsub':0,
+'jdel':0,
+'viewg':0,
+'chkg':0,
+'chkg_all':0,
+'scang':0,
+'junest (formerly juju)':0,
 'anaconda':1, 				# a Python 2.7.9 distribution that installs to ~/anaconda
-'vmd default settings':1,	# improves the default settings of vmd
-'file_browser':1, 			# set the file browser not to open a new window per folder
-'merlin':1,
-'sublime_text_3_build_3083':1
+'vmd default settings':0,	# improves the default settings of vmd
+'file_browser':0, 			# set the file browser not to open a new window per folder
+'merlin':0,
+'sublime_text_3_build_3083':0
 }
 
 ####################################################################################################################

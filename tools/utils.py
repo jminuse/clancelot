@@ -282,11 +282,12 @@ def dihedral_angle(a,b,c,d):
 	
 	return phi, math.cos(phi), math.cos(2*phi), math.cos(3*phi), math.cos(4*phi)
 
-def procrustes(frames):
+def procrustes(frames, count_atoms=None):
+	if not count_atoms: count_atoms = range(len(frames[0]))
 	for s in frames:
-		center_x = sum([a.x for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
-		center_y = sum([a.y for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
-		center_z = sum([a.z for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
+		center_x = sum([a.x for i,a in enumerate(s) if i in count_atoms])/len(count_atoms)
+		center_y = sum([a.y for i,a in enumerate(s) if i in count_atoms])/len(count_atoms)
+		center_z = sum([a.z for i,a in enumerate(s) if i in count_atoms])/len(count_atoms)
 		for a in s:
 			a.x -= center_x
 			a.y -= center_y
@@ -295,9 +296,9 @@ def procrustes(frames):
 	from scipy.linalg import orthogonal_procrustes
 	for i in range(1,len(frames)): #rotate all frames to optimal alignment
 		#only count spring-held atoms for finding alignment
-		spring_atoms_1 = [(a.x,a.y,a.z) for j,a in enumerate(frames[i]) if j in spring_atoms]
-		spring_atoms_2 = [(a.x,a.y,a.z) for j,a in enumerate(frames[i-1]) if j in spring_atoms]
-		rotation = orthogonal_procrustes(spring_atoms_1,spring_atoms_2)[0]
+		count_atoms_1 = [(a.x,a.y,a.z) for j,a in enumerate(frames[i]) if j in count_atoms]
+		count_atoms_2 = [(a.x,a.y,a.z) for j,a in enumerate(frames[i-1]) if j in count_atoms]
+		rotation = orthogonal_procrustes(count_atoms_1,count_atoms_2)[0]
 		#rotate all atoms into alignment
 		for a in frames[i]:
-			a.x,a.y,a.z = utils.matvec(rotation, (a.x,a.y,a.z))
+			a.x,a.y,a.z = matvec(rotation, (a.x,a.y,a.z))
