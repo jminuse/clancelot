@@ -570,4 +570,93 @@ def optimize_pm6(name, examples, param_string, starting_params, queue=None): #op
 	
 	minimize(pm6_error, starting_params, method='Nelder-Mead', options={'disp': True} )
 	
+def ghost_job(atoms, name, previous_job=None, route='SP SCRF(Solvent=Toluene) guess=read', blurb=None, procs=1, queue='batch', extras=''):
+	# To ensure we do not overwrite a file we increment a value until we find that the run doesn't exist
+	if os.path.isfile('gaussian/'+name+'.log'):
+		i = 1
+		while os.path.isfile('gaussian/'+name+'_'+str(i)+'.log'): i+=1
+		if name.rfind('_') < 0: name = name + '_' + str(i)
+		else: name = name[:name.rfind('_')]+'_'+str(i)
 
+	# Get the routing line from a previous job if you need to
+	if (previous_job != None): route = open('gaussian/'+previous_job+'.inp').readline()[2:].strip().split()[0] + ' ' + route
+	# If the previous run had '/gen', we need to copy that for an extra_section
+	if(route.split()[0][-3:] == 'Gen'):
+		extras = open('gaussian/'+previous_job+'.inp').read().split('\n\n')[3:]
+		extras = '\n\n'.join(extras)
+
+	# Run the job and return the job name for the user to use later
+	job(name, route, atoms=atoms, queue=queue, extra_section=extras,blurb=blurb, procs=procs,previous=previous_job)
+
+	return name
+
+# A function that returns the binding energy of a molecule A with corrections.
+# job_total - This is the name of a gaussian job that holds the full system (optimized)
+# job_A - This is the name of a gaussian job that holds the optimized molecule A
+# job_B - This is the name of a gaussian job that holds the optimized molecule B
+# zero_indexed_atom_indices_A - This is a list of indices for molecule A in job_total.  First values of a .xyz file start at 0.
+def binding_energy_dz(job_total, job_A, job_B, zero_indexed_atom_indices_A, route='SP SCRF(Solvent=Toluene) guess=read', blurb=None, procs=1, queue='batch'):
+	AB = g09.atoms(job_total) # First get the atoms from the gaussian job for the full system
+	AB_A = copy.deepcopy(AB)
+	for i,atom in enumerate(AB_A): # For AB_A, we want all atoms not part of molecule A to be ghost atoms
+		if i not in zero_indexed_atom_indices_A: atom.element+='-Bq'
+	AB_B = copy.deepcopy(AB)
+	for i,atom in enumerate(AB_B): # For AB_B we want all atoms part of molecule A to be ghost atoms
+		if i in zero_indexed_atom_indices_A: atom.element+='-Bq'
+	
+	# Now AB_A is A from AB, AB_B is B from AB
+	name1 = ghost_job(AB_A, job_total+'_A0', blurb=blurb, queue=queue, procs=procs, previous_job=job_total)
+	name2 = ghost_job(AB_B, job_total+'_B0', blurb=blurb, queue=queue, procs=procs, previous_job=job_total)
+	
+	#non-rigid correction:
+	AB_A = [atom for atom in AB_A if not atom.element.endswith('-Bq')]
+	AB_B = [atom for atom in AB_B if not atom.element.endswith('-Bq')]
+	name3 = ghost_job(AB_A, job_A+'_AB0', blurb=blurb, queue=queue, procs=procs, previous_job=job_A)
+	name4 = ghost_job(AB_B, job_B+'_AB0'+('2' if job_A==job_B else ''), blurb=blurb, queue=queue, procs=procs, previous_job=job_B)
+	
+	# To get the binding energy we need to take into account the superposition error and the deformation error:
+	# Superposition Error Correction is done by taking the total energy of the job and subtracting from it:
+	#   	name1 = Original system with molecule A as ghost atoms and basis set of original system
+	#		name2 = Original system with molecule B as ghost atoms and basis set of original system
+	# Deformation energy corrections are done by taking the difference in energy of molecules in the same basis set between
+	# geometries:
+	#		Add the following
+	#		name3 = Molecule A in the geometry of the original System but in the basis set of what molecule A was done in
+	#		name4 = Molecule B in the geometry of the original System but in the basis set of what molecule B was done in
+	# 		Subtract the following
+	#		job_A = Molecule A in the basis set it was done in
+	#		job_B = Molecule B in the basis set it was done in
+	print 'E_binding = %s - %s - %s + %s + %s - %s - %s' % (job_total, name1, name2, name3, name4, job_A, job_B)
+
+	i = 0
+	while os.path.isfile('bind_tck_#.py'.replace('#',str(i))): i += 1
+	
+	f = open('bind_tck_#.py'.replace('#',str(i)),'w')
+
+	job_names = [job_total, name1, name2, name3, name4, job_A, job_B]
+	for i in range(len(job_names)): job_names[i] = "'"+job_names[i]+"'"
+	job_names = ', '.join(job_names)
+
+	f.write('''from merlin import *
+job_names = [$$$$$]
+# Check if jobs are still running
+for s in log.get_jlist():
+	if s in job_names:
+		print("Sorry, all simulations haven't finished yet...")
+		sys.exit()
+
+# Else, we can get the energy
+energies = []
+for s in job_names:
+	e,_ = g09.parse_atoms(s)
+	energies.append(e)
+
+sp_corr = energies[0] - energies[1] - energies[2]
+geom_corr = energies[3] - energies[5] + energies[4] - energies[6]
+print('Jobs Calculated From: '+'\\n\\t'.join(job_names))
+print('------------')
+print('Superposition Correction = '+str(sp_corr)+' Ha')
+print('Geometry Correction = '+str(geom_corr)+' Ha')
+print('Binding Energy = '+str(sp_corr + geom_corr)+' Ha')'''.replace('$$$$$',job_names))
+
+	f.close()
