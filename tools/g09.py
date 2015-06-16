@@ -300,8 +300,12 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 					print "Unexpected error in 'parse_atoms':", sys.exc_info()[0]
 					print 'Job failed: %s-%d-%d'%(NEB.name,NEB.step,i); exit()
 				energies.append(new_energy)
-				for a,b in zip(state, new_atoms):
-					a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
+				try:
+					for a,b in zip(state, new_atoms):
+						a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
+				except:
+					print "Unexpected error in collecting forces:", sys.exc_info()[0]
+					print 'Job failed: %s-%d-%d'%(NEB.name,NEB.step,i); exit()
 			V = copy.deepcopy(energies) # V = potential energy from DFT. energies = V+springs
 			#rigidly rotate jobs into alignment before calculating forces
 			utils.procrustes(NEB.states)
