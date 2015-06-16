@@ -250,9 +250,7 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 		elements = spring_atoms.split()
 		spring_atoms = [i for i,a in enumerate(states[0]) if a.element in elements]
 	#class to contain working variables
-	
-	utils.procrustes(frames)
-	
+		
 	class NEB:
 		name, states, theory, k = None, None, None, None
 		error, forces = None, None
@@ -263,7 +261,7 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 			NEB.theory = theory
 			NEB.k = k
 			
-			procrustes(NEB.states) #fit rigid before relaxing
+			utils.procrustes(NEB.states) #fit rigid before relaxing
 	
 			#load initial coordinates into flat array for optimizer
 			NEB.coords_start = []
@@ -306,7 +304,7 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 					a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
 			V = copy.deepcopy(energies) # V = potential energy from DFT. energies = V+springs
 			#rigidly rotate jobs into alignment before calculating forces
-			procrustes(NEB.states)
+			utils.procrustes(NEB.states)
 			#add spring forces to atoms
 			for i,state in enumerate(NEB.states):
 				if i==0 or i==len(NEB.states)-1: continue #don't change first or last state
