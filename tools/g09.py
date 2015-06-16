@@ -251,25 +251,7 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 		spring_atoms = [i for i,a in enumerate(states[0]) if a.element in elements]
 	#class to contain working variables
 	
-	def procrustes(frames):
-		for s in frames:
-			center_x = sum([a.x for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
-			center_y = sum([a.y for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
-			center_z = sum([a.z for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
-			for a in s:
-				a.x -= center_x
-				a.y -= center_y
-				a.z -= center_z
-		#rotate all frames to be as similar to their neighbors as possible
-		from scipy.linalg import orthogonal_procrustes
-		for i in range(1,len(frames)): #rotate all frames to optimal alignment
-			#only count spring-held atoms for finding alignment
-			spring_atoms_1 = [(a.x,a.y,a.z) for j,a in enumerate(frames[i]) if j in spring_atoms]
-			spring_atoms_2 = [(a.x,a.y,a.z) for j,a in enumerate(frames[i-1]) if j in spring_atoms]
-			rotation = orthogonal_procrustes(spring_atoms_1,spring_atoms_2)[0]
-			#rotate all atoms into alignment
-			for a in frames[i]:
-				a.x,a.y,a.z = utils.matvec(rotation, (a.x,a.y,a.z))
+	utils.procrustes(frames)
 	
 	class NEB:
 		name, states, theory, k = None, None, None, None
