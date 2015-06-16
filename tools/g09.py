@@ -298,6 +298,8 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 					new_energy, new_atoms = parse_atoms('%s-%d-%d' % (NEB.name, step_to_use, i), check_convergence=False)
 				except:
 					print "Unexpected error in 'parse_atoms':", sys.exc_info()[0]
+					print "Debug info: step_to_use = "+str(step_to_use)
+					print "Debuf info: len(NEB.states) = "+str(len(NEB.states))
 					print 'Job failed: %s-%d-%d'%(NEB.name,NEB.step,i); exit()
 				energies.append(new_energy)
 				try:

@@ -302,3 +302,49 @@ def procrustes(frames, count_atoms=None):
 		#rotate all atoms into alignment
 		for a in frames[i]:
 			a.x,a.y,a.z = matvec(rotation, (a.x,a.y,a.z))
+
+def interpolate(atoms1, atoms2, N): #interpolate N steps between two sets of coordinates
+	frames = [[] for i in range(N)]
+	for a,b in zip(atoms1,atoms2):
+		dx,dy,dz = b.x-a.x, b.y-a.y, b.z-a.z
+		for i in range(N):
+			frac = 1.0*(i+1)/(N+1)
+			frames[i].append( Atom(a.element, a.x+dx*frac, a.y+dy*frac, a.z+dz*frac) )
+	return frames
+
+def motion_per_frame(frames):
+	per_state_avg = [0.0 for s in frames]
+	for atom_list in zip(*frames):
+		for i in range(1,len(atom_list)):
+			a = atom_list[i-1]
+			b = atom_list[i]
+			per_state_avg[i] += dist(a,b)
+	for i,x in enumerate(per_state_avg):
+		print i, x/len(frames[0])
+
+def inp_to_xyz(name,outname=None):
+	data = open("gaussian/"+name+".inp",'r').read().split('\n')
+
+	# Get start of data
+	for i,s in enumerate(data):
+		try:
+			if(s.split()[0]=='run'): break
+		except:
+			pass
+	i += 3
+
+	# Get end of data
+	j = 0
+	for k,s in enumerate(data):
+		if s == '': j = k
+	while (j > 0) and (data[j]==''): j-=1
+
+	data = data[i:j+1]
+
+	if outname: f=open(outname,'w')
+	else: f = open('inp_'+name+'.xyz','w')
+	f.write(str(len(data))+'\n')
+	f.write('Atoms'+'\n')
+	for s in data: f.write(s+'\n')
+	f.write('\n')
+	f.close()
