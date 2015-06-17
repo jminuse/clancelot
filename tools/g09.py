@@ -237,7 +237,7 @@ def parse_chelpg(input_file):
 
 def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k=0.1837): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
 #Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
-	from scipy.optimize import minimize
+	import scipy.optimize
 	import numpy as np
 	#set which atoms will be affected by virtual springs
 	if not spring_atoms:#if not given, select all
@@ -264,8 +264,11 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 			spring_atoms_2 = [(a.x,a.y,a.z) for j,a in enumerate(frames[i-1]) if j in spring_atoms]
 			rotation = orthogonal_procrustes(spring_atoms_1,spring_atoms_2)[0]
 			#rotate all atoms into alignment
+			
 			for a in frames[i]:
 				a.x,a.y,a.z = utils.matvec(rotation, (a.x,a.y,a.z))
+				if hasattr(a, 'fx'):
+					a.fx,a.fy,a.fz = utils.matvec(rotation, (a.fx,a.fy,a.fz))
 	
 	class NEB:
 		name, states, theory, k = None, None, None, None
@@ -317,55 +320,56 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 					print 'Job failed: %s-%d-%d'%(NEB.name,NEB.step,i); exit()
 				energies.append(new_energy)
 				for a,b in zip(state, new_atoms):
-					a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
+					a.fx, a.fy, a.fz = b.fx, b.fy, b.fz
 			V = copy.deepcopy(energies) # V = potential energy from DFT. energies = V+springs
 			#rigidly rotate jobs into alignment before calculating forces
-			procrustes(NEB.states)
-			#add spring forces to atoms
-			for i,state in enumerate(NEB.states):
-				if i==0 or i==len(NEB.states)-1: continue #don't change first or last state
-				for j,b in enumerate(state):
-					if j in spring_atoms:
-						a,c = NEB.states[i-1][j], NEB.states[i+1][j]
+			#procrustes(NEB.states) #actually messes up optimization routine
+			#set NEB forces on atoms: spring forces parallel to path, DFT forces perpendicular
+			if NEB.step%2==1:
+				for i,state in enumerate(NEB.states):
+					if i==0 or i==len(NEB.states)-1: continue #don't change first or last state
+					for j,b in enumerate(state):
+						if j in spring_atoms:
+							a,c = NEB.states[i-1][j], NEB.states[i+1][j]
 						
-						#find tangent
-						tplus = np.array( [ c.x-b.x, c.y-b.y, c.z-b.z ] )
-						tminus = np.array( [ a.x-b.x, a.y-b.y, a.z-b.z ] )
-						dVmin = min(V[i+1]-V[i], V[i-1]-V[i])
-						dVmax = max(V[i+1]-V[i], V[i-1]-V[i])
-						if V[i+1]>V[i] and V[i]>V[i-1]: #not at an extremum, trend of V is up
-							tangent = tplus
-						elif V[i+1]<V[i] and V[i]<V[i-1]: #not at an extremum, trend of V is down
-							tangent = tminus
-						elif V[i+1]>V[i-1]: #at local extremum, next V is higher
-							tangent = tplus*dVmax + tminus*dVmin
-						else: #at local extremum, previous V is higher
-							tangent = tplus*dVmin + tminus*dVmax
+							#find tangent
+							tplus = np.array( [ c.x-b.x, c.y-b.y, c.z-b.z ] )
+							tminus = np.array( [ a.x-b.x, a.y-b.y, a.z-b.z ] )
+							dVmin = min(V[i+1]-V[i], V[i-1]-V[i])
+							dVmax = max(V[i+1]-V[i], V[i-1]-V[i])
+							if V[i+1]>V[i] and V[i]>V[i-1]: #not at an extremum, trend of V is up
+								tangent = tplus
+							elif V[i+1]<V[i] and V[i]<V[i-1]: #not at an extremum, trend of V is down
+								tangent = tminus
+							elif V[i+1]>V[i-1]: #at local extremum, next V is higher
+								tangent = tplus*dVmax + tminus*dVmin
+							else: #at local extremum, previous V is higher
+								tangent = tplus*dVmin + tminus*dVmax
 								
-						#normalize tangent
-						tangent /= np.linalg.norm(tangent)
+							#normalize tangent
+							tangent /= np.linalg.norm(tangent)
 						
-						#find spring forces parallel to tangent
-						F_spring_parallel = NEB.k*( utils.dist(c,b) - utils.dist(b,a) ) * tangent
+							#find spring forces parallel to tangent
+							F_spring_parallel = NEB.k*( utils.dist(c,b) - utils.dist(b,a) ) * tangent
 						
-						#find DFT forces perpendicular to tangent
-						real_force = np.array( [b.fx,b.fz,b.fz] )
-						F_real_perpendicular = real_force - np.dot(real_force, tangent)
+							#find DFT forces perpendicular to tangent
+							real_force = np.array( [b.fx,b.fz,b.fz] )
+							F_real_perpendicular = real_force - np.dot(real_force, tangent)
 						
-						#set NEB forces
-						b.fx, b.fy, b.fz = F_spring_parallel + F_real_perpendicular
-						
-						#TODO: get NEB total energies such that NEB force = -gradient(NEB energy). For now, using plan DFT energy. 
+							#set NEB forces
+							b.fx, b.fy, b.fz = F_spring_parallel + F_real_perpendicular
+			
 			#set error
 			NEB.error = sum(energies)
 			#set forces
 			NEB.forces = []
 			for state in NEB.states[1:-1]:
 				for a in state:
-					NEB.forces += [-a.fx*1.8897, -a.fy*1.8897, -a.fz*1.8897] #gradient of NEB.error, Hartee/Angstrom
+					NEB.forces += [-a.fx, -a.fy, -a.fz] #gradient of NEB.error
+			RMS_force = (sum([a.fx**2+a.fy**2+a.fz**2 for state in states[1:-1] for a in state])/len([a for state in states[1:-1] for a in state]))**0.5
 			#print data
 			V = V[:1] + [ (e-V[0])/0.001 for e in V[1:] ]
-			print NEB.step, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:])
+			print NEB.step, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:]), RMS_force
 			#increment step
 			NEB.step += 1
 	
@@ -383,11 +387,13 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 				NEB.calculate(coords)
 			forces = NEB.forces
 			NEB.forces = None #set to None so it will recalculate next time
-			return np.array(forces)*1.8 #convert from Hartree/Bohr to Hartree/Angstrom
+			return np.array(forces)*1.8897 #convert from Hartree/Bohr to Hartree/Angstrom
 
 	n = NEB(name, states, theory, k)
-	minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_forces, options={'disp': True}) # BFGS is the best method, cite http://theory.cm.utexas.edu/henkelman/pubs/sheppard08_134106.pdf
-
+	# BFGS is the best method, cite http://theory.cm.utexas.edu/henkelman/pubs/sheppard08_134106.pdf
+	#scipy.optimize.minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_forces, options={'disp': True})
+	scipy.optimize.fmin_l_bfgs_b(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces, iprint=0, factr=1e7)
+	#scipy.optimize.basinhopping(NEB.get_error, np.array(NEB.coords_start))
 
 def neb_verlet(name, states, theory, extra_section='', queue=None, spring_atoms=None, k=0.1837, fit_rigid=True, dt=1.0): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
 #Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
@@ -480,10 +486,20 @@ def neb_verlet(name, states, theory, extra_section='', queue=None, spring_atoms=
 					F_real_perpendicular = real_force - np.dot(real_force, tangent)
 					#set forces
 					b.fx, b.fy, b.fz = F_spring_parallel + F_real_perpendicular
-		# Projected Velocity Verlet, http://theory.cm.utexas.edu/henkelman/pubs/henkelman00_269.pdf
+		# Quick-min: http://theory.cm.utexas.edu/henkelman/pubs/sheppard08_134106.pdf
 		masses = {'H':1.0008,'C':12.001,'O':15.998,'Si':28.085,'S':32.06,'Pb':208.2}
 		for state in states:
 			for a in state:
+				#project the velocity in the direction of the force
+				
+				#lame steepest descent
+				convert_to_amu_fs = 1/0.496
+				a.x += 0.1 * a.fx/masses[a.element] * convert_to_amu_fs
+				a.y += 0.1 * a.fy/masses[a.element] * convert_to_amu_fs
+				a.z += 0.1 * a.fz/masses[a.element] * convert_to_amu_fs
+			
+			
+				'''
 				#a = F/m
 				convert_to_amu_fs = 1/0.496
 				a.ax_new = a.fx/masses[a.element] * convert_to_amu_fs
@@ -507,6 +523,7 @@ def neb_verlet(name, states, theory, extra_section='', queue=None, spring_atoms=
 				a.vz += (a.az + a.az_new)*0.5*dt
 				#update acceleration
 				a.ax, a.ay, a.az = a.ax_new, a.ay_new, a.az_new
+				'''
 		#calculate convergence criterion
 		RMS_force = sum([a.fx**2+a.fy**2+a.fz**2 for state in states for a in state])**0.5
 		#print data

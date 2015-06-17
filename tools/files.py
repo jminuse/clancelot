@@ -169,23 +169,25 @@ def read_opls_parameters(parameter_file):
 	return elements, atom_types, bond_types, angle_types, dihedral_types
 
 
-def write_lammps_data(system, pair_coeffs_included=True):
-	atoms, bonds, angles, dihedrals, box_size, run_name = system.atoms, system.bonds, system.angles, system.dihedrals, system.box_size, system.name #unpack values from system
-
-	dihedrals = [d for d in dihedrals if any(d.type.e)] #ignore dihedrals with no energy
-
+def write_lammps_data(system, pair_coeffs_included=False):
+	#unpack values from system
+	atoms, bonds, angles, dihedrals, box_size, run_name = system.atoms, system.bonds, system.angles, system.dihedrals, system.box_size, system.name
+	#ignore dihedrals with no energy
+	dihedrals = [d for d in dihedrals if any(d.type.e)]
+	#get list of unique atom types
 	atom_types = dict( [(t.type,True) for t in atoms] ).keys() #unique set of atom types
 	bond_types = dict( [(t.type,True) for t in bonds] ).keys()
 	angle_types = dict( [(t.type,True) for t in angles] ).keys()
 	dihedral_types = dict( [(t.type,True) for t in dihedrals] ).keys()
-	
-	atom_types.sort(key=lambda t:t.mass) # sort atom types by molecular weight
-	
-	atom_type_numbers = dict( [(t,i+1) for i,t in enumerate(atom_types)] ) #assign unique numbers
-	bond_type_numbers = dict( [(t,i+1) for i,t in enumerate(bond_types)] )
-	angle_type_numbers = dict( [(t,i+1) for i,t in enumerate(angle_types)] )
-	dihedral_type_numbers = dict( [(t,i+1) for i,t in enumerate(dihedral_types)] )
-	
+	system.atom_types, system.bond_types, system.angle_types, system.dihedral_types = atom_types, bond_types, angle_types, dihedral_types
+	# sort atom types by mass, smallest masses first
+	atom_types.sort(key=lambda t:t.mass) 
+	# get type numbers to identify types to LAMMPS
+	for i,t in enumerate(atom_types): t.lammps_type = i+1
+	for i,t in enumerate(bond_types): t.lammps_type = i+1
+	for i,t in enumerate(angle_types): t.lammps_type = i+1
+	for i,t in enumerate(dihedral_types): t.lammps_type = i+1
+	#start writing file
 	f = open(run_name+'.data', 'w')
 	f.write('LAMMPS Description\n\n%d atoms\n%d bonds\n%d angles\n%d dihedrals\n0  impropers\n\n' % (len(atoms), len(bonds), len(angles), len(dihedrals)) )
 	f.write('%d atom types\n%d bond types\n%d angle types\n%d dihedral types\n0  improper types\n' % (len(atom_types), len(bond_types), len(angle_types), len(dihedral_types)) )
@@ -196,19 +198,19 @@ def write_lammps_data(system, pair_coeffs_included=True):
 
 Masses
 
-'''+('\n'.join(["%d\t%f" % (atom_type_numbers[t], t.mass) for t in atom_types]))+'\n')
+'''+('\n'.join(["%d\t%f" % (t.lammps_type, t.mass) for t in atom_types]))+'\n')
 
-	if pair_coeffs_included: f.write('\nPair Coeffs\n\n'+('\n'.join(["%d\t%f\t%f" % (atom_type_numbers[t], t.vdw_e, t.vdw_r) for t in atom_types])) )
+	if pair_coeffs_included: f.write('\nPair Coeffs\n\n'+('\n'.join(["%d\t%f\t%f" % (t.lammps_type, t.vdw_e, t.vdw_r) for t in atom_types])) )
 
-	if bonds: f.write("\n\nBond Coeffs\n\n"+'\n'.join(["%d\t%f\t%f" % (bond_type_numbers[t], t.e, t.r) for t in bond_types]))
-	if angles: f.write("\n\nAngle Coeffs\n\n"+'\n'.join(["%d\t%f\t%f" % (angle_type_numbers[t], t.e, t.angle) for t in angle_types]))
-	if dihedrals: f.write("\n\nDihedral Coeffs\n\n"+'\n'.join(["%d\t%f\t%f\t%f\t%f" % ((dihedral_type_numbers[t],)+tuple(t.e)+((0.0,) if len(t.e)==3 else ()) ) for t in dihedral_types]))
+	if bonds: f.write("\n\nBond Coeffs\n\n"+'\n'.join(["%d\t%f\t%f" % (t.lammps_type, t.e, t.r) for t in bond_types]))
+	if angles: f.write("\n\nAngle Coeffs\n\n"+'\n'.join(["%d\t%f\t%f" % (t.lammps_type, t.e, t.angle) for t in angle_types]))
+	if dihedrals: f.write("\n\nDihedral Coeffs\n\n"+'\n'.join(["%d\t%f\t%f\t%f\t%f" % ((t.lammps_type,)+tuple(t.e)+((0.0,) if len(t.e)==3 else ()) ) for t in dihedral_types]))
 
-	f.write("\n\nAtoms\n\n"+'\n'.join( ['\t'.join( [str(q) for q in [a.index, a.molecule_index, atom_type_numbers[a.type], a.type.charge, a.x, a.y, a.z]] ) for a in atoms]) ) #atom (molecule type charge x y z)
+	f.write("\n\nAtoms\n\n"+'\n'.join( ['\t'.join( [str(q) for q in [a.index, a.molecule_index, a.type.lammps_type, a.type.charge, a.x, a.y, a.z]] ) for a in atoms]) ) #atom (molecule type charge x y z)
 
-	if bonds: f.write('\n\nBonds\n\n' + '\n'.join( ['\t'.join([str(q) for q in [i+1, bond_type_numbers[b.type], b.atoms[0].index, b.atoms[1].index]]) for i,b in enumerate(bonds)]) ) #bond (type a b)
-	if angles: f.write('\n\nAngles\n\n' + '\n'.join( ['\t'.join([str(q) for q in [i+1, angle_type_numbers[a.type]]+[atom.index for atom in a.atoms] ]) for i,a in enumerate(angles)]) ) #ID type atom1 atom2 atom3
-	if dihedrals: f.write('\n\nDihedrals\n\n' + '\n'.join( ['\t'.join([str(q) for q in [i+1, dihedral_type_numbers[d.type]]+[atom.index for atom in d.atoms] ]) for i,d in enumerate(dihedrals)]) ) #ID type a b c d
+	if bonds: f.write('\n\nBonds\n\n' + '\n'.join( ['\t'.join([str(q) for q in [i+1, b.type.lammps_type, b.atoms[0].index, b.atoms[1].index]]) for i,b in enumerate(bonds)]) ) #bond (type a b)
+	if angles: f.write('\n\nAngles\n\n' + '\n'.join( ['\t'.join([str(q) for q in [i+1, a.type.lammps_type]+[atom.index for atom in a.atoms] ]) for i,a in enumerate(angles)]) ) #ID type atom1 atom2 atom3
+	if dihedrals: f.write('\n\nDihedrals\n\n' + '\n'.join( ['\t'.join([str(q) for q in [i+1, d.type.lammps_type]+[atom.index for atom in d.atoms] ]) for i,d in enumerate(dihedrals)]) ) #ID type a b c d
 	f.write('\n\n')
 	f.close()
 
