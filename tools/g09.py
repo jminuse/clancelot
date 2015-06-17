@@ -316,33 +316,33 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, f
 				for j,b in enumerate(state):
 					if j in spring_atoms:
 						a,c = NEB.states[i-1][j], NEB.states[i+1][j]
-						
-							#find tangent
-							tplus = np.array( [ c.x-b.x, c.y-b.y, c.z-b.z ] )
-							tminus = np.array( [ a.x-b.x, a.y-b.y, a.z-b.z ] )
-							dVmin = min(V[i+1]-V[i], V[i-1]-V[i])
-							dVmax = max(V[i+1]-V[i], V[i-1]-V[i])
-							if V[i+1]>V[i] and V[i]>V[i-1]: #not at an extremum, trend of V is up
-								tangent = tplus
-							elif V[i+1]<V[i] and V[i]<V[i-1]: #not at an extremum, trend of V is down
-								tangent = tminus
-							elif V[i+1]>V[i-1]: #at local extremum, next V is higher
-								tangent = tplus*dVmax + tminus*dVmin
-							else: #at local extremum, previous V is higher
-								tangent = tplus*dVmin + tminus*dVmax
-								
-							#normalize tangent
-							tangent /= np.linalg.norm(tangent)
-						
-							#find spring forces parallel to tangent
-							F_spring_parallel = NEB.k*( utils.dist(c,b) - utils.dist(b,a) ) * tangent
-						
-							#find DFT forces perpendicular to tangent
-							real_force = np.array( [b.fx,b.fz,b.fz] )
-							F_real_perpendicular = real_force - np.dot(real_force, tangent)
-						
-							#set NEB forces
-							b.fx, b.fy, b.fz = F_spring_parallel + F_real_perpendicular
+					
+						#find tangent
+						tplus = np.array( [ c.x-b.x, c.y-b.y, c.z-b.z ] )
+						tminus = np.array( [ a.x-b.x, a.y-b.y, a.z-b.z ] )
+						dVmin = min(V[i+1]-V[i], V[i-1]-V[i])
+						dVmax = max(V[i+1]-V[i], V[i-1]-V[i])
+						if V[i+1]>V[i] and V[i]>V[i-1]: #not at an extremum, trend of V is up
+							tangent = tplus
+						elif V[i+1]<V[i] and V[i]<V[i-1]: #not at an extremum, trend of V is down
+							tangent = tminus
+						elif V[i+1]>V[i-1]: #at local extremum, next V is higher
+							tangent = tplus*dVmax + tminus*dVmin
+						else: #at local extremum, previous V is higher
+							tangent = tplus*dVmin + tminus*dVmax
+							
+						#normalize tangent
+						tangent /= np.linalg.norm(tangent)
+					
+						#find spring forces parallel to tangent
+						F_spring_parallel = NEB.k*( utils.dist(c,b) - utils.dist(b,a) ) * tangent
+					
+						#find DFT forces perpendicular to tangent
+						real_force = np.array( [b.fx,b.fz,b.fz] )
+						F_real_perpendicular = real_force - np.dot(real_force, tangent)
+					
+						#set NEB forces
+						b.fx, b.fy, b.fz = F_spring_parallel + F_real_perpendicular
 			
 			#set error
 			NEB.error = sum(energies)
