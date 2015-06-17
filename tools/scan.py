@@ -45,9 +45,9 @@ energies = []
 
 print 'Step', 'E (Har)', 'Converged?'
 for step in range(low,count):
-	energy, atoms = g09.parse_atoms(name+str(step), check_convergence=False)
+	energy, atoms = g09.parse_atoms(name+str(step) if name.find('%')==-1 else name % step, check_convergence=False)
 	files.write_xyz(atoms, f)
-	print step, energy, int(g09.parse_atoms(name+str(step))!=None)
+	print step, energy, int(g09.parse_atoms(name+str(step) if name.find('%')==-1 else name % step)!=None)
 	energies.append(energy)
 
 def matplot(y):
