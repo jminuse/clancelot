@@ -239,7 +239,7 @@ def parse_chelpg(input_file):
 			charges.append( float(columns[2]) )
 	return charges
 
-def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k=0.1837): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
+def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, fit_rigid=True, k=0.1837): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
 #Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
 	from scipy.optimize import minimize
 	import numpy as np
@@ -261,7 +261,7 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 			NEB.theory = theory
 			NEB.k = k
 			
-			utils.procrustes(NEB.states) #fit rigid before relaxing
+			if fit_rigid: utils.procrustes(NEB.states) #fit rigid before relaxing
 	
 			#load initial coordinates into flat array for optimizer
 			NEB.coords_start = []
@@ -310,7 +310,7 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 					print 'Job failed: %s-%d-%d'%(NEB.name,NEB.step,i); exit()
 			V = copy.deepcopy(energies) # V = potential energy from DFT. energies = V+springs
 			#rigidly rotate jobs into alignment before calculating forces
-			utils.procrustes(NEB.states)
+			if fit_rigid: utils.procrustes(NEB.states)
 			#add spring forces to atoms
 			for i,state in enumerate(NEB.states):
 				if i==0 or i==len(NEB.states)-1: continue #don't change first or last state

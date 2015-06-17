@@ -319,5 +319,6 @@ def motion_per_frame(frames):
 			a = atom_list[i-1]
 			b = atom_list[i]
 			per_state_avg[i] += dist(a,b)
-	for i,x in enumerate(per_state_avg):
-		print i, x/len(frames[0])
+	motion = []
+	for x in per_state_avg: motion.append(x/len(frames[0]))
+	return motion
