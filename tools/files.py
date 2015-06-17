@@ -112,7 +112,7 @@ def read_xyz(name):
 			if len(columns)>=4:
 				x,y,z = [float(s) for s in columns[1:4]]
 				atoms.append( utils.Atom(element=columns[0], x=x, y=y, z=z, index=len(atoms)+1) )
-		frames.append(atoms)
+		if len(atoms)>0: frames.append(atoms) 
 	
 	if len(frames)==1:
 		return frames[0]
@@ -291,8 +291,9 @@ def read_col(filename, c=None, s_ptr=None, s_count=1, d_end=-1, start=0, stop=No
 	d_chk = d_end
 	while d_chk != 0:
 		# Loop through data for a start of data block
-		for l in f:
-			if l.find(s_ptr) > -1: break
+		if s_ptr != None:
+			for l in f:
+				if l.find(s_ptr) > -1: break
 
 		data_hold = []
 		line = -1
