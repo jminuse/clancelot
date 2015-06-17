@@ -4,22 +4,20 @@ from fnmatch import fnmatch
 from subprocess import Popen, PIPE
 from getpass import getuser
 
-def get_jlist():
-	USER_NAME=getuser()
-
+def get_jlist(verbose=False):
 	# Get input from jlist as a string
 	p = Popen(['jlist'], stdout=PIPE)
-	output = p.stdout.read().split()
+	output = p.stdout.read()
 
-	# Make an empty string to hold our list
-	jlist = ""
+	pattern = getuser()+'''[\s]+([\S]+)[\s]+([\S]+)[\s]+([\S]+)'''
 
-	# Loop through jlist and get file names
-	for i,s in enumerate(output):
-		if s==USER_NAME:
-			jlist = jlist + output[i+1] + " "
+	info = re.findall(pattern,output)
 
-	return jlist.split()
+	names = []
+	for a in info: names.append(a[0])
+
+	if verbose: return info
+	else: return names
 
 # A function that checks if the gaussian job 'run_name' exists in gaussian.log
 def chk_gaussian(run_name,sptr=None,force=False):
@@ -89,7 +87,7 @@ def put_gaussian(run_name,route,extra_section,blurb,eRec,force=False):
 # A function to get energy data for output to screen and/or record to gaussian.log
 def chkg_E(fptr,unit='Ha',record=False,e_list=False,suppress=False):
 	# Read in data from file
-	energies, _, time = g09.parse_all("gaussian/"+fptr+".log")
+	energies, _, time = g09.parse_atoms("gaussian/"+fptr+".log",parse_all=True)
 
 	# If you want the standard output to terminal, do this
 	if not suppress:
@@ -97,13 +95,18 @@ def chkg_E(fptr,unit='Ha',record=False,e_list=False,suppress=False):
 		if e_list:
 			for e in energies: print(e)
 		print('\n---------------------------------------------------')
+		print('Job Name: '+fptr)
 		print('Energy Data Points: '+str(len(energies)))
 		if len(energies)>2: print('dE 2nd last = '+str(units.convert_energy('Ha',unit,energies[-2]-energies[-3]))+' '+unit)
 		if len(energies)>1: print('dE last = '+str(units.convert_energy('Ha',unit,energies[-1]-energies[-2]))+' '+unit)
 		if len(energies)>0: print('Last Energy = '+str(energies[-1])+' Ha')
 		print('---------------------------------------------------')
 		if time: print 'Job finished in %.2g seconds' % time
-		elif (' '+fptr+' ') in get_jlist(): print 'Job is still running'
+		elif (fptr) in get_jlist(): 
+			print 'Job is still running'
+			print '~~~~ Convergenge Criteria'
+			s = open('gaussian/'+fptr+'.log').read()
+			print('\n'.join(s[s.rfind("Converged?"):].split('\n')[1:5]))
 		else: 
 			print 'Job failed to converge. Log file says:\n~~~~ End Of File Info'
 			os.system('tail -n 5 '+"gaussian/"+fptr+".log")

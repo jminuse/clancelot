@@ -60,15 +60,33 @@ def restart_job(old_run_name, job_type='ChkBasis Opt=Restart', queue='batch', pr
 	os.system('g09sub '+run_name+' -chk -queue '+queue+((' -nproc '+str(procs)+' ') if procs else '')+' -xhost sys_eei sys_icse')
 	os.chdir('..')
 
-def parse_atoms(input_file, get_atoms=True, get_energy=True, check_convergence=True, get_time=False, counterpoise=False):
+def parse_atoms(input_file, get_atoms=True, get_energy=True, check_convergence=True, get_time=False, counterpoise=False, parse_all=False):
+	"""
+	@input_file [str] : string name of log file
+
+	Returns: (? energy, ? atoms, ? time) | None
+	@energy [float] : If get_energy or parse_all, otherwise return omitted.
+	@atoms |[atom list] : Iff parse_all, returns atom list list.
+		   |[atom list list] : Iff not parse_all and get_atoms, atom list. Otherwise omitted.
+	@time [float] : If get_time returns float (seconds). Otherwise, return omitted.
+
+	Note that None may be returned in the event that Gaussian did not terminate normally (see 7 lines down).
+	"""
 	if input_file[-4:] != '.log':
 		input_file = 'gaussian/'+input_file+'.log'
-	
 	contents = open(input_file).read()
-	if check_convergence and get_energy and 'Normal termination of Gaussian 09' not in contents:
-		return None
+	time = None	
 
-	if 'Summary of Optimized Potential Surface Scan' in contents:
+	if check_convergence and get_energy and not parse_all and 'Normal termination of Gaussian 09' not in contents:
+		return None
+	if ('Normal termination of Gaussian 09' in contents) and (get_time | parse_all):
+		m = re.search('Job cpu time: +(\S+) +days +(\S+) +hours +(\S+) +minutes +(\S+) +seconds', contents)
+		try:
+			time = float(m.group(1))*24*60*60 + float(m.group(2))*60*60 + float(m.group(3))*60 + float(m.group(4))
+		except:
+			pass
+
+	if 'Summary of Optimized Potential Surface Scan' in contents and not parse_all:
 		end_section = contents[contents.rindex('Summary of Optimized Potential Surface Scan'):]
 		energy_lines = re.findall('Eigenvalues -- ([^\\n]+)', end_section)
 		energy = [float(s) for line in energy_lines for s in re.findall('-[\d]+\.[\d]+', line)]
@@ -90,7 +108,7 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, check_convergence=T
 		if get_energy:
 			return energy, atoms
 		
-	elif get_energy:
+	elif get_energy and not parse_all:
 		if ' MP2/' in contents: # MP2 files don't have just SCF energy
 			energy = float(re.findall('EUMP2 = +(\S+)', contents)[-1].replace('D','e'))
 		elif ' CCSD/' in contents:
@@ -104,11 +122,34 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, check_convergence=T
 				energy = float(re.search('SCF Done: +\S+ += +(\S+)', energy_line).group(1))
 			else:
 				energy = float(re.findall('Counterpoise: corrected energy = +(\S+)', contents)[-1])
-	
-	if get_time:
-		m = re.search('Job cpu time: +(\S+) +days +(\S+) +hours +(\S+) +minutes +(\S+) +seconds', contents)
-		time = float(m.group(1))*24*60*60 + float(m.group(2))*60*60 + float(m.group(3))*60 + float(m.group(4))
-	
+
+	if parse_all:
+		energies = []
+		atom_frames = []
+		start=0
+		while True:
+			try: #match energy
+				start = contents.index('SCF Done', start)
+				energies.append(float( re.search('SCF Done: +\S+ += +(\S+)', contents[start:]).group(1) ) )
+				input_orientation = contents.find('Input orientation:', start)
+				if input_orientation >= 0:
+					start = input_orientation
+				next_coordinates = contents.index('Coordinates (Angstroms)', start)
+			except: break
+			start = contents.index('---\n', next_coordinates)+4
+			end = contents.index('\n ---', start)
+			lines = contents[start:end].splitlines()
+			start = end
+
+			atoms = []
+			for line in lines:
+				columns = line.split()
+				element = columns[1]
+				x,y,z = columns[3:6]
+				atoms.append( utils.Atom(element=element, x=float(x), y=float(y), z=float(z)) )
+			atom_frames.append(atoms)
+		return energies, atom_frames, time
+
 	if get_energy and not get_atoms:
 		if get_time:
 			return energy, time
@@ -152,43 +193,6 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, check_convergence=T
 		
 def atoms(input_file, check=False):
 	return parse_atoms(input_file, get_atoms=True, get_energy=False, check_convergence=check, get_time=False, counterpoise=False)
-
-def parse_all(input_file):
-	contents = open(input_file).read()
-	time = None
-	if 'Normal termination of Gaussian 09' not in contents:
-		pass
-	else:
-		m = re.search('Job cpu time: +(\S+) +days +(\S+) +hours +(\S+) +minutes +(\S+) +seconds', contents)
-		time = float(m.group(1))*24*60*60 + float(m.group(2))*60*60 + float(m.group(3))*60 + float(m.group(4))
-
-	energies = []
-	atom_frames = []
-	start = 0
-	while True:
-		try: #match energy
-			start = contents.index('SCF Done', start)
-			energy_this_step = float( re.search('SCF Done: +\S+ += +(\S+)', contents[start:]).group(1) )
-			input_orientation = contents.find('Input orientation:', start)
-			if input_orientation >= 0:
-				start = input_orientation
-			next_coordinates = contents.index('Coordinates (Angstroms)', start)
-		except: break
-		start = contents.index('---\n', next_coordinates)+4
-		end = contents.index('\n ---', start)
-		lines = contents[start:end].splitlines()
-		start = end
-
-		atoms = []
-		for line in lines:
-			columns = line.split()
-			element = columns[1]
-			x,y,z = columns[3:6]
-			atoms.append( utils.Atom(element=element, x=float(x), y=float(y), z=float(z)) )
-		atom_frames.append(atoms)
-		energies.append(energy_this_step)
-
-	return energies, atom_frames, time
 	
 def parse_scan(input_file):
 	contents = open(input_file).read()
@@ -235,7 +239,7 @@ def parse_chelpg(input_file):
 			charges.append( float(columns[2]) )
 	return charges
 
-def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k=0.1837): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
+def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, fit_rigid=True, k=0.1837): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
 #Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
 	import scipy.optimize
 	import numpy as np
@@ -246,30 +250,6 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 		elements = spring_atoms.split()
 		spring_atoms = [i for i,a in enumerate(states[0]) if a.element in elements]
 	#class to contain working variables
-	
-	def procrustes(frames):
-		for s in frames:
-			center_x = sum([a.x for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
-			center_y = sum([a.y for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
-			center_z = sum([a.z for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
-			for a in s:
-				a.x -= center_x
-				a.y -= center_y
-				a.z -= center_z
-		#rotate all frames to be as similar to their neighbors as possible
-		from scipy.linalg import orthogonal_procrustes
-		for i in range(1,len(frames)): #rotate all frames to optimal alignment
-			#only count spring-held atoms for finding alignment
-			spring_atoms_1 = [(a.x,a.y,a.z) for j,a in enumerate(frames[i]) if j in spring_atoms]
-			spring_atoms_2 = [(a.x,a.y,a.z) for j,a in enumerate(frames[i-1]) if j in spring_atoms]
-			rotation = orthogonal_procrustes(spring_atoms_1,spring_atoms_2)[0]
-			#rotate all atoms into alignment
-			
-			for a in frames[i]:
-				a.x,a.y,a.z = utils.matvec(rotation, (a.x,a.y,a.z))
-				if hasattr(a, 'fx'):
-					a.fx,a.fy,a.fz = utils.matvec(rotation, (a.fx,a.fy,a.fz))
-	
 	class NEB:
 		name, states, theory, k = None, None, None, None
 		error, forces = None, None
@@ -280,7 +260,7 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 			NEB.theory = theory
 			NEB.k = k
 			
-			procrustes(NEB.states) #fit rigid before relaxing
+			if fit_rigid: utils.procrustes(NEB.states) #fit rigid before relaxing
 	
 			#load initial coordinates into flat array for optimizer
 			NEB.coords_start = []
@@ -317,20 +297,25 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, k
 					new_energy, new_atoms = parse_atoms('%s-%d-%d' % (NEB.name, step_to_use, i), check_convergence=False)
 				except:
 					print "Unexpected error in 'parse_atoms':", sys.exc_info()[0]
+					print "Debug info: step_to_use = "+str(step_to_use)
+					print "Debuf info: len(NEB.states) = "+str(len(NEB.states))
 					print 'Job failed: %s-%d-%d'%(NEB.name,NEB.step,i); exit()
 				energies.append(new_energy)
-				for a,b in zip(state, new_atoms):
-					a.fx, a.fy, a.fz = b.fx, b.fy, b.fz
+				try:
+					for a,b in zip(state, new_atoms):
+						a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
+				except:
+					print "Unexpected error in collecting forces:", sys.exc_info()[0]
+					print 'Job failed: %s-%d-%d'%(NEB.name,NEB.step,i); exit()
 			V = copy.deepcopy(energies) # V = potential energy from DFT. energies = V+springs
 			#rigidly rotate jobs into alignment before calculating forces
-			#procrustes(NEB.states) #actually messes up optimization routine
-			#set NEB forces on atoms: spring forces parallel to path, DFT forces perpendicular
-			if NEB.step%2==1:
-				for i,state in enumerate(NEB.states):
-					if i==0 or i==len(NEB.states)-1: continue #don't change first or last state
-					for j,b in enumerate(state):
-						if j in spring_atoms:
-							a,c = NEB.states[i-1][j], NEB.states[i+1][j]
+			#procrustes(NEB.states) #can't change coords - messes up optimization routine
+			#add spring forces to atoms
+			for i,state in enumerate(NEB.states):
+				if i==0 or i==len(NEB.states)-1: continue #don't change first or last state
+				for j,b in enumerate(state):
+					if j in spring_atoms:
+						a,c = NEB.states[i-1][j], NEB.states[i+1][j]
 						
 							#find tangent
 							tplus = np.array( [ c.x-b.x, c.y-b.y, c.z-b.z ] )
@@ -583,4 +568,93 @@ def optimize_pm6(name, examples, param_string, starting_params, queue=None): #op
 	
 	minimize(pm6_error, starting_params, method='Nelder-Mead', options={'disp': True} )
 	
+def ghost_job(atoms, name, previous_job=None, route='SP SCRF(Solvent=Toluene) guess=read', blurb=None, procs=1, queue='batch', extras=''):
+	# To ensure we do not overwrite a file we increment a value until we find that the run doesn't exist
+	if os.path.isfile('gaussian/'+name+'.log'):
+		i = 1
+		while os.path.isfile('gaussian/'+name+'_'+str(i)+'.log'): i+=1
+		if name.rfind('_') < 0: name = name + '_' + str(i)
+		else: name = name[:name.rfind('_')]+'_'+str(i)
 
+	# Get the routing line from a previous job if you need to
+	if (previous_job != None): route = open('gaussian/'+previous_job+'.inp').readline()[2:].strip().split()[0] + ' ' + route
+	# If the previous run had '/gen', we need to copy that for an extra_section
+	if(route.split()[0][-3:] == 'Gen'):
+		extras = open('gaussian/'+previous_job+'.inp').read().split('\n\n')[3:]
+		extras = '\n\n'.join(extras)
+
+	# Run the job and return the job name for the user to use later
+	job(name, route, atoms=atoms, queue=queue, extra_section=extras,blurb=blurb, procs=procs,previous=previous_job)
+
+	return name
+
+# A function that returns the binding energy of a molecule A with corrections.
+# job_total - This is the name of a gaussian job that holds the full system (optimized)
+# job_A - This is the name of a gaussian job that holds the optimized molecule A
+# job_B - This is the name of a gaussian job that holds the optimized molecule B
+# zero_indexed_atom_indices_A - This is a list of indices for molecule A in job_total.  First values of a .xyz file start at 0.
+def binding_energy_dz(job_total, job_A, job_B, zero_indexed_atom_indices_A, route='SP SCRF(Solvent=Toluene) guess=read', blurb=None, procs=1, queue='batch'):
+	AB = g09.atoms(job_total) # First get the atoms from the gaussian job for the full system
+	AB_A = copy.deepcopy(AB)
+	for i,atom in enumerate(AB_A): # For AB_A, we want all atoms not part of molecule A to be ghost atoms
+		if i not in zero_indexed_atom_indices_A: atom.element+='-Bq'
+	AB_B = copy.deepcopy(AB)
+	for i,atom in enumerate(AB_B): # For AB_B we want all atoms part of molecule A to be ghost atoms
+		if i in zero_indexed_atom_indices_A: atom.element+='-Bq'
+	
+	# Now AB_A is A from AB, AB_B is B from AB
+	name1 = ghost_job(AB_A, job_total+'_A0', blurb=blurb, queue=queue, procs=procs, previous_job=job_total)
+	name2 = ghost_job(AB_B, job_total+'_B0', blurb=blurb, queue=queue, procs=procs, previous_job=job_total)
+	
+	#non-rigid correction:
+	AB_A = [atom for atom in AB_A if not atom.element.endswith('-Bq')]
+	AB_B = [atom for atom in AB_B if not atom.element.endswith('-Bq')]
+	name3 = ghost_job(AB_A, job_A+'_AB0', blurb=blurb, queue=queue, procs=procs, previous_job=job_A)
+	name4 = ghost_job(AB_B, job_B+'_AB0'+('2' if job_A==job_B else ''), blurb=blurb, queue=queue, procs=procs, previous_job=job_B)
+	
+	# To get the binding energy we need to take into account the superposition error and the deformation error:
+	# Superposition Error Correction is done by taking the total energy of the job and subtracting from it:
+	#   	name1 = Original system with molecule A as ghost atoms and basis set of original system
+	#		name2 = Original system with molecule B as ghost atoms and basis set of original system
+	# Deformation energy corrections are done by taking the difference in energy of molecules in the same basis set between
+	# geometries:
+	#		Add the following
+	#		name3 = Molecule A in the geometry of the original System but in the basis set of what molecule A was done in
+	#		name4 = Molecule B in the geometry of the original System but in the basis set of what molecule B was done in
+	# 		Subtract the following
+	#		job_A = Molecule A in the basis set it was done in
+	#		job_B = Molecule B in the basis set it was done in
+	print 'E_binding = %s - %s - %s + %s + %s - %s - %s' % (job_total, name1, name2, name3, name4, job_A, job_B)
+
+	i = 0
+	while os.path.isfile('bind_tck_#.py'.replace('#',str(i))): i += 1
+	
+	f = open('bind_tck_#.py'.replace('#',str(i)),'w')
+
+	job_names = [job_total, name1, name2, name3, name4, job_A, job_B]
+	for i in range(len(job_names)): job_names[i] = "'"+job_names[i]+"'"
+	job_names = ', '.join(job_names)
+
+	f.write('''from merlin import *
+job_names = [$$$$$]
+# Check if jobs are still running
+for s in log.get_jlist():
+	if s in job_names:
+		print("Sorry, all simulations haven't finished yet...")
+		sys.exit()
+
+# Else, we can get the energy
+energies = []
+for s in job_names:
+	e,_ = g09.parse_atoms(s)
+	energies.append(e)
+
+sp_corr = energies[0] - energies[1] - energies[2]
+geom_corr = energies[3] - energies[5] + energies[4] - energies[6]
+print('Jobs Calculated From: '+'\\n\\t'.join(job_names))
+print('------------')
+print('Superposition Correction = '+str(sp_corr)+' Ha')
+print('Geometry Correction = '+str(geom_corr)+' Ha')
+print('Binding Energy = '+str(sp_corr + geom_corr)+' Ha')'''.replace('$$$$$',job_names))
+
+	f.close()

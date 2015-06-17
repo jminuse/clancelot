@@ -7,7 +7,7 @@ if not input.endswith('.log'):
 
 output = sys.argv[2] if len(sys.argv)>2 else 'out'
 
-energies, frames, time = g09.parse_all(input)
+energies, frames, time = g09.parse_atoms(input,parse_all=True)
 for e in energies:
 	print e
 

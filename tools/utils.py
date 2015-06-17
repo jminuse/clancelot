@@ -282,3 +282,43 @@ def dihedral_angle(a,b,c,d):
 	
 	return phi, math.cos(phi), math.cos(2*phi), math.cos(3*phi), math.cos(4*phi)
 
+def procrustes(frames, count_atoms=None):
+	if not count_atoms: count_atoms = range(len(frames[0]))
+	for s in frames:
+		center_x = sum([a.x for i,a in enumerate(s) if i in count_atoms])/len(count_atoms)
+		center_y = sum([a.y for i,a in enumerate(s) if i in count_atoms])/len(count_atoms)
+		center_z = sum([a.z for i,a in enumerate(s) if i in count_atoms])/len(count_atoms)
+		for a in s:
+			a.x -= center_x
+			a.y -= center_y
+			a.z -= center_z
+	#rotate all frames to be as similar to their neighbors as possible
+	from scipy.linalg import orthogonal_procrustes
+	for i in range(1,len(frames)): #rotate all frames to optimal alignment
+		#only count spring-held atoms for finding alignment
+		count_atoms_1 = [(a.x,a.y,a.z) for j,a in enumerate(frames[i]) if j in count_atoms]
+		count_atoms_2 = [(a.x,a.y,a.z) for j,a in enumerate(frames[i-1]) if j in count_atoms]
+		rotation = orthogonal_procrustes(count_atoms_1,count_atoms_2)[0]
+		#rotate all atoms into alignment
+		for a in frames[i]:
+			a.x,a.y,a.z = matvec(rotation, (a.x,a.y,a.z))
+
+def interpolate(atoms1, atoms2, N): #interpolate N steps between two sets of coordinates
+	frames = [[] for i in range(N)]
+	for a,b in zip(atoms1,atoms2):
+		dx,dy,dz = b.x-a.x, b.y-a.y, b.z-a.z
+		for i in range(N):
+			frac = 1.0*(i+1)/(N+1)
+			frames[i].append( Atom(a.element, a.x+dx*frac, a.y+dy*frac, a.z+dz*frac) )
+	return frames
+
+def motion_per_frame(frames):
+	per_state_avg = [0.0 for s in frames]
+	for atom_list in zip(*frames):
+		for i in range(1,len(atom_list)):
+			a = atom_list[i-1]
+			b = atom_list[i]
+			per_state_avg[i] += dist(a,b)
+	motion = []
+	for x in per_state_avg: motion.append(x/len(frames[0]))
+	return motion

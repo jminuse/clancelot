@@ -355,3 +355,29 @@ def read_col(filename, c=None, s_ptr=None, s_count=1, d_end=-1, start=0, stop=No
 	if d_end == 1: data = data[-1]
 	return data
 # --------------------------------------------------------------------------------------------------------------
+def inp_to_xyz(name,outname=None):
+	data = open("gaussian/"+name+".inp",'r').read().split('\n')
+
+	# Get start of data
+	for i,s in enumerate(data):
+		try:
+			if(s.split()[0]=='run'): break
+		except:
+			pass
+	i += 3
+
+	# Get end of data
+	j = 0
+	for k,s in enumerate(data):
+		if s == '': j = k
+	while (j > 0) and (data[j]==''): j-=1
+
+	data = data[i:j+1]
+
+	if outname: f=open(outname,'w')
+	else: f = open('inp_'+name+'.xyz','w')
+	f.write(str(len(data))+'\n')
+	f.write('Atoms'+'\n')
+	for s in data: f.write(s+'\n')
+	f.write('\n')
+	f.close()
