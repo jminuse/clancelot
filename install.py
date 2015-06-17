@@ -94,7 +94,6 @@ export PYTHONPATH=$$$$$$/tools:$PYTHONPATH
 alias get_ext_list='python $$$$$$/tools/get_ext_list.py'
 alias get_gauss_list='python $$$$$$/tools/get_gauss_list.py'
 alias get_jlist='python $$$$$$/tools/get_jlist.py'
-alias merlin='python -i $$$$$$/tools/merlin.py'
 
 '''.replace('$$$$$$/',INSTALLDIR))
 
@@ -219,7 +218,7 @@ if to_install['chkg']:
 	g.close()
 	os.system('chmod 755 '+INSTALLDIR+'chkg/chkg.sh')
 if to_install['chkg_all']: f.write("alias chkg_all='python "+INSTALLDIR+"tools/chkg_all.py'\n")
-if to_install['merlin']: f.write("alias merlin='python "+INSTALLDIR+"tools/merlin.py'\n")
+if to_install['merlin']: f.write("alias merlin='python -i "+INSTALLDIR+"tools/merlin.py'\n")
 if to_install['scang']: f.write("\nalias scang='python "+INSTALLDIR+"tools/scan.py'\n")
 
 f.write('''\n###############################################################
