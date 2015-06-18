@@ -1,4 +1,4 @@
-import os, math, copy, subprocess, time
+import os, sys, math, copy, subprocess, time
 import numpy
 import files
 
@@ -327,7 +327,7 @@ def motion_per_frame(frames):
 # ids[0] - This is an atom that will be positioned at the origin after translating the frame
 # ids[1] - This is an atom that will lie on the positive x-axis after two rotations of the frame
 # ids[2] - This is an atom that will lie on the xy plane in the positive y direction after rotation of the frame
-def center_frames(name,ids,X_TOL=0.1,XY_TOL=0.1,Z_TOL=0.1,THETA_STEP=0.05):
+def center_frames(frames,ids,X_TOL=0.1,XY_TOL=0.1,Z_TOL=0.1,THETA_STEP=0.005):
 	from math import sin, cos, pi
 
 	def get_pnt(a): return [a.x,a.y,a.z]
@@ -355,17 +355,6 @@ def center_frames(name,ids,X_TOL=0.1,XY_TOL=0.1,Z_TOL=0.1,THETA_STEP=0.05):
 		a.y = y
 		a.z = z
 
-	# Get frames
-	try:
-		if type(name) == type('') and len(name)<4: frames = files.read_xyz(name+'.xyz')
-		elif type(name) == type('') and name[-4:]=='.xyz': frames = files.read_xyz(name)
-		else:
-			print("Cannot open file %s" % name)
-			sys.exit()
-	except:
-		print("Cannot interpret what %s is during reading" % str(name))
-		sys.exit()
-
 	origin = ids[0]
 	xaxis = ids[1]
 	sqr = ids[2]
@@ -387,6 +376,7 @@ def center_frames(name,ids,X_TOL=0.1,XY_TOL=0.1,Z_TOL=0.1,THETA_STEP=0.05):
 			theta += THETA_STEP
 			if theta > 2*pi:
 				print("Cannot place atom of index %d on the xy plane" % xaxis)
+				print("Try decreasing THETA_STEP below %lg..." % THETA_STEP)
 				sys.exit()
 
 		# Rotate everything
@@ -402,6 +392,7 @@ def center_frames(name,ids,X_TOL=0.1,XY_TOL=0.1,Z_TOL=0.1,THETA_STEP=0.05):
 			theta += THETA_STEP
 			if theta > 2*pi:
 				print("Cannot place atom of index %d on the x axis" % xaxis)
+				print("Try decreasing THETA_STEP below %lg..." % THETA_STEP)
 				sys.exit()
 
 		# Rotate everything
@@ -417,19 +408,8 @@ def center_frames(name,ids,X_TOL=0.1,XY_TOL=0.1,Z_TOL=0.1,THETA_STEP=0.05):
 			theta += THETA_STEP
 			if theta > 2*pi:
 				print("Cannot place atom of index %d on the x(+y) plane" % sqr)
+				print("Try decreasing THETA_STEP below %lg..." % THETA_STEP)
 				sys.exit()
 
 		# Rotate everything
 		for a in f: rot_yz(a,theta)
-
-	# Save frames
-	name = "centered_"+name
-	try:
-		if type(name) == type('') and len(name)<4: frames = files.write_xyz(frames,name)
-		elif type(name) == type('') and name[-4:]=='.xyz': frames = files.write_xyz(frames,name[:-4])
-		else:
-			print("Cannot save file %s" % name)
-			sys.exit()
-	except:
-		print("Cannot interpret what %s is during saving" % str(name))
-		sys.exit()

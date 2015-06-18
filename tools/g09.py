@@ -239,7 +239,7 @@ def parse_chelpg(input_file):
 			charges.append( float(columns[2]) )
 	return charges
 
-def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, fit_rigid=True, k=0.1837): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
+def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, fit_rigid=True, k=0.1837, procrusts=True,centerIDS=None): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
 #Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
 	import scipy.optimize
 	import numpy as np
@@ -260,7 +260,12 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, f
 			NEB.theory = theory
 			NEB.k = k
 			
-			if fit_rigid: utils.procrustes(NEB.states) #fit rigid before relaxing
+			if fit_rigid: 
+				if procrusts: utils.procrustes(NEB.states) #fit rigid before relaxing
+				elif centerIDS != None: utils.center_frames(NEB.states,centerIDS)
+				else:
+					print "Unexpected error:", sys.exc_info()[0]
+					print 'fit_rigid failed: User needs to specify centerIDS'; exit()
 	
 			#load initial coordinates into flat array for optimizer
 			NEB.coords_start = []
@@ -297,8 +302,6 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, f
 					new_energy, new_atoms = parse_atoms('%s-%d-%d' % (NEB.name, step_to_use, i), check_convergence=False)
 				except:
 					print "Unexpected error in 'parse_atoms':", sys.exc_info()[0]
-					print "Debug info: step_to_use = "+str(step_to_use)
-					print "Debuf info: len(NEB.states) = "+str(len(NEB.states))
 					print 'Job failed: %s-%d-%d'%(NEB.name,NEB.step,i); exit()
 				energies.append(new_energy)
 				try:
