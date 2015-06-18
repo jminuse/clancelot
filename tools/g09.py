@@ -571,13 +571,17 @@ def optimize_pm6(name, examples, param_string, starting_params, queue=None): #op
 	
 	minimize(pm6_error, starting_params, method='Nelder-Mead', options={'disp': True} )
 	
-def ghost_job(atoms, name, previous_job=None, route='SP SCRF(Solvent=Toluene) guess=read', blurb=None, procs=1, queue='batch', extras=''):
+def ghost_job(atoms, name, previous_job=None, route='SP SCRF(Solvent=Toluene) guess=read', blurb=None, procs=1, queue='batch', extras='',force=False):
 	# To ensure we do not overwrite a file we increment a value until we find that the run doesn't exist
-	if os.path.isfile('gaussian/'+name+'.log'):
+	if os.path.isfile('gaussian/%s.inp' % name): # Check if normal file exists
 		i = 1
-		while os.path.isfile('gaussian/'+name+'_'+str(i)+'.log'): i+=1
-		if name.rfind('_') < 0: name = name + '_' + str(i)
-		else: name = name[:name.rfind('_')]+'_'+str(i)
+		try: # Check if the last thing is an integer to increment
+			int(name[name.rfind('_')+1:]) # If the last thing after _ is an integer, increment it
+			while os.path.isfile('gaussian/%s_%d.inp' % (name[:name.rfind('_')],i)): i+=1
+			name = name[:name.rfind('_')]+'_'+str(i)
+		except ValueError:
+			while os.path.isfile('gaussian/%s_%d.inp' % (name,i)): i+=1
+			name = '%s_%d' % (name,i)		
 
 	# Get the routing line from a previous job if you need to
 	if (previous_job != None): route = open('gaussian/'+previous_job+'.inp').readline()[2:].strip().split()[0] + ' ' + route
@@ -587,7 +591,7 @@ def ghost_job(atoms, name, previous_job=None, route='SP SCRF(Solvent=Toluene) gu
 		extras = '\n\n'.join(extras)
 
 	# Run the job and return the job name for the user to use later
-	job(name, route, atoms=atoms, queue=queue, extra_section=extras,blurb=blurb, procs=procs,previous=previous_job)
+	g09.job(name, route, atoms=atoms, queue=queue, extra_section=extras,blurb=blurb, procs=procs,previous=previous_job,force=force)
 
 	return name
 
@@ -596,7 +600,7 @@ def ghost_job(atoms, name, previous_job=None, route='SP SCRF(Solvent=Toluene) gu
 # job_A - This is the name of a gaussian job that holds the optimized molecule A
 # job_B - This is the name of a gaussian job that holds the optimized molecule B
 # zero_indexed_atom_indices_A - This is a list of indices for molecule A in job_total.  First values of a .xyz file start at 0.
-def binding_energy_dz(job_total, job_A, job_B, zero_indexed_atom_indices_A, route='SP SCRF(Solvent=Toluene) guess=read', blurb=None, procs=1, queue='batch'):
+def binding_energy_dz(job_total, job_A, job_B, zero_indexed_atom_indices_A, route='SP SCRF(Solvent=Toluene) guess=read', blurb=None, procs=1, queue='batch',force=False):
 	AB = g09.atoms(job_total) # First get the atoms from the gaussian job for the full system
 	AB_A = copy.deepcopy(AB)
 	for i,atom in enumerate(AB_A): # For AB_A, we want all atoms not part of molecule A to be ghost atoms
@@ -606,14 +610,14 @@ def binding_energy_dz(job_total, job_A, job_B, zero_indexed_atom_indices_A, rout
 		if i in zero_indexed_atom_indices_A: atom.element+='-Bq'
 	
 	# Now AB_A is A from AB, AB_B is B from AB
-	name1 = ghost_job(AB_A, job_total+'_A0', blurb=blurb, queue=queue, procs=procs, previous_job=job_total)
-	name2 = ghost_job(AB_B, job_total+'_B0', blurb=blurb, queue=queue, procs=procs, previous_job=job_total)
+	name1 = job(AB_A, job_total + '_A0', blurb=blurb, queue=queue, procs=procs, previous_job=job_total,force=force)
+	name2 = job(AB_B, job_total + '_B0', blurb=blurb, queue=queue, procs=procs, previous_job=job_total,force=force)
 	
 	#non-rigid correction:
 	AB_A = [atom for atom in AB_A if not atom.element.endswith('-Bq')]
 	AB_B = [atom for atom in AB_B if not atom.element.endswith('-Bq')]
-	name3 = ghost_job(AB_A, job_A+'_AB0', blurb=blurb, queue=queue, procs=procs, previous_job=job_A)
-	name4 = ghost_job(AB_B, job_B+'_AB0'+('2' if job_A==job_B else ''), blurb=blurb, queue=queue, procs=procs, previous_job=job_B)
+	name3 = job(AB_A, job_A + '_AB0', blurb=blurb, queue=queue, procs=procs, previous_job=job_A,force=force)
+	name4 = job(AB_B, job_B + '_AB0'+('2' if job_A==job_B else '') , blurb=blurb, queue=queue, procs=procs, previous_job=job_B,force=force)
 	
 	# To get the binding energy we need to take into account the superposition error and the deformation error:
 	# Superposition Error Correction is done by taking the total energy of the job and subtracting from it:
