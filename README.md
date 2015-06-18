@@ -4,7 +4,7 @@ A set of computational chemistry Python libraries and tools developed by the Cla
 ## Installing
 If you would like to install, simply clone the git repo, edit the install.py accordingly and run install.py
 
-		`git clone git@github.com:jminuse/clancelot.git`
+		`git clone https://github.com/jminuse/clancelot.git`
 
 ## Contributing
 If added to the project and you want to contribute, you can do the following:
