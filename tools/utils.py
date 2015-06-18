@@ -322,3 +322,114 @@ def motion_per_frame(frames):
 	motion = []
 	for x in per_state_avg: motion.append(x/len(frames[0]))
 	return motion
+
+# Alternative to Procrustes.  This code takes 3 values in a list as ids to recenter frames:
+# ids[0] - This is an atom that will be positioned at the origin after translating the frame
+# ids[1] - This is an atom that will lie on the positive x-axis after two rotations of the frame
+# ids[2] - This is an atom that will lie on the xy plane in the positive y direction after rotation of the frame
+def center_frames(name,ids,X_TOL=0.1,XY_TOL=0.1,Z_TOL=0.1,THETA_STEP=0.05):
+	from math import sin, cos, pi
+
+	def get_pnt(a): return [a.x,a.y,a.z]
+	def trans(a,t):
+		try:
+			a.x += t.x
+			a.y += t.y
+			a.z += t.z
+		except:
+			a.x += t[0]
+			a.y += t[1]
+			a.z += t[2]
+	def rot_yz(a,t):
+		x = a.x
+		y = a.y*cos(t)-a.z*sin(t)
+		z = a.y*sin(t)+a.z*cos(t)
+		a.x = x
+		a.y = y
+		a.z = z
+	def rot_xy(a,t):
+		x = a.x*cos(t)-a.y*sin(t)
+		y = a.x*sin(t)+a.y*cos(t)
+		z = a.z
+		a.x = x
+		a.y = y
+		a.z = z
+
+	# Get frames
+	try:
+		if type(name) == type('') and len(name)<4: frames = files.read_xyz(name+'.xyz')
+		elif type(name) == type('') and name[-4:]=='.xyz': frames = files.read_xyz(name)
+		else:
+			print("Cannot open file %s" % name)
+			sys.exit()
+	except:
+		print("Cannot interpret what %s is during reading" % str(name))
+		sys.exit()
+
+	origin = ids[0]
+	xaxis = ids[1]
+	sqr = ids[2]
+	# Loop through frames
+	for f in frames:
+		# Find the first translation to make the desired point the origin
+		trans_1 = get_pnt(f[origin])
+		for i in range(len(trans_1)): trans_1[i] *= -1
+
+		# Translate everything
+		for a in f: trans(a,trans_1)
+
+		# Find the desired x-axis' rotation to place it on the xy plane
+		theta = 0
+		pnt = f[xaxis]
+		while 1:
+			chk = pnt.y*sin(theta) + pnt.z*cos(theta)
+			if abs(chk) < Z_TOL: break
+			theta += THETA_STEP
+			if theta > 2*pi:
+				print("Cannot place atom of index %d on the xy plane" % xaxis)
+				sys.exit()
+
+		# Rotate everything
+		for a in f: rot_yz(a,theta)
+
+		# Now find the angle that we rotate around the z axis to get the +x-axis aligned
+		theta = 0
+		pnt = f[xaxis]
+		while 1:
+			chk_x = pnt.x*cos(theta) - pnt.y*sin(theta)
+			chk = pnt.x*sin(theta) + pnt.y*cos(theta)
+			if abs(chk) < X_TOL and chk_x > 0: break
+			theta += THETA_STEP
+			if theta > 2*pi:
+				print("Cannot place atom of index %d on the x axis" % xaxis)
+				sys.exit()
+
+		# Rotate everything
+		for a in f: rot_xy(a,theta)
+
+		# Now find the angle that we rotate around the x axis such that our last vector lies on the x(+y) plane
+		theta = 0
+		pnt = f[sqr]
+		while 1:
+			chk_y = pnt.y*cos(theta)-pnt.z*sin(theta)
+			chk = pnt.y*sin(theta) + pnt.z*cos(theta)
+			if abs(chk) < XY_TOL and chk_y > 0: break
+			theta += THETA_STEP
+			if theta > 2*pi:
+				print("Cannot place atom of index %d on the x(+y) plane" % sqr)
+				sys.exit()
+
+		# Rotate everything
+		for a in f: rot_yz(a,theta)
+
+	# Save frames
+	name = "centered_"+name
+	try:
+		if type(name) == type('') and len(name)<4: frames = files.write_xyz(frames,name)
+		elif type(name) == type('') and name[-4:]=='.xyz': frames = files.write_xyz(frames,name[:-4])
+		else:
+			print("Cannot save file %s" % name)
+			sys.exit()
+	except:
+		print("Cannot interpret what %s is during saving" % str(name))
+		sys.exit()
