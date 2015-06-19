@@ -254,7 +254,7 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, f
 		name, states, theory, k = None, None, None, None
 		error, forces = None, None
 		step = 0
-		def __init__(self, name, states, theory, k=1e-2):
+		def __init__(self, name, states, theory, k=1e-2, fit_rigid=True, procrusts=True,centerIDS=None):
 			NEB.name = name
 			NEB.states = states
 			NEB.theory = theory
@@ -377,7 +377,7 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, f
 			NEB.forces = None #set to None so it will recalculate next time
 			return np.array(forces)*1.8897 #convert from Hartree/Bohr to Hartree/Angstrom
 
-	n = NEB(name, states, theory, k)
+	n = NEB(name, states, theory, k, fit_rigid, procrusts,centerIDS)
 	# BFGS is the best method, cite http://theory.cm.utexas.edu/henkelman/pubs/sheppard08_134106.pdf
 	#scipy.optimize.minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_forces, options={'disp': True})
 	scipy.optimize.fmin_l_bfgs_b(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces, iprint=0, factr=1e7)
