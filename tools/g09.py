@@ -313,6 +313,17 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, f
 			V = copy.deepcopy(energies) # V = potential energy from DFT. energies = V+springs
 			#rigidly rotate jobs into alignment before calculating forces
 			#procrustes(NEB.states) #can't change coords - messes up optimization routine
+
+			##############################
+			# I wanted to try re-implementing this with rotation of the forces for center_frames
+			if fit_rigid: 
+				if procrusts: utils.procrustes(NEB.states) #fit rigid before relaxing
+				elif centerIDS != None: utils.center_frames(NEB.states,centerIDS)
+				else:
+					print "Unexpected error:", sys.exc_info()[0]
+					print 'fit_rigid failed: User needs to specify centerIDS'; exit()
+			##############################
+
 			#add spring forces to atoms
 			for i,state in enumerate(NEB.states):
 				if i==0 or i==len(NEB.states)-1: continue #don't change first or last state

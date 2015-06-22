@@ -347,6 +347,16 @@ def center_frames(frames,ids,X_TOL=0.1,XY_TOL=0.1,Z_TOL=0.1,THETA_STEP=0.005,TRA
 		a.x = x
 		a.y = y
 		a.z = z
+
+		try:
+			fx = a.fx
+			fy = a.fy*cos(t)-a.fz*sin(t)
+			fz = a.fy*sin(t)+a.fz*cos(t)
+			a.fx = fx
+			a.fy = fy
+			a.fz = fz
+		except: pass
+
 	def rot_xy(a,t):
 		x = a.x*cos(t)-a.y*sin(t)
 		y = a.x*sin(t)+a.y*cos(t)
@@ -354,6 +364,15 @@ def center_frames(frames,ids,X_TOL=0.1,XY_TOL=0.1,Z_TOL=0.1,THETA_STEP=0.005,TRA
 		a.x = x
 		a.y = y
 		a.z = z
+
+		try:
+			fx = a.fx*cos(t)-a.fy*sin(t)
+			fy = a.fx*sin(t)+a.fy*cos(t)
+			fz = a.fz
+			a.fx = fx
+			a.fy = fy
+			a.fz = fz
+		except: pass
 
 	origin = ids[0]
 	xaxis = ids[1]
