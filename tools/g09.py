@@ -316,12 +316,12 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, f
 
 			##############################
 			# I wanted to try re-implementing this with rotation of the forces for center_frames
-			if fit_rigid: 
-				if procrusts: utils.procrustes(NEB.states) #fit rigid before relaxing
-				elif centerIDS != None: utils.center_frames(NEB.states,centerIDS)
-				else:
-					print "Unexpected error:", sys.exc_info()[0]
-					print 'fit_rigid failed: User needs to specify centerIDS'; exit()
+			#if fit_rigid: 
+			#	if procrusts: utils.procrustes(NEB.states) #fit rigid before relaxing
+			#	elif centerIDS != None: utils.center_frames(NEB.states,centerIDS)
+			#	else:
+			#		print "Unexpected error:", sys.exc_info()[0]
+			#		print 'fit_rigid failed: User needs to specify centerIDS'; exit()
 			##############################
 
 			#add spring forces to atoms
