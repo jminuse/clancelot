@@ -327,7 +327,7 @@ def motion_per_frame(frames):
 # ids[0] - This is an atom that will be positioned at the origin after translating the frame
 # ids[1] - This is an atom that will lie on the positive x-axis after two rotations of the frame
 # ids[2] - This is an atom that will lie on the xy plane in the positive y direction after rotation of the frame
-def center_frames(frames,ids,X_TOL=0.1,XY_TOL=0.1,Z_TOL=0.1,THETA_STEP=0.005,TRANSLATE=[10,10,10]):
+def center_frames(frames,ids,X_TOL=0.1,XY_TOL=0.1,Z_TOL=0.1,THETA_STEP=0.005,TRANSLATE=[0,0,0]):
 	from math import sin, cos, pi
 
 	def get_pnt(a): return [a.x,a.y,a.z]
