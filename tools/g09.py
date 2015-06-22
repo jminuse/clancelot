@@ -243,6 +243,7 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, f
 #Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
 	import scipy.optimize
 	import numpy as np
+	from math import isnan
 	#set which atoms will be affected by virtual springs
 	if not spring_atoms:#if not given, select all
 		spring_atoms = range(len(states[0]))
@@ -336,6 +337,11 @@ def neb(name, states, theory, extra_section='', queue=None, spring_atoms=None, f
 							
 						#normalize tangent
 						tangent /= np.linalg.norm(tangent)
+
+						# "I found that when I centered things to 0,0,0 this would lead to NaN output in coordinates." -Henry
+						if isnan(tangent):
+							print "WARNING! Tangent division has led to NaN. Likely caused by atom being on 0,0,0. Please translate coordinates and try again. ", sys.exc_info()[0]
+							print 'Job failed: %s-%d-%d'%(NEB.name,NEB.step,i); exit()
 					
 						#find spring forces parallel to tangent
 						F_spring_parallel = NEB.k*( utils.dist(c,b) - utils.dist(b,a) ) * tangent
