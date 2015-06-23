@@ -2,6 +2,7 @@ import os, re
 import xml.etree.ElementTree as xml
 import utils
 
+# Read the Chemical Markup Language (CML)
 def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}):
 	if not name.endswith('.cml'):
 		name += '.cml'
