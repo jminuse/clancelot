@@ -288,4 +288,9 @@ def inp_to_xyz(name, write=False,outName=None):
 		f.write('\n')
 		f.close()
 
-	return data
+	atoms = []
+	for i,d in enumerate(data): 
+		d = d.split()
+		atoms.append(utils.Atom(element=d[0], x=float(d[1]), y=float(d[2]), z=float(d[3]), index=i))
+
+	return atoms
