@@ -492,5 +492,5 @@ def pretty_xyz(name,R_MAX=1,F_MIN=1,F_MAX=50,CENTER=None,outName=None,write_xyz=
 
 	if CENTER != None: center_frames(frames,CENTER)
 
-	if write_xyz: files.write_xyz(frames,'pretty_' if outName==None else outName)
+	if write_xyz: files.write_xyz(frames,'pretty_xyz' if outName==None else outName)
 	else: return frames
