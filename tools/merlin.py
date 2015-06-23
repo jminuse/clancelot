@@ -1,2 +1,3 @@
 import os, sys
-import constants, files, g09, units, utils, log
+import files, g09, units, utils, log
+import constants as C
