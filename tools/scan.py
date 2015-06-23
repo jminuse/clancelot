@@ -26,16 +26,18 @@ OPTIONS:
 
 ex: 'scang gaussian/ranthisjobnumer3- 2 7 -t "Energy Plot" -x=0.000001,1.5423,3,...,7.0003452'
 '''
+#Print help message if too few arguments
 if len(sys.argv) <3:
 	# print 'ERROR: not enough arguments\n\n'
 	print help
 	raise SystemExit
 
+#accepts either the log name or gaussian/name
 name = sys.argv[1]
 if name.startswith('gaussian/'):
 	name=name[9:]
 
-
+#Clean up flags to make parsing easier
 arg = []
 for s in sys.argv:
 	if s.startswith('--'):
@@ -51,7 +53,7 @@ custom_y=False
 lx='Step'
 title=os.path.basename(os.getcwd())
 
-
+#Parse optional flags
 unidentifiable=[]
 if (len(arg)>=3):
 	curr_length=None
@@ -59,17 +61,18 @@ if (len(arg)>=3):
 	while curr_length != old_length and len(arg) > 2:
 		old_length=len(arg)
 
+		#Help message:
 		if arg[-1].startswith('-h'):
 			print help
 			raise SystemExit
-
+		#Custom Title (default is the current directory name)
 		if arg[-2].startswith('-t'):
 			print "  Custom Title = " + arg[-1]
 			title=arg[-1]
 			arg=arg[:-2]
-
+		#Custom y-axis endpoints (default is autoscale)
 		elif arg[-2].startswith('-y'):
-			print "  Custom y axes = " + arg[-1]
+			print "  Custom y-axis endpoints = " + arg[-1]
 			ys=arg[-1].split(',')
 			for i in range(len(ys)):
 				ys[i]=float(ys[i])
@@ -80,16 +83,16 @@ if (len(arg)>=3):
 			ylow=ys[0]
 			yhigh=ys[1]
 			arg=arg[:-2]
-
+		#Custom x-coordinates (default is step number)
 		elif arg[-2].startswith('-x'):
-			print "  Custom x axes = " + arg[-1]
+			print "  Custom x coordinates = " + arg[-1]
 			xs=arg[-1]
 			xs=xs.split(",")
 			for i in range(len(xs)):
 				xs[i]=float(xs[i])
 			custom_x=True
 			arg=arg[:-2]
-
+		#Custom x-axis labels (default is 'Step')
 		elif arg[-2].startswith('-lx'):
 			print "  Custom x axis label = " + arg[-1]
 			lx=arg[-1]
@@ -97,51 +100,18 @@ if (len(arg)>=3):
 
 		curr_length=len(arg)
 
+		#If the flag wasn't identified, add to list
 		if curr_length==old_length and curr_length > 4:
 			unidentifiable.insert(0,arg[-1])
 			curr_length=curr_length-1
 			arg=arg[:-1]
 
+	#Print unidentified flags
 	if unidentifiable!=[]:
 		print "\nCannot identify the following flag(s)/input(s), please refer to the help documentation via -h or --help"
 		print "The following will be ignored: "+str(unidentifiable) + '\n'
 
-
-
-# # look for x-axis
-# if (sys.argv[len(sys.argv)-1]).startswith('-x='):
-# 	xs=(sys.argv[len(sys.argv)-1])[3:]
-# 	xs=xs.split(",")
-# 	for i in range(len(xs)):
-# 		xs[i]=float(xs[i])
-# 	custom_x=True
-# 	sys.argv=sys.argv[:-1]
-# else:
-# 	# Default plot title is the folder name
-# 	custom_x=False
-
-
-# #custom axis?
-# if (sys.argv[len(sys.argv)-1]).startswith('-y='):
-# 	axis=(sys.argv[len(sys.argv)-1])[3:]+'-'
-# 	a=axis.split()
-# 	print a
-# 	ylow=int(a[0])
-# 	yhigh=int((a[1])[:-1])
-# 	sys.argv=sys.argv[:-1]
-# 	custom_y=True
-# else:
-# 	# Default
-# 	custom_y=False
-
-# # look for title
-# if (sys.argv[len(sys.argv)-1]).startswith('-t='):
-# 	title=(sys.argv[len(sys.argv)-1])[3:]
-# 	sys.argv=sys.argv[:-1]
-# else:
-# 	# Default plot title is the folder name
-# 	title=os.path.basename(os.getcwd())
-
+#Set low and count values, based on whether low was supplied or not
 if len(sys.argv)==3 or (len(sys.argv) > 3 and not re.match('\d+',sys.argv[3])):
 	low=0
 	count = int(sys.argv[2])
@@ -149,6 +119,7 @@ if len(sys.argv)>=4 and re.match('\d+',sys.argv[3]):
 	low = int(sys.argv[2])
 	count = int(sys.argv[3])
 
+#If custom x-coords given, ensure that x and y values are supplied 1-1
 if custom_x and (len(range(low,count+1))) != len(xs):
 	if (len(range(low,count))) > len(xs):
 		print '\n\nERROR: applied \'-x\' flag with too few x-coordinates specified for the number of frames to be plotted.'
@@ -161,6 +132,7 @@ if custom_x and (len(range(low,count+1))) != len(xs):
 f = open('out.xyz', 'w')
 energies = []
 
+#Print and parse energy values
 print 'Step', 'E (Har)', 'Converged?'
 for step in range(low,count+1):
 	energy, atoms = g09.parse_atoms(name+str(step) if name.find('%')==-1 else name % step, check_convergence=False)
@@ -187,4 +159,3 @@ def matplot(y):
 energies = [(e-energies[0])*627.5 for e in energies]
 print energies
 matplot(energies)
-
