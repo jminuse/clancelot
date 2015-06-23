@@ -442,3 +442,55 @@ def center_frames(frames,ids,X_TOL=0.1,XY_TOL=0.1,Z_TOL=0.1,THETA_STEP=0.005,TRA
 			if isnan(a.x) or isnan(a.y) or isnan(a.z):
 				print("Center frames has led to NaN...")
 				sys.exit()
+
+def pretty_xyz(name,R_MAX=1,F_MIN=1,F_MAX=50,CENTER=None,outName=None,write_xyz=False,verbose=False):
+	# Get data as either frames or a file
+	if type(name)==type(''): frames = files.read_xyz(name)
+	elif type(name)==type([]): frames = name
+	else:
+		print "Error - Invalid name input.  Should be either the name of an xyz file or a list.", sys.exc_info()[0]
+		exit()
+
+	# Loop till we're below R_MAX
+	while 1:
+		# Check if we're done
+		r2 = max(motion_per_frame(frames))
+		if r2 < R_MAX: break
+
+		if len(frames) > F_MAX:
+			print "-------------------------------------------------------"
+			print motion_per_frame(frames)
+			print "-------------------------------------------------------"
+			print "\n\nError - Could not lower motion below %lg in %d frames." % (R_MAX,F_MAX), sys.exc_info()[0]
+			exit()
+		else:
+			if verbose: print "Currently Frames = %d\tr2 = %lg" % (len(frames),r2)
+
+		# If not, find largest motion_per_frame
+		index, maxVal = 0, 0
+		tmp = motion_per_frame(frames)
+		for i,t in enumerate(tmp):
+			if t > maxVal:
+				index, maxVal = i, t
+		i = index
+		# Now, split the list, interpolate, and regenerate
+		if i>0 and i < len(frames) - 3:
+			f_low = frames[:i-1]
+			f_high = frames[i+2:]
+			f_mid = interpolate(frames[i-1],frames[i+2],4)
+			frames = f_low + f_mid + f_high
+		elif i == 0:
+			f_high = frames[i+2:]
+			f_mid = interpolate(frames[i],frames[i+1],4)
+			frames = f_mid + f_high
+		else:
+			f_low = frames[:i-1]
+			f_mid = interpolate(frames[i-1],frames[i],4)
+			frames = f_low + f_mid
+
+		if verbose: print "\tInterpolated %d,%d ... %lg" % (index-1,index+1,max(motion_per_frame(frames)))
+
+	if CENTER != None: center_frames(frames,CENTER)
+
+	if write_xyz: files.write_xyz(frames,'pretty_' if outName==None else outName)
+	else: return frames
