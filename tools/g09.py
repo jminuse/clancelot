@@ -334,8 +334,8 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 						#find tangent
 						tplus = np.array( [ c.x-b.x, c.y-b.y, c.z-b.z ] )
 						tminus = np.array( [ a.x-b.x, a.y-b.y, a.z-b.z ] )
-						dVmin = min(V[i+1]-V[i], V[i-1]-V[i])
-						dVmax = max(V[i+1]-V[i], V[i-1]-V[i])
+						dVmin = min(abs(V[i+1]-V[i]), abs(V[i-1]-V[i]))
+						dVmax = max(abs(V[i+1]-V[i]), abs(V[i-1]-V[i]))
 						if V[i+1]>V[i] and V[i]>V[i-1]: #not at an extremum, trend of V is up
 							tangent = tplus
 						elif V[i+1]<V[i] and V[i]<V[i-1]: #not at an extremum, trend of V is down
