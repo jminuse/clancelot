@@ -95,6 +95,13 @@ alias get_ext_list='python $$$$$$/tools/get_ext_list.py'
 alias get_gauss_list='python $$$$$$/tools/get_gauss_list.py'
 alias get_jlist='python $$$$$$/tools/get_jlist.py'
 
+# Bind keys
+bindkey '^[[3~' delete-char
+bindkey '^[OH' beginning-of-line
+bindkey '^[OF' end-of-line
+bindkey ';5C' emacs-forward-word
+bindkey ';5D' emacs-backward-word
+
 '''.replace('$$$$$$/',INSTALLDIR))
 
 f.close()
