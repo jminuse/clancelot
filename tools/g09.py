@@ -239,7 +239,7 @@ def parse_chelpg(input_file):
 			charges.append( float(columns[2]) )
 	return charges
 
-def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atoms=None, fit_rigid=True, k=0.1837, procrusts=True,centerIDS=None): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
+def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atoms=None, fit_rigid=True, k=0.1837, procrusts=True, centerIDS=None): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
 #Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
 	import scipy.optimize
 	import numpy as np
@@ -254,7 +254,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 		name, states, theory, k = None, None, None, None
 		error, forces = None, None
 		step = 0
-		def __init__(self, name, states, theory, k=1e-2, fit_rigid=True, procrusts=True,centerIDS=None):
+		def __init__(self, name, states, theory, k=1e-2, fit_rigid=True, procrusts=True, centerIDS=None):
 			NEB.name = name
 			NEB.states = states
 			NEB.theory = theory
@@ -313,16 +313,6 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			V = copy.deepcopy(energies) # V = potential energy from DFT. energies = V+springs
 			#rigidly rotate jobs into alignment before calculating forces
 			#procrustes(NEB.states) #can't change coords - messes up optimization routine
-
-			##############################
-			# I wanted to try re-implementing this with rotation of the forces for center_frames
-			#if fit_rigid: 
-			#	if procrusts: utils.procrustes(NEB.states) #fit rigid before relaxing
-			#	elif centerIDS != None: utils.center_frames(NEB.states,centerIDS)
-			#	else:
-			#		print "Unexpected error:", sys.exc_info()[0]
-			#		print 'fit_rigid failed: User needs to specify centerIDS'; exit()
-			##############################
 
 			#add spring forces to atoms
 			for i,state in enumerate(NEB.states):
@@ -389,7 +379,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			NEB.forces = None #set to None so it will recalculate next time
 			return np.array(forces)*1.8897 #convert from Hartree/Bohr to Hartree/Angstrom
 
-	n = NEB(name, states, theory, k, fit_rigid, procrusts,centerIDS)
+	n = NEB(name, states, theory, k, fit_rigid, procrusts, centerIDS)
 	# BFGS is the best method, cite http://theory.cm.utexas.edu/henkelman/pubs/sheppard08_134106.pdf
 	#scipy.optimize.minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_forces, options={'disp': True})
 	scipy.optimize.fmin_l_bfgs_b(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces, iprint=0, factr=1e7)
