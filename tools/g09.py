@@ -284,7 +284,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			running_jobs = []
 			for i,state in enumerate(NEB.states):
 				if NEB.step>0:
-					if (i==0 or i==len(NEB.states)-1): #only perform evaluations of endpoints on first step
+					if (i==0 or i==len(NEB.states)-1): #only use DFT on endpoints on first step, because they don't change
 						continue
 					guess = ' Guess=Read'
 				else: guess = '' #no previous guess for first step
@@ -295,7 +295,8 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			energies = []
 			for i,state in enumerate(NEB.states):
 				try:
-					if (i==0 or i==len(NEB.states)-1): # if at an endpoint, just use first step's result
+					# state 0 and state N-1 don't change, so just use first step's result:
+					if (i==0 or i==len(NEB.states)-1):
 						step_to_use = 0
 					else:
 						step_to_use = NEB.step
