@@ -295,7 +295,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			energies = []
 			for i,state in enumerate(NEB.states):
 				try:
-					# state 0 and state N-1 don't change, so just use first step's result:
+					# state 0 and state N-1 don't change, so just use result from NEB.step==0
 					if (i==0 or i==len(NEB.states)-1):
 						step_to_use = 0
 					else:
@@ -335,7 +335,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 							tangent = tplus*dVmax + tminus*dVmin
 						else: #at local extremum, previous V is higher
 							tangent = tplus*dVmin + tminus*dVmax
-							
+						
 						#normalize tangent
 						if np.linalg.norm(tangent) == 0: pass
 						else: tangent /= np.linalg.norm(tangent)
