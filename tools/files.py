@@ -3,7 +3,7 @@ import xml.etree.ElementTree as xml
 import utils
 
 # Read the Chemical Markup Language (CML)
-def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}):
+def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, check_charges=True):
 	if not name.endswith('.cml'):
 		name += '.cml'
 	tree = xml.parse(name)
@@ -51,8 +51,9 @@ def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}):
 				a.type = extra_parameters[t]
 	
 	#check charges
-	net_charge = sum([x.type.charge for x in atoms])
-	if abs(net_charge)>0.01: print 'Non-neutral molecule, charge =', net_charge, ':', name; exit()
+	if check_charges:
+		net_charge = sum([x.type.charge for x in atoms])
+		if abs(net_charge)>0.01: raise Exception('Non-neutral molecule, charge = %f: %s' % (net_charge, name))
 	
 	#set bond, angle, and dihedral types from parameter file
 	for x in bonds+angles+dihedrals: 
