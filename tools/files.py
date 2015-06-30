@@ -182,8 +182,8 @@ def write_lammps_data(system, pair_coeffs_included=False):
 	angle_types = dict( [(t.type,True) for t in angles] ).keys()
 	dihedral_types = dict( [(t.type,True) for t in dihedrals] ).keys()
 	system.atom_types, system.bond_types, system.angle_types, system.dihedral_types = atom_types, bond_types, angle_types, dihedral_types
-	# sort atom types by mass, smallest masses first
-	atom_types.sort(key=lambda t:t.mass) 
+	# sort atom types by mass, largest masses first
+	atom_types.sort(key=lambda t:-t.mass) 
 	# get type numbers to identify types to LAMMPS
 	for i,t in enumerate(atom_types): t.lammps_type = i+1
 	for i,t in enumerate(bond_types): t.lammps_type = i+1
