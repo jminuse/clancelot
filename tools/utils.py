@@ -451,6 +451,8 @@ def pretty_xyz(name,R_MAX=1,F_MIN=1,F_MAX=50,CENTER=None,outName=None,write_xyz=
 		print "Error - Invalid name input.  Should be either the name of an xyz file or a list.", sys.exc_info()[0]
 		exit()
 
+	if CENTER != None: center_frames(frames,CENTER)
+
 	# Loop till we're below R_MAX
 	while 1:
 		# Check if we're done
