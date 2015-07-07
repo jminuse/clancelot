@@ -594,7 +594,7 @@ def ghost_job(atoms, name, previous_job=None, route='SP SCRF(Solvent=Toluene) gu
 		extras = '\n\n'.join(extras)
 
 	# Run the job and return the job name for the user to use later
-	g09.job(name, route, atoms=atoms, queue=queue, extra_section=extras,blurb=blurb, procs=procs,previous=previous_job,force=force)
+	job(name, route, atoms=atoms, queue=queue, extra_section=extras,blurb=blurb, procs=procs,previous=previous_job,force=force)
 
 	return name
 
@@ -604,7 +604,7 @@ def ghost_job(atoms, name, previous_job=None, route='SP SCRF(Solvent=Toluene) gu
 # job_B - This is the name of a gaussian job that holds the optimized molecule B
 # zero_indexed_atom_indices_A - This is a list of indices for molecule A in job_total.  First values of a .xyz file start at 0.
 def binding_energy_dz(job_total, job_A, job_B, zero_indexed_atom_indices_A, route='SP SCRF(Solvent=Toluene) guess=read', blurb=None, procs=1, queue='batch',force=False):
-	AB = g09.atoms(job_total) # First get the atoms from the gaussian job for the full system
+	AB = atoms(job_total) # First get the atoms from the gaussian job for the full system
 	AB_A = copy.deepcopy(AB)
 	for i,atom in enumerate(AB_A): # For AB_A, we want all atoms not part of molecule A to be ghost atoms
 		if i not in zero_indexed_atom_indices_A: atom.element+='-Bq'
