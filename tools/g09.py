@@ -613,14 +613,14 @@ def binding_energy_dz(job_total, job_A, job_B, zero_indexed_atom_indices_A, rout
 		if i in zero_indexed_atom_indices_A: atom.element+='-Bq'
 	
 	# Now AB_A is A from AB, AB_B is B from AB
-	name1 = job(AB_A, job_total + '_A0', blurb=blurb, queue=queue, procs=procs, previous_job=job_total,force=force)
-	name2 = job(AB_B, job_total + '_B0', blurb=blurb, queue=queue, procs=procs, previous_job=job_total,force=force)
+	name1 = ghost_job(AB_A, job_total + '_A0', blurb=blurb, queue=queue, procs=procs, previous_job=job_total,force=force)
+	name2 = ghost_job(AB_B, job_total + '_B0', blurb=blurb, queue=queue, procs=procs, previous_job=job_total,force=force)
 	
 	#non-rigid correction:
 	AB_A = [atom for atom in AB_A if not atom.element.endswith('-Bq')]
 	AB_B = [atom for atom in AB_B if not atom.element.endswith('-Bq')]
-	name3 = job(AB_A, job_A + '_AB0', blurb=blurb, queue=queue, procs=procs, previous_job=job_A,force=force)
-	name4 = job(AB_B, job_B + '_AB0'+('2' if job_A==job_B else '') , blurb=blurb, queue=queue, procs=procs, previous_job=job_B,force=force)
+	name3 = ghost_job(AB_A, job_A + '_AB0', blurb=blurb, queue=queue, procs=procs, previous_job=job_A,force=force)
+	name4 = ghost_job(AB_B, job_B + '_AB0'+('2' if job_A==job_B else '') , blurb=blurb, queue=queue, procs=procs, previous_job=job_B,force=force)
 	
 	# To get the binding energy we need to take into account the superposition error and the deformation error:
 	# Superposition Error Correction is done by taking the total energy of the job and subtracting from it:
