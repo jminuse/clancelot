@@ -1,5 +1,7 @@
 import sys,  os, re
 import g09, files
+from merlin import units
+
 #import math, random,  utils, shutil, copy, cPickle
 help = '''USE: scang name start end [OPTION]*
 
@@ -20,11 +22,15 @@ OPTIONS:
                                to the given values instead of graphing
                                energy vs. step
 -y low,high , -y=low,high   : sets the two endpoints for the y axis to
-                               the given values 
-
-
+                               the given values
+-c char,start,stop			: given a character, replaces it from start
+							   to stop and runs scang on each.  Graphs
+							   are compiled together.
+-u							: given a unit for y axis. By default this
+							   is kcal/mol
 
 ex: 'scang gaussian/ranthisjobnumer3- 2 7 -t "Energy Plot" -x=0.000001,1.5423,3,...,7.0003452'
+ex: 'scang gaussian/test_neb_$-%d_yay 1 10 -c $,1,10'
 '''
 #Print help message if too few arguments
 if len(sys.argv) <3:
@@ -52,6 +58,9 @@ custom_x=False
 custom_y=False
 lx='Step'
 title=os.path.basename(os.getcwd())
+comp=None
+compE=[]
+s_units='kcal/mol'
 
 #Parse optional flags
 unidentifiable=[]
@@ -97,6 +106,16 @@ if (len(arg)>=3):
 			print "  Custom x axis label = " + arg[-1]
 			lx=arg[-1]
 			arg=arg[:-2]
+		#Custom range for compiling together data
+		elif arg[-2].startswith('-c'):
+			print " Custom compilation = " + arg[-1]
+			comp=arg[-1].split(',')
+			arg=arg[:-2]
+		#Custom y axis units
+		elif arg[-2].startswith('-u'):
+			print " Units = " + arg[-1]
+			s_units=arg[-1]
+			arg=arg[:-2]
 
 		curr_length=len(arg)
 
@@ -111,41 +130,74 @@ if (len(arg)>=3):
 		print "\nCannot identify the following flag(s)/input(s), please refer to the help documentation via -h or --help"
 		print "The following will be ignored: "+str(unidentifiable) + '\n'
 
-#Set low and count values, based on whether low was supplied or not
-if len(sys.argv)==3 or (len(sys.argv) > 3 and not re.match('\d+',sys.argv[3])):
-	low=0
-	count = int(sys.argv[2])
-if len(sys.argv)>=4 and re.match('\d+',sys.argv[3]):
-	low = int(sys.argv[2])
-	count = int(sys.argv[3])
+if comp != None: loops=range(int(comp[1]),int(comp[2])+1)
+else: loops = [1]
 
-#If custom x-coords given, ensure that x and y values are supplied 1-1
-if custom_x and (len(range(low,count+1))) != len(xs):
-	if (len(range(low,count))) > len(xs):
-		print '\n\nERROR: applied \'-x\' flag with too few x-coordinates specified for the number of frames to be plotted.'
-		print '%d frames to be plotted vs. %d x coordinates given' % ((len(range(low,count))) , len(xs))
-		raise SystemExit
+for loop in loops:
+	#Set low and count values, based on whether low was supplied or not
+	if len(sys.argv)==3 or (len(sys.argv) > 3 and not re.match('\d+',sys.argv[3])):
+		low=0
+		count = int(sys.argv[2])
+	if len(sys.argv)>=4 and re.match('\d+',sys.argv[3]):
+		low = int(sys.argv[2])
+		count = int(sys.argv[3])
+
+	#If custom x-coords given, ensure that x and y values are supplied 1-1
+	if custom_x and (len(range(low,count+1))) != len(xs):
+		if (len(range(low,count))) > len(xs):
+			print '\n\nERROR: applied \'-x\' flag with too few x-coordinates specified for the number of frames to be plotted.'
+			print '%d frames to be plotted vs. %d x coordinates given' % ((len(range(low,count))) , len(xs))
+			raise SystemExit
+		else:
+			print '\n\nERROR: applied \'-x\' flag with too many x-coordinates specified for the number of frames to be plotted.'
+			print '%d frames to be plotted vs. %d x coordinates given' % ((len(range(low,count))) , len(xs))
+			raise SystemExit
+	f = open('out.xyz', 'w')
+	energies = []
+
+	#Print and parse energy values
+	if comp == None: print 'Step', 'E (Har)', 'Converged?'
+	for step in range(low,count+1):
+		tmp_name = name+str(step) if name.find('%')==-1 else name % step # Get step
+		if comp != None: tmp_name = tmp_name.replace(comp[0],str(loop)) # Get loop
+		energy, atoms = g09.parse_atoms(tmp_name, check_convergence=False)
+		files.write_xyz(atoms, f)
+		if comp == None: print step, energy, int(g09.parse_atoms(tmp_name)!=None)
+		energies.append(energy)
+
+	if comp == None:
+		def matplot(y):
+			import matplotlib.pyplot as plt
+			if not custom_x:
+				plt.plot(y,marker='.')
+			else:
+				plt.plot(xs,y,marker='.')
+			plt.xlabel(lx)
+			plt.ylabel('E (kcal/mol)')
+			plt.title(title)
+			if custom_y:
+				if not custom_x:
+					plt.axis([low,count,ylow,yhigh])
+				else:
+					plt.axis([0,max(xs),ylow,yhigh])
+			plt.show()
+
+		energies = [units.convert_energy('Ha',s_units,e-energies[0]) for e in energies]
+		print energies
+		matplot(energies)
 	else:
-		print '\n\nERROR: applied \'-x\' flag with too many x-coordinates specified for the number of frames to be plotted.'
-		print '%d frames to be plotted vs. %d x coordinates given' % ((len(range(low,count))) , len(xs))
-		raise SystemExit
-f = open('out.xyz', 'w')
-energies = []
+		energies = [units.convert_energy('Ha',s_units,e-energies[0]) for e in energies]
+		compE.append(energies)
 
-#Print and parse energy values
-print 'Step', 'E (Har)', 'Converged?'
-for step in range(low,count+1):
-	energy, atoms = g09.parse_atoms(name+str(step) if name.find('%')==-1 else name % step, check_convergence=False)
-	files.write_xyz(atoms, f)
-	print step, energy, int(g09.parse_atoms(name+str(step) if name.find('%')==-1 else name % step)!=None)
-	energies.append(energy)
 
-def matplot(y):
+def comp_matplot(yy,start_val):
 	import matplotlib.pyplot as plt
 	if not custom_x:
-		plt.plot(y,marker='.')
+		for i,y in enumerate(yy):
+			plt.plot(y,marker='.',label=str(int(start_val) + i))
 	else:
-		plt.plot(xs,y,marker='.')
+		for y in yy:
+			plt.plot(xs,y,marker='.',label=str(int(start_val) + i))
 	plt.xlabel(lx)
 	plt.ylabel('E (kcal/mol)')
 	plt.title(title)
@@ -154,8 +206,19 @@ def matplot(y):
 			plt.axis([low,count,ylow,yhigh])
 		else:
 			plt.axis([0,max(xs),ylow,yhigh])
+	plt.legend()
 	plt.show()
 
-energies = [(e-energies[0])*627.5 for e in energies]
-print energies
-matplot(energies)
+if comp != None:
+	try:
+		aa = max(compE)
+		bb = min(compE)
+		while 1:
+			a = max(aa)
+			aa = max(aa)
+			b = min(bb)
+			bb = min(bb)
+	except:
+		print "Max E = %lg, Min E = %lg (Units = %s)\n" % (a,b,s_units)
+
+	comp_matplot(compE,comp[1])
