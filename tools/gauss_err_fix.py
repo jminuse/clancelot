@@ -1,3 +1,9 @@
+# To fully install run the following command to open the crontab editor (vi):
+#			crontab -e
+# Now in here type the following (adjusting accordingly):
+#			MAILTO=""
+#			10 * * * * /usr/bin/python /fs/home/hch54/clancelot/tools/gauss_err_fix.py
+
 import sys, os
 sys.path.append('/fs/home/hch54/clancelot/tools')
 os.environ["PATH"] += ':/opt/voyager/nbs/bin/:/usr/common/bin/'
