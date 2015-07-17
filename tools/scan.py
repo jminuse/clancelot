@@ -28,9 +28,14 @@ OPTIONS:
 							   are compiled together.
 -u							: given a unit for y axis. By default this
 							   is kcal/mol
+-neb value					: force neb endpoint on (1) or off (2) default
+							   is 0 for don't force anything.
 
 ex: 'scang gaussian/ranthisjobnumer3- 2 7 -t "Energy Plot" -x=0.000001,1.5423,3,...,7.0003452'
-ex: 'scang gaussian/test_neb_$-%d_yay 1 10 -c $,1,10'
+ex: 'scang gaussian/test_neb_$-%d_yay 1 10 -c $,0,6'
+
+Note, in the second example it will include 0 and 11 for the full range of
+neb data.
 '''
 #Print help message if too few arguments
 if len(sys.argv) <3:
@@ -61,6 +66,7 @@ title=os.path.basename(os.getcwd())
 comp=None
 compE=[]
 s_units='kcal/mol'
+neb_force=0
 
 #Parse optional flags
 unidentifiable=[]
@@ -116,6 +122,11 @@ if (len(arg)>=3):
 			print " Units = " + arg[-1]
 			s_units=arg[-1]
 			arg=arg[:-2]
+		#Custom y axis units
+		elif arg[-2].startswith('-neb'):
+			print " Neb Force = " + str(arg[-1])
+			neb_force= int(arg[-1])
+			arg=arg[:-2]
 
 		curr_length=len(arg)
 
@@ -157,7 +168,12 @@ for loop in loops:
 
 	#Print and parse energy values
 	if comp == None: print 'Step', 'E (Har)', 'Converged?'
-	for step in range(low,count+1):
+	t_low = low
+	t_count = count
+	if ((comp != None and loop == 0) or (neb_force==1 and loop == loops[0])) and neb_force!=2:
+		t_low -= 1
+		t_count += 1
+	for step in range(t_low,t_count+1):
 		tmp_name = name+str(step) if name.find('%')==-1 else name % step # Get step
 		if comp != None: tmp_name = tmp_name.replace(comp[0],str(loop)) # Get loop
 		energy, atoms = g09.parse_atoms(tmp_name, check_convergence=False)
@@ -173,11 +189,11 @@ for loop in loops:
 			else:
 				plt.plot(xs,y,marker='.')
 			plt.xlabel(lx)
-			plt.ylabel('E (kcal/mol)')
+			plt.ylabel('E (%s)' % s_units)
 			plt.title(title)
 			if custom_y:
 				if not custom_x:
-					plt.axis([low,count,ylow,yhigh])
+					plt.axis([t_low,t_count,ylow,yhigh])
 				else:
 					plt.axis([0,max(xs),ylow,yhigh])
 			plt.show()
@@ -199,7 +215,7 @@ def comp_matplot(yy,start_val):
 		for y in yy:
 			plt.plot(xs,y,marker='.',label=str(int(start_val) + i))
 	plt.xlabel(lx)
-	plt.ylabel('E (kcal/mol)')
+	plt.ylabel('E (%s)' % s_units)
 	plt.title(title)
 	if custom_y:
 		if not custom_x:
@@ -220,5 +236,12 @@ if comp != None:
 			bb = min(bb)
 	except:
 		print "Max E = %lg, Min E = %lg (Units = %s)\n" % (a,b,s_units)
+
+	# For a full neb we want the fixed ends also
+	if loops[0]==0 and neb_force != 2:
+		print "Appending endpoints for NEB calculation"
+		for i,c in enumerate(compE):
+			if i==0: continue
+			compE[i] = [compE[0][0]] + c + [compE[0][-1]]
 
 	comp_matplot(compE,comp[1])

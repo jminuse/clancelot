@@ -2,8 +2,8 @@ import os, string, sys, re, shutil, copy
 from subprocess import Popen
 import utils, log, files
 
-def job(run_name, route, atoms=[], extra_section='', queue='batch', procs=1, charge_and_multiplicity='0,1', title='run by gaussian.py', blurb=None, watch=False, eRec=True, force=False, previous=None):
-	log.chk_gaussian(run_name,force=force) # Checks if run exists
+def job(run_name, route, atoms=[], extra_section='', queue='batch', procs=1, charge_and_multiplicity='0,1', title='run by gaussian.py', blurb=None, watch=False, eRec=True, force=False, previous=None,neb=[False,None,None,None],err=False):
+	log.chk_gaussian(run_name,force=force,neb=neb) # Checks if run exists
 	head = '#N '+route+'\n\n'+title+'\n\n'+charge_and_multiplicity+'\n' # Header for inp file
 
 	# Setup list of atoms for inp file --------------------------------------------------------------------------------------------
@@ -41,10 +41,10 @@ g09 <<END > '''+run_name+'''.log
 		if previous:	
 			shutil.copyfile(previous+'.chk', run_name+'.chk')
 		process_handle = Popen('/bin/csh %s.inp' % run_name, shell=True)
-	shutil.copyfile('../'+sys.argv[0], run_name+'.py')
+	if not err: shutil.copyfile('../'+sys.argv[0], run_name+'.py')
 	os.chdir('..')
 
-	log.put_gaussian(run_name,route,extra_section,blurb,eRec,force) # Places info in log if simulation is run
+	log.put_gaussian(run_name,route,extra_section=extra_section,blurb=blurb,eRec=eRec,force=force,neb=neb) # Places info in log if simulation is run
 	if queue is None:
 		return process_handle
 	else:
@@ -239,7 +239,7 @@ def parse_chelpg(input_file):
 			charges.append( float(columns[2]) )
 	return charges
 
-def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atoms=None, fit_rigid=True, k=0.1837, procrusts=True, centerIDS=None): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
+def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atoms=None, fit_rigid=True, k=0.1837, procrusts=True, centerIDS=None, force=True): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
 #Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
 	import scipy.optimize
 	import numpy as np
@@ -288,7 +288,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 						continue
 					guess = ' Guess=Read'
 				else: guess = '' #no previous guess for first step
-				running_jobs.append( job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+' Force'+guess, state, procs=procs, queue=queue, force=True, previous=('%s-%d-%d'%(NEB.name,NEB.step-1,i)) if NEB.step>0 else None, extra_section=extra_section) )
+				running_jobs.append( job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+' Force'+guess, state, procs=procs, queue=queue, force=force, previous=('%s-%d-%d'%(NEB.name,NEB.step-1,i)) if NEB.step>0 else None, extra_section=extra_section, neb=[True,'%s-%%d-%%d'%(NEB.name),len(NEB.states),i]) )
 			#wait for jobs to finish
 			for j in running_jobs: j.wait()
 			#get forces and energies from DFT calculations
