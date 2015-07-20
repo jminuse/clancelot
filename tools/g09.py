@@ -2,7 +2,7 @@ import os, string, sys, re, shutil, copy
 from subprocess import Popen
 import utils, log, files
 
-def job(run_name, route, atoms=[], extra_section='', queue='batch', procs=1, charge_and_multiplicity='0,1', title='run by gaussian.py', blurb=None, watch=False, eRec=True, force=False, previous=None,neb=[False,None,None,None],err=False):
+def job(run_name, route, atoms=[], extra_section='', queue='batch', procs=1, charge_and_multiplicity='0,1', title='run by gaussian.py', blurb=None, eRec=True, force=False, previous=None,neb=[False,None,None,None],err=False):
 	log.chk_gaussian(run_name,force=force,neb=neb) # Checks if run exists
 	head = '#N '+route+'\n\n'+title+'\n\n'+charge_and_multiplicity+'\n' # Header for inp file
 

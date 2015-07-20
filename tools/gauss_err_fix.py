@@ -30,9 +30,9 @@ def process_err(fptr,err,job_info):
 		# Make sure we won't re-write a job with new job name
 		path = fptr[:fptr.rfind('/')+1]
 		i = 0
-		while os.path.exists(path+job_info[0]+'_err_'+str(i)+'.log'): i+= 1
-		job_name = job_info[0]+'_err_'+str(i)
-
+		while os.path.exists(path+job_info[0]+'_R'+str(i)+'.log'): i+= 1
+		job_name = job_info[0]+'_R'+str(i)
+		
 		# Submit new job
 		old_path = os.getcwd()
 		path = path[:path[:-1].rfind('/')+1] # Move back another directory
