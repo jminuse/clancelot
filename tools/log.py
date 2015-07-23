@@ -23,7 +23,8 @@ def get_jlist(verbose=0):
 			p = Popen(['jshow',a[0]], stdout=PIPE)
 			s = p.stdout.read() 
 			serv = s[s.find('Queue name:'):].split()[2].strip()
-			threads = s[s.find('Slot Reservations'):].split()[4].strip()
+			try: threads = s[s.find('Slot Reservations'):].split()[4].strip()
+			except: threads=1
 			info[i] = info[i] + (serv,threads,)
 		return info
 
