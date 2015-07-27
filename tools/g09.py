@@ -673,7 +673,7 @@ for s in job_names:
 sp_corr = units.convert_energy('Ha',s_units,energies[0] - energies[1] - energies[2])
 deform_a = units.convert_energy('Ha',s_units,energies[3] - energies[5])
 deform_b = units.convert_energy('Ha',s_units,energies[4] - energies[6])
-geom_corr = units.convert_energy('Ha',s_units,deform_a + deform_b)
+geom_corr = deform_a + deform_b
 print('------------')
 print('Superposition Correction = '+str(sp_corr)+' '+s_units)
 print('Geometry Correction = '+str(geom_corr)+' '+s_units)
