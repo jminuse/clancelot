@@ -574,36 +574,41 @@ def optimize_pm6(name, examples, param_string, starting_params, queue=None): #op
 	
 	minimize(pm6_error, starting_params, method='Nelder-Mead', options={'disp': True} )
 	
-def ghost_job(atoms, name, previous_job=None, route='SP SCRF(Solvent=Toluene) guess=read', blurb=None, procs=1, queue='batch', extras='',force=False):
-	# To ensure we do not overwrite a file we increment a value until we find that the run doesn't exist
-	if os.path.isfile('gaussian/%s.inp' % name): # Check if normal file exists
-		i = 1
-		try: # Check if the last thing is an integer to increment
-			int(name[name.rfind('_')+1:]) # If the last thing after _ is an integer, increment it
-			while os.path.isfile('gaussian/%s_%d.inp' % (name[:name.rfind('_')],i)): i+=1
-			name = name[:name.rfind('_')]+'_'+str(i)
-		except ValueError:
-			while os.path.isfile('gaussian/%s_%d.inp' % (name,i)): i+=1
-			name = '%s_%d' % (name,i)		
-
-	# Get the routing line from a previous job if you need to
-	if (previous_job != None): route = open('gaussian/'+previous_job+'.inp').readline()[2:].strip().split()[0] + ' ' + route
-	# If the previous run had '/gen', we need to copy that for an extra_section
-	if(route.split()[0][-3:] == 'Gen'):
-		extras = open('gaussian/'+previous_job+'.inp').read().split('\n\n')[3:]
-		extras = '\n\n'.join(extras)
-
-	# Run the job and return the job name for the user to use later
-	job(name, route, atoms=atoms, queue=queue, extra_section=extras,blurb=blurb, procs=procs,previous=previous_job,force=force)
-
-	return name
-
 # A function that returns the binding energy of a molecule A with corrections.
 # job_total - This is the name of a gaussian job that holds the full system (optimized)
 # job_A - This is the name of a gaussian job that holds the optimized molecule A
 # job_B - This is the name of a gaussian job that holds the optimized molecule B
 # zero_indexed_atom_indices_A - This is a list of indices for molecule A in job_total.  First values of a .xyz file start at 0.
 def binding_energy_dz(job_total, job_A, job_B, zero_indexed_atom_indices_A, route='SP SCRF(Solvent=Toluene) guess=read', blurb=None, procs=1, queue='batch',force=False):
+	#--------------------------
+	def ghost_job(atoms, name, previous_job=None, route='SP SCRF(Solvent=Toluene) guess=read', blurb=None, procs=1, queue='batch', extras='',force=False):
+		# To ensure we do not overwrite a file we increment a value until we find that the run doesn't exist
+		if os.path.isfile('gaussian/%s.inp' % name): # Check if normal file exists
+			i = 1
+			try: # Check if the last thing is an integer to increment
+				int(name[name.rfind('_')+1:]) # If the last thing after _ is an integer, increment it
+				while os.path.isfile('gaussian/%s_%d.inp' % (name[:name.rfind('_')],i)): i+=1
+				name = name[:name.rfind('_')]+'_'+str(i)
+			except ValueError:
+				while os.path.isfile('gaussian/%s_%d.inp' % (name,i)): i+=1
+				name = '%s_%d' % (name,i)		
+
+		# Get the routing line from a previous job if you need to
+		if (previous_job != None): route = open('gaussian/'+previous_job+'.inp').readline()[2:].strip().split()[0] + ' ' + route
+		# If the previous run had '/gen', we need to copy that for an extra_section
+		if(route.split()[0][-3:].lower() == 'gen'):
+			route = ' '.join([route.split()[0]] + ['Pseudo=Read']+route.split()[1:])
+			extras = open('gaussian/'+previous_job+'.inp').read().split('\n\n')[3:]
+			extras = '\n\n'.join(extras)
+		elif(route.split()[0][-3:].lower() == 'ecp'):
+			extras = open('gaussian/'+previous_job+'.inp').read().split('\n\n')[3:]
+			extras = '\n\n'.join(extras)
+
+		# Run the job and return the job name for the user to use later
+		job(name, route, atoms=atoms, queue=queue, extra_section=extras,blurb=blurb, procs=procs,previous=previous_job,force=force)
+
+		return name
+	#--------------------------
 	AB = atoms(job_total) # First get the atoms from the gaussian job for the full system
 	AB_A = copy.deepcopy(AB)
 	for i,atom in enumerate(AB_A): # For AB_A, we want all atoms not part of molecule A to be ghost atoms
@@ -646,6 +651,7 @@ def binding_energy_dz(job_total, job_A, job_B, zero_indexed_atom_indices_A, rout
 	job_names = ', '.join(job_names)
 
 	f.write('''from merlin import *
+s_units='Ha'
 job_names = [$$$$$]
 # Check if jobs are still running
 for s in log.get_jlist():
@@ -655,16 +661,24 @@ for s in log.get_jlist():
 
 # Else, we can get the energy
 energies = []
+print('Jobs Calculated From: ')
 for s in job_names:
-	e,_ = g09.parse_atoms(s)
-	energies.append(e)
+	try:
+		e,atoms = g09.parse_atoms(s)
+		energies.append(e)
+		print '\t%20s\t%lg' % (s,e), ' '.join([a.element for a in atoms])
+	except:
+		raise Exception('Error, could not get data from %s.' % s)
 
-sp_corr = energies[0] - energies[1] - energies[2]
-geom_corr = energies[3] - energies[5] + energies[4] - energies[6]
-print('Jobs Calculated From: '+'\\n\\t'.join(job_names))
+sp_corr = units.convert_energy('Ha',s_units,energies[0] - energies[1] - energies[2])
+deform_a = units.convert_energy('Ha',s_units,energies[3] - energies[5])
+deform_b = units.convert_energy('Ha',s_units,energies[4] - energies[6])
+geom_corr = units.convert_energy('Ha',s_units,deform_a + deform_b)
 print('------------')
-print('Superposition Correction = '+str(sp_corr)+' Ha')
-print('Geometry Correction = '+str(geom_corr)+' Ha')
-print('Binding Energy = '+str(sp_corr + geom_corr)+' Ha')'''.replace('$$$$$',job_names))
+print('Superposition Correction = '+str(sp_corr)+' '+s_units)
+print('Geometry Correction = '+str(geom_corr)+' '+s_units)
+print('\tDeformation of A = '+str(deform_a)+' '+s_units)
+print('\tDeformation of B = '+str(deform_b)+' '+s_units)
+print('Binding Energy = '+str(sp_corr + geom_corr)+' '+s_units)'''.replace('$$$$$',job_names))
 
 	f.close()
