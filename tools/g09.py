@@ -593,16 +593,10 @@ def binding_energy_dz(job_total, job_A, job_B, zero_indexed_atom_indices_A, rout
 				while os.path.isfile('gaussian/%s_%d.inp' % (name,i)): i+=1
 				name = '%s_%d' % (name,i)		
 
-		# Get the routing line from a previous job if you need to
-		if (previous_job != None): route = open('gaussian/'+previous_job+'.inp').readline()[2:].strip().split()[0] + ' ' + route
-		# If the previous run had '/gen', we need to copy that for an extra_section
-		if(route.split()[0][-3:].lower() == 'gen'):
-			route = ' '.join([route.split()[0]] + ['Pseudo=Read']+route.split()[1:])
-			extras = open('gaussian/'+previous_job+'.inp').read().split('\n\n')[3:]
-			extras = '\n\n'.join(extras)
-		elif(route.split()[0][-3:].lower() == 'ecp'):
-			extras = open('gaussian/'+previous_job+'.inp').read().split('\n\n')[3:]
-			extras = '\n\n'.join(extras)
+		# Get appropriate level of theory
+		if (previous_job != None): 
+			route = open('gaussian/'+previous_job+'.inp').readline()[2:].strip().split()[0] + ' ' + route
+			route = ' '.join([route.split()[0].split('/')[0]+'/ChkBasis']+route.split()[1:])
 
 		# Run the job and return the job name for the user to use later
 		job(name, route, atoms=atoms, queue=queue, extra_section=extras,blurb=blurb, procs=procs,previous=previous_job,force=force)
