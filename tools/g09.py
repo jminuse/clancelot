@@ -645,7 +645,10 @@ def binding_energy_dz(job_total, job_A, job_B, zero_indexed_atom_indices_A, rout
 	job_names = ', '.join(job_names)
 
 	f.write('''from merlin import *
-s_units='Ha'
+try:
+	s_units=sys.argv[1]
+except:
+	s_units='Ha'
 job_names = [$$$$$]
 # Check if jobs are still running
 for s in log.get_jlist():
