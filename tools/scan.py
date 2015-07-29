@@ -29,7 +29,7 @@ OPTIONS:
 -u							: given a unit for y axis. By default this
 							   is kcal/mol
 -neb value					: force neb endpoint on (1) or off (2) default
-							   is 0 for don't force anything.
+							  is 0 for don't force anything.
 
 ex: 'scang gaussian/ranthisjobnumer3- 2 7 -t "Energy Plot" -x=0.000001,1.5423,3,...,7.0003452'
 ex: 'scang gaussian/test_neb_$-%d_yay 1 10 -c $,0,6'
@@ -141,6 +141,7 @@ if (len(arg)>=3):
 		print "\nCannot identify the following flag(s)/input(s), please refer to the help documentation via -h or --help"
 		print "The following will be ignored: "+str(unidentifiable) + '\n'
 
+# If we are compiling together the data, we want to loop between the different data sets
 if comp != None: loops=range(int(comp[1]),int(comp[2])+1)
 else: loops = [1]
 
@@ -168,11 +169,15 @@ for loop in loops:
 
 	#Print and parse energy values
 	if comp == None: print 'Step', 'E (Har)', 'Converged?'
-	t_low = low
-	t_count = count
+
+	# Here we want to take into account having to collect an extra data point for neb calculations
+	t_low, t_count = low, count
 	if ((comp != None and loop == 0) or (neb_force==1 and loop == loops[0])) and neb_force!=2:
 		t_low -= 1
 		t_count += 1
+
+	# Here we will get the energy data
+	if ((comp != None and loop > 0) or (neb_force==1 and loop == loops[0])) and neb_force!=2: energies.append(offset_low)
 	for step in range(t_low,t_count+1):
 		tmp_name = name+str(step) if name.find('%')==-1 else name % step # Get step
 		if comp != None: tmp_name = tmp_name.replace(comp[0],str(loop)) # Get loop
@@ -180,6 +185,10 @@ for loop in loops:
 		files.write_xyz(atoms, f)
 		if comp == None: print step, energy, int(g09.parse_atoms(tmp_name)!=None)
 		energies.append(energy)
+		if ((comp != None and loop == 0) or (neb_force==1 and loop == loops[0])) and neb_force!=2:
+			if step == t_low: offset_low = energy
+			if step == t_count: offset_high = energy
+	if ((comp != None and loop > 0) or (neb_force==1 and loop == loops[0])) and neb_force!=2: energies.append(offset_high)
 
 	if comp == None:
 		def matplot(y):
@@ -198,11 +207,14 @@ for loop in loops:
 					plt.axis([0,max(xs),ylow,yhigh])
 			plt.show()
 
-		energies = [units.convert_energy('Ha',s_units,e-energies[0]) for e in energies]
+		energies = [units.convert_energy('Ha',s_units, e-energies[0]) for e in energies]
 		print energies
 		matplot(energies)
 	else:
-		energies = [units.convert_energy('Ha',s_units,e-energies[0]) for e in energies]
+		if ((comp != None and loop > 0) or (neb_force==1 and loop == loops[0])) and neb_force!=2:
+			energies = [units.convert_energy('Ha',s_units, e-offset_low) for e in energies]
+		else:
+			energies = [units.convert_energy('Ha',s_units, e-energies[0]) for e in energies]
 		compE.append(energies)
 
 
@@ -238,10 +250,10 @@ if comp != None:
 		print "Max E = %lg, Min E = %lg (Units = %s)\n" % (a,b,s_units)
 
 	# For a full neb we want the fixed ends also
-	if loops[0]==0 and neb_force != 2:
-		print "Appending endpoints for NEB calculation"
-		for i,c in enumerate(compE):
-			if i==0: continue
-			compE[i] = [compE[0][0]] + c + [compE[0][-1]]
+	#if loops[0]==0 and neb_force != 2:
+#		print "Appending endpoints for NEB calculation"
+#		for i,c in enumerate(compE):
+#			if i==0: continue
+#			compE[i] = [compE[0][0]] + c + [compE[0][-1]]
 
 	comp_matplot(compE,comp[1])
