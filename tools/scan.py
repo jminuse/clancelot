@@ -23,13 +23,13 @@ OPTIONS:
                                energy vs. step
 -y low,high , -y=low,high   : sets the two endpoints for the y axis to
                                the given values
--c char,start,stop			: given a character, replaces it from start
-							   to stop and runs scang on each.  Graphs
-							   are compiled together.
--u							: given a unit for y axis. By default this
-							   is kcal/mol
--neb value					: force neb endpoint on (1) or off (2) default
-							  is 0 for don't force anything.
+-c char,start,stop          : given a character, replaces it from start
+                               to stop and runs scang on each.  Graphs
+                               are compiled together.
+-u                          : given a unit for y axis. By default this
+                               is kcal/mol
+-neb value                  : force neb endpoint on (1) or off (2) default
+                              is 0 for don't force anything.
 
 ex: 'scang gaussian/ranthisjobnumer3- 2 7 -t "Energy Plot" -x=0.000001,1.5423,3,...,7.0003452'
 ex: 'scang gaussian/test_neb_$-%d_yay 1 10 -c $,0,6'
