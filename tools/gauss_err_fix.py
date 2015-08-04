@@ -4,24 +4,32 @@
 #			MAILTO=""
 #			10 * * * * /usr/bin/python /fs/home/hch54/clancelot/tools/gauss_err_fix.py
 
+USER_PATH = ['/fs/home/hch54/Documents/projects/NanoCrystal/gaussian/']
+
 import sys, os
 sys.path.append('/fs/home/hch54/clancelot/tools')
 os.environ["PATH"] += ':/opt/voyager/nbs/bin/:/usr/common/bin/'
 from merlin import *
 from ast import literal_eval as l_eval
+import shutil
 end_path = os.path.dirname(os.path.realpath(__file__))
 
 def process_err(fptr,err,job_info):
 	# This error arises when one gets 180 degree angles.  To fix this you need to resubmit the job with a slightly new geometry
 	if err == 'FormBX had a problem.':
-		# Get the routing line from a previous job
-		route = open(fptr+'.inp').readline()[2:].strip().split()
-		# If the previous run had '/gen', we need to copy that for an extra_section
-		if(route[0][-3:] == 'Gen'):
-			extras = open(fptr+'.inp').read().split('\n\n')[3:]
-			extras = '\n\n'.join(extras)
+		# Get appropriate level of theory using ChkBasis
+		route = open(fptr+'.inp').readline()[2:].strip()
+		route = ' '.join([route.split()[0].split('/')[0]+'/ChkBasis']+route.split()[1:])
+
+		# Remove pseudo = read if it exists
+		parsed_route = g09.parse_route(route)
+		kill, need_geom = -1,True
+		for i,p in enumerate(parsed_route):
+			if 'pseudo' in p.lower(): del parsed_route[i]
+			if 'geom' in p.lower(): need_geom = False
+
 		# Append geom new def if we need to
-		if 'geom' not in ' '.join(route).lower(): route.append('GEOM=(Check,NewDefinition)')
+		if need_geom: parsed_route.append('GEOM=(Check,NewDefinition)')
 
 		# Get previous job info
 		serv = job_info[3]
@@ -33,13 +41,14 @@ def process_err(fptr,err,job_info):
 		while os.path.exists(path+job_info[0]+'_R'+str(i)+'.log'): i+= 1
 		job_name = job_info[0]+'_R'+str(i)
 		
+		# Copy chkpoint file
+		shutil.copyfile(fptr+'.chk', path+job_name+'.chk')
+
 		# Submit new job
 		old_path = os.getcwd()
 		path = path[:path[:-1].rfind('/')+1] # Move back another directory
 		os.chdir(path)
-		g09.job(job_name, ' '.join(route), queue=serv, extra_section=extras ,blurb='Re_running %s: %s' % (job_info[0],err),procs=threads, previous=job_info[0], force=True, err=True)
-
-USER_PATH = ['/fs/home/hch54/Documents/projects/NanoCrystal/gaussian/']
+		g09.job(job_name, ' '.join(parsed_route), queue=serv, extra_section='' ,blurb='Re_running %s: %s' % (job_info[0],err),procs=threads, previous=job_info[0], force=True, err=True)
 
 def get_err(fptr):
 	flag = False

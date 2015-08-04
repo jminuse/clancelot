@@ -1,8 +1,96 @@
 import os, string, sys, re, shutil, copy
 from subprocess import Popen
-import utils, log, files
+import utils, units, log, files
 
-def job(run_name, route, atoms=[], extra_section='', queue='batch', procs=1, charge_and_multiplicity='0,1', title='run by gaussian.py', blurb=None, eRec=True, force=False, previous=None,neb=[False,None,None,None],err=False):
+# Function that parses the route into the following situations
+	# func/basis
+	# key(a,b,c,...)
+	# key(a)
+	# key=a
+	# key = a
+	# key=(a,b,c,...)
+def parse_route(route):
+	parsed, parsed_list = [],[]
+	parsed += re.findall('(\w+\s*=\s*(?:(?:\([^\)]*\)|(?:\w+))))|(\w+\s*\([^\)]*\))|([A-z]\w+\/[A-z]\w+)',route)
+	for p in parsed:
+		for i in p:
+			if i != '': parsed_list.append(i)
+	return parsed_list
+
+def chk_lint(run_name, route, atoms=[], extra_section='', queue='batch', procs=1, charge_and_multiplicity='0,1', title='run by gaussian.py', blurb=None, eRec=True, force=False, previous=None,neb=[False,None,None,None],err=False):
+	# Check the extra section for required new lines and ****
+	def chk_extra_section():
+		# If no extra_section, don't do anything
+		if extra_section == '': return True
+
+		# Get the last section after splitting by '\n\n'.  Should be blank
+		if extra_section.split('\n\n')[-1] == '': return True
+		else:
+			print('''Lint Err - Extra Section does not end in two new lines ('\\n\\n').''')
+			return False
+
+	def chk_pseudo_read(route, extra_section):
+		# If we don't care about pseudo = read (required for Gen and GenECP), then ignore
+		if route.split()[0].split('/')[1].lower() not in ['gen','genecp']: return True
+
+		# Check if the route has pseudo=read
+		r = route.strip().lower().replace(' ','')
+		ss = ['pseudo=read','pseudo=(read']
+		for s in ss:
+			if r.find(s): has_pseudo=True
+			else: has_pseudo=False
+
+		# Check if the extra section has the pseudo section (if it does, there should be 3: 1 for main mixed set, 2 for pseudo=read, 3 for end of section)
+		if len(extra_section.split('\n\n'))==3: needs_pseudo=True
+		else: needs_pseudo=False
+
+		# Act accordingly
+		if has_pseudo and needs_pseudo: return True
+		else:
+			print('Lint Err - Pseudo is incorrectly defined.')
+			return False
+
+	def chk_mixed_set(route, atoms, extra_section):
+		# If we don't care about pseudo = read (required for Gen and GenECP), then ignore
+		if route.split()[0].split('/')[1].lower() not in ['gen','genecp']: return True
+
+		# Get list of elements
+		#tmp = re.findall('((?:[A-Z][a-z]?\s*)+)\s0',extra_section)
+		#elem_list = []
+		#for t in tmp: elem_list += t.split()
+		elem_list = [item for l in  ([ l.split() for l in re.findall('((?:[A-Z][a-e]?\s*)+)\s0',extra_section)]) for item in l]
+
+		
+		a_elem = []
+		# Check if all atoms in elements
+		for a in atoms:
+			if units.elem_i2s(a.element) not in elem_list:
+				print('Lint Err - Element %s is not defined in mixed basis set.' % units.elem_i2s(a.element))
+				return False
+			if units.elem_i2s(a.element) not in a_elem: a_elem.append(units.elem_i2s(a.element))
+
+		# Check if all atoms defined in mixed basis set are account for in elements
+		for a in elem_list:
+			if a not in a_elem:
+				print('Lint Err - Element %s in mixed basis set is unaccounted for.' % a)
+				return False
+
+		return True
+		
+	funcs = [
+	chk_extra_section, # Check if extra_section ends in '\n\n'
+	chk_pseudo_read(route, extra_section), # Check if pseudo=Read error exists
+	chk_mixed_set(route, atoms, extra_section) # Checks if all elements defined have appropriate basis sets
+	# More functions placed here
+	]
+
+	if False in funcs:
+		print('Errors were returned for %s.' % run_name)
+		print('If you believe this/these error(s) to be wrong, please resubmit with lint=False.')
+		sys.exit(0)
+
+def job(run_name, route, atoms=[], extra_section='', queue='batch', procs=1, charge_and_multiplicity='0,1', title='run by gaussian.py', blurb=None, eRec=True, force=False, previous=None,neb=[False,None,None,None],err=False,lint=False):
+	if lint: chk_lint(run_name, route, atoms, extra_section, queue, procs, charge_and_multiplicity, title, blurb, eRec, force, previous,neb,err)
 	log.chk_gaussian(run_name,force=force,neb=neb) # Checks if run exists
 	head = '#N '+route+'\n\n'+title+'\n\n'+charge_and_multiplicity+'\n' # Header for inp file
 
