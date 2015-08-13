@@ -17,19 +17,22 @@ end_path = os.path.dirname(os.path.realpath(__file__))
 def process_err(fptr,err,job_info):
 	# This error arises when one gets 180 degree angles.  To fix this you need to resubmit the job with a slightly new geometry
 	if err == 'FormBX had a problem.':
-		# Get appropriate level of theory using ChkBasis
-		route = open(fptr+'.inp').readline()[2:].strip()
-		route = ' '.join([route.split()[0].split('/')[0]+'/ChkBasis']+route.split()[1:])
+		# Get the routing line from a previous job
+		route,_ = g09.parse_route(open(fptr+'.inp').readline()[2:].strip())
 
-		# Remove pseudo = read if it exists
-		parsed_route = g09.parse_route(route)
-		kill, need_geom = -1,True
-		for i,p in enumerate(parsed_route):
-			if 'pseudo' in p.lower(): del parsed_route[i]
-			if 'geom' in p.lower(): need_geom = False
+		# Get the atom list from previous job
+
+		# If the previous run had '/gen', we need to copy that for an extra_section
+		if(route[0].split('/')[1].lower() in ['gen','genecp']):
+			extras = open(fptr+'.inp').read().split('\n\n')[3:]
+			extras = '\n\n'.join(extras)
+		else: extras = ''
 
 		# Append geom new def if we need to
-		if need_geom: parsed_route.append('GEOM=(Check,NewDefinition)')
+		need_geom = True
+		for i,p in enumerate(route):
+			if 'geom' in p.lower(): need_geom = False		
+		if need_geom: route.append('GEOM=(Check,NewDefinition)')
 
 		# Get previous job info
 		serv = job_info[3]
@@ -48,7 +51,7 @@ def process_err(fptr,err,job_info):
 		old_path = os.getcwd()
 		path = path[:path[:-1].rfind('/')+1] # Move back another directory
 		os.chdir(path)
-		g09.job(job_name, ' '.join(parsed_route), queue=serv, extra_section='' ,blurb='Re_running %s: %s' % (job_info[0],err),procs=threads, previous=job_info[0], force=True, err=True)
+		g09.job(job_name, ' '.join(route), queue=serv, extra_section=extras ,blurb='Re_running %s: %s' % (job_info[0],err),procs=threads, previous=job_info[0], force=True, err=True)
 
 def get_err(fptr):
 	flag = False

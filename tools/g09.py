@@ -10,12 +10,13 @@ import utils, units, log, files
 	# key = a
 	# key=(a,b,c,...)
 def parse_route(route):
-	parsed, parsed_list = [],[]
-	parsed += re.findall('(\w+\s*=\s*(?:(?:\([^\)]*\)|(?:\w+))))|(\w+\s*\([^\)]*\))|([A-z]\w+\/[A-z]\w+)',route)
+	parsed, parsed_list, r = [],[],route
+	parsed += re.findall('(\w+\s*=\s*(?:(?:\([^\)]*\)|(?:\w+))))|(\w+\s*\([^\)]*\))|([A-z]\w+\/[A-z]\w+)',r)
 	for p in parsed:
 		for i in p:
 			if i != '': parsed_list.append(i)
-	return parsed_list
+	for p in parsed_list: r = r.replace(p,'')
+	return parsed_list, r.strip()
 
 def chk_lint(run_name, route, atoms=[], extra_section='', queue='batch', procs=1, charge_and_multiplicity='0,1', title='run by gaussian.py', blurb=None, eRec=True, force=False, previous=None,neb=[False,None,None,None],err=False):
 	# Check the extra section for required new lines and ****
@@ -37,7 +38,9 @@ def chk_lint(run_name, route, atoms=[], extra_section='', queue='batch', procs=1
 		r = route.strip().lower().replace(' ','')
 		ss = ['pseudo=read','pseudo=(read']
 		for s in ss:
-			if r.find(s): has_pseudo=True
+			if r.find(s) > -1:
+				has_pseudo=True
+				break
 			else: has_pseudo=False
 
 		# Check if the extra section has the pseudo section (if it does, there should be 3: 1 for main mixed set, 2 for pseudo=read, 3 for end of section)
@@ -45,9 +48,13 @@ def chk_lint(run_name, route, atoms=[], extra_section='', queue='batch', procs=1
 		else: needs_pseudo=False
 
 		# Act accordingly
-		if has_pseudo and needs_pseudo: return True
+		if has_pseudo == needs_pseudo: return True
 		else:
 			print('Lint Err - Pseudo is incorrectly defined.')
+			if has_pseudo: print('\tLinter found Psuedo=Read in route.')
+			else: print('\tLinter did not find Pseudo=Read in route.')
+			if needs_pseudo: print('\tLinter says Pseudo=Read required in route.')
+			else: print('\tLinter says there should not be Pseudo=Read in route.')
 			return False
 
 	def chk_mixed_set(route, atoms, extra_section):
@@ -64,10 +71,13 @@ def chk_lint(run_name, route, atoms=[], extra_section='', queue='batch', procs=1
 		a_elem = []
 		# Check if all atoms in elements
 		for a in atoms:
-			if units.elem_i2s(a.element) not in elem_list:
+			if len(units.elem_i2s(a.element))>2: e = units.elem_i2s(a.element)[:units.elem_i2s(a.element).find('-')]
+			else: e = ''
+			if (units.elem_i2s(a.element) not in elem_list) and (e not in elem_list):
 				print('Lint Err - Element %s is not defined in mixed basis set.' % units.elem_i2s(a.element))
 				return False
-			if units.elem_i2s(a.element) not in a_elem: a_elem.append(units.elem_i2s(a.element))
+			if (e != '') and (e not in a_elem): a_elem.append(e)
+			elif units.elem_i2s(a.element) not in a_elem: a_elem.append(units.elem_i2s(a.element))
 
 		# Check if all atoms defined in mixed basis set are account for in elements
 		for a in elem_list:
@@ -89,7 +99,7 @@ def chk_lint(run_name, route, atoms=[], extra_section='', queue='batch', procs=1
 		print('If you believe this/these error(s) to be wrong, please resubmit with lint=False.')
 		sys.exit(0)
 
-def job(run_name, route, atoms=[], extra_section='', queue='batch', procs=1, charge_and_multiplicity='0,1', title='run by gaussian.py', blurb=None, eRec=True, force=False, previous=None,neb=[False,None,None,None],err=False,lint=False):
+def job(run_name, route, atoms=[], extra_section='', queue='batch', procs=1, charge_and_multiplicity='0,1', title='run by gaussian.py', blurb=None, eRec=True, force=False, previous=None, neb=[False,None,None,None], err=False, lint=False):
 	if lint: chk_lint(run_name, route, atoms, extra_section, queue, procs, charge_and_multiplicity, title, blurb, eRec, force, previous,neb,err)
 	log.chk_gaussian(run_name,force=force,neb=neb) # Checks if run exists
 	head = '#N '+route+'\n\n'+title+'\n\n'+charge_and_multiplicity+'\n' # Header for inp file
@@ -667,9 +677,9 @@ def optimize_pm6(name, examples, param_string, starting_params, queue=None): #op
 # job_A - This is the name of a gaussian job that holds the optimized molecule A
 # job_B - This is the name of a gaussian job that holds the optimized molecule B
 # zero_indexed_atom_indices_A - This is a list of indices for molecule A in job_total.  First values of a .xyz file start at 0.
-def binding_energy_dz(job_total, job_A, job_B, zero_indexed_atom_indices_A, route='SP SCRF(Solvent=Toluene) guess=read', blurb=None, procs=1, queue='batch',force=False):
+def binding_energy_dz(job_total, job_A, job_B, zero_indexed_atom_indices_A, route='SP SCRF(Solvent=Toluene)', blurb=None, procs=1, queue='batch', force=False, lint=False):
 	#--------------------------
-	def ghost_job(atoms, name, previous_job=None, route='SP SCRF(Solvent=Toluene) guess=read', blurb=None, procs=1, queue='batch', extras='',force=False):
+	def ghost_job(atoms, name, previous_job=None, route='SP SCRF(Solvent=Toluene)', blurb=None, procs=1, queue='batch', extras='', force=False, lint=False):
 		# To ensure we do not overwrite a file we increment a value until we find that the run doesn't exist
 		if os.path.isfile('gaussian/%s.inp' % name): # Check if normal file exists
 			i = 1
@@ -682,12 +692,17 @@ def binding_energy_dz(job_total, job_A, job_B, zero_indexed_atom_indices_A, rout
 				name = '%s_%d' % (name,i)		
 
 		# Get appropriate level of theory
-		if (previous_job != None): 
-			route = open('gaussian/'+previous_job+'.inp').readline()[2:].strip().split()[0] + ' ' + route
-			route = ' '.join([route.split()[0].split('/')[0]+'/ChkBasis']+route.split()[1:])
+		theory = open('gaussian/'+previous_job+'.inp').readline()[2:].strip().split()[0].split('/')
+		# If we need to get mixed basis sets
+		if theory[1].lower() in ['genecp','gen']:
+			extras = open('gaussian/'+previous_job+'.inp').read().split('\n\n')[3:]
+			extras = '\n\n'.join(extras)
+			extras = extras.strip() + '\n\n'
+			if len(extras.split('\n\n')) == 3: route = 'Pseudo=Read ' + route
+		route = '/'.join(theory) + ' ' + route
 
 		# Run the job and return the job name for the user to use later
-		job(name, route, atoms=atoms, queue=queue, extra_section=extras,blurb=blurb, procs=procs,previous=previous_job,force=force)
+		job(name, route, atoms=atoms, queue=queue, extra_section=extras, blurb=blurb, procs=procs, previous=previous_job, force=force, lint=lint)
 
 		return name
 	#--------------------------
@@ -700,14 +715,14 @@ def binding_energy_dz(job_total, job_A, job_B, zero_indexed_atom_indices_A, rout
 		if i in zero_indexed_atom_indices_A: atom.element+='-Bq'
 	
 	# Now AB_A is A from AB, AB_B is B from AB
-	name1 = ghost_job(AB_A, job_total + '_A0', blurb=blurb, queue=queue, procs=procs, previous_job=job_total,force=force)
-	name2 = ghost_job(AB_B, job_total + '_B0', blurb=blurb, queue=queue, procs=procs, previous_job=job_total,force=force)
+	name1 = ghost_job(AB_A, job_total + '_A0', blurb=blurb, queue=queue, procs=procs, previous_job=job_total, force=force, lint=lint)
+	name2 = ghost_job(AB_B, job_total + '_B0', blurb=blurb, queue=queue, procs=procs, previous_job=job_total, force=force, lint=lint)
 	
 	#non-rigid correction:
 	AB_A = [atom for atom in AB_A if not atom.element.endswith('-Bq')]
 	AB_B = [atom for atom in AB_B if not atom.element.endswith('-Bq')]
-	name3 = ghost_job(AB_A, job_A + '_AB0', blurb=blurb, queue=queue, procs=procs, previous_job=job_A,force=force)
-	name4 = ghost_job(AB_B, job_B + '_AB0'+('2' if job_A==job_B else '') , blurb=blurb, queue=queue, procs=procs, previous_job=job_B,force=force)
+	name3 = ghost_job(AB_A, job_A + '_AB0', blurb=blurb, queue=queue, procs=procs, previous_job=job_A, force=force, lint=lint)
+	name4 = ghost_job(AB_B, job_B + '_AB0'+('2' if job_A==job_B else '') , blurb=blurb, queue=queue, procs=procs, previous_job=job_B, force=force, lint=lint)
 	
 	# To get the binding energy we need to take into account the superposition error and the deformation error:
 	# Superposition Error Correction is done by taking the total energy of the job and subtracting from it:
