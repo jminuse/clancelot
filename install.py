@@ -11,12 +11,12 @@ to_install = {
 'chkg':1,
 'chkg_all':1,
 'scang':1,
-'junest (formerly juju)':0,
+'junest (formerly juju)':1,
 'anaconda':1, 				# a Python 2.7.9 distribution that installs to ~/anaconda
-'vmd default settings':0,	# improves the default settings of vmd
-'file_browser':0, 			# set the file browser not to open a new window per folder
+'vmd default settings':1,	# improves the default settings of vmd
+'file_browser':1, 			# set the file browser not to open a new window per folder
 'merlin':1,
-'sublime_text_3_build_3083':0
+'sublime_text_3_build_3083':1
 }
 
 ####################################################################################################################
