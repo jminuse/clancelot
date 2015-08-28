@@ -1,3 +1,4 @@
+# test!
 # This program removes all duplicate atoms in an xyz file under
 # periodic boundary conditions, and outputs the correct number of atoms
 # NOTE: The xyz file must be in fraction (crystal) coordinates!
