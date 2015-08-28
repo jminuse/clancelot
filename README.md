@@ -19,3 +19,25 @@ If added to the project and you want to contribute, you can do the following:
 		`ssh-add ~/.ssh/id_rsa`
 
 		`ssh-add`
+5. Whenever you want to add or delete a file (remember that you cannot add an empty folder) run:
+	To Add:
+
+		`git add PATH/TO/FILE/NEW_FILE_NAME`
+	To Delete:
+
+		`git rm PATH/TO/FILE/FILE_TO_DELETE`
+6. Whenevery you want to add updated files to git, run:
+
+		`git add -u`
+7. When you are ready to add to the main repo, run:
+
+		`git commit -m "Whatever message describing what you did"`
+		`git push`
+8. Finally, you may want to check if there are any changes you made prior to adding all updated files:
+	The following checks which files are different to what is in your commit:
+	
+		`git status`
+	The following will look at the last two changes of a file:
+	
+		`git blame PATH/TO/FILE/FILE_NAME`
+
