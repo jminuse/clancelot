@@ -1,0 +1,2 @@
+Aug 26 - 2015:
+	When using extract_atoms and gather_atoms it should be noted that gather_atoms will order atoms by atom ID while extract_atoms does not.
