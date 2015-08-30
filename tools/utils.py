@@ -377,6 +377,13 @@ def center_frames(frames,ids,X_TOL=0.1,XY_TOL=0.1,Z_TOL=0.1,THETA_STEP=0.005,TRA
 	origin = ids[0]
 	xaxis = ids[1]
 	sqr = ids[2]
+
+	# If we only have one frame, put it in a list
+	chk = False
+	if type(frames[0]) != list:
+		frames = [frames]
+		chk = True
+
 	# Loop through frames
 	for f in frames:
 		# Find the first translation to make the desired point the origin
@@ -442,6 +449,8 @@ def center_frames(frames,ids,X_TOL=0.1,XY_TOL=0.1,Z_TOL=0.1,THETA_STEP=0.005,TRA
 			if isnan(a.x) or isnan(a.y) or isnan(a.z):
 				print("Center frames has led to NaN...")
 				sys.exit()
+
+	if chk: frames = frames[0]
 
 def pretty_xyz(name,R_MAX=1,F_MIN=1,F_MAX=50,CENTER=None,outName=None,write_xyz=False,verbose=False):
 	# Get data as either frames or a file

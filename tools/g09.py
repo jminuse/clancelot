@@ -692,7 +692,6 @@ def neb_test(name, states, theory, extra_section='', procs=1, queue=None, spring
 					# Recenter the new atoms that are read in
 					try:
 						utils.center_frames(new_atoms,NEB.centerIDS)
-						print str(i) + " Centered frames " + str(NEB.centerIDS)
 					except:
 						print "Unexpected error:", sys.exc_info()[0]
 						print "Centering failed: User needs to re-specify new centerIDS"; exit()
