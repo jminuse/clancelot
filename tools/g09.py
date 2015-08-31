@@ -392,26 +392,20 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			#get forces and energies from DFT calculations
 			energies = []
 			for i,state in enumerate(NEB.states):
-				try:
-					# state 0 and state N-1 don't change, so just use result from NEB.step==0
-					if (i==0 or i==len(NEB.states)-1):
-						step_to_use = 0
-					else:
-						step_to_use = NEB.step
-					new_energy, new_atoms = parse_atoms('%s-%d-%d' % (NEB.name, step_to_use, i), check_convergence=False)
-				except:
-					print "Unexpected error in 'parse_atoms':", sys.exc_info()[0]
-					print 'Job failed: %s-%d-%d'%(NEB.name,NEB.step,i); exit()
+				# state 0 and state N-1 don't change, so just use result from NEB.step==0
+				if (i==0 or i==len(NEB.states)-1):
+					step_to_use = 0
+				else:
+					step_to_use = NEB.step
+				result = parse_atoms('%s-%d-%d' % (NEB.name, step_to_use, i), check_convergence=False)
+				if not result:
+					raise Exception('parse_atoms failed')
+				new_energy, new_atoms = result
 				energies.append(new_energy)
-				try:
-					for a,b in zip(state, new_atoms):
-						a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
-				except:
-					print "Unexpected error in collecting forces:", sys.exc_info()[0]
-					print 'Job failed: %s-%d-%d'%(NEB.name,NEB.step,i); exit()
+				utils.procrustes([state,new_atoms]) #rigidly rotate jobs into alignment before calculating forces
+				for a,b in zip(state, new_atoms):
+					a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
 			V = copy.deepcopy(energies) # V = potential energy from DFT. energies = V+springs
-			#rigidly rotate jobs into alignment before calculating forces
-			#procrustes(NEB.states) #can't change coords - messes up optimization routine
 
 			#add spring forces to atoms
 			for i,state in enumerate(NEB.states):
@@ -481,8 +475,21 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 	n = NEB(name, states, theory, k, fit_rigid, procrusts, centerIDS)
 	# BFGS is the best method, cite http://theory.cm.utexas.edu/henkelman/pubs/sheppard08_134106.pdf
 	#scipy.optimize.minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_forces, options={'disp': True})
-	scipy.optimize.fmin_l_bfgs_b(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces, iprint=0, factr=1e7)
-	#scipy.optimize.basinhopping(NEB.get_error, np.array(NEB.coords_start))
+	#scipy.optimize.fmin_l_bfgs_b(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces, iprint=0, factr=1e7)
+
+	def euler_optimizer(f, start, fprime): #better, but tends to push error up eventually, especially towards endpoints. 
+		for step in range(100):
+			gradient = fprime(start)
+			start -= gradient*0.1
+			
+	def verlet_optimizer(f, start, fprime):
+		old_gradient = np.array([0.0 for x in start])
+		for step in range(100):
+			new_gradient = fprime(start)
+			start -= (old_gradient+new_gradient)*0.5 * 0.1
+	
+	verlet_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces)
+
 
 def neb_test(name, states, theory, extra_section='', procs=1, queue=None, spring_atoms=None, k=0.1837, force=True): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
 #Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
