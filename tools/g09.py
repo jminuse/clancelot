@@ -534,175 +534,24 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			
 	verlet_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces)
 
+	def order_2_optimizer(f, start, fprime): #better, but tends to push error up eventually, especially towards endpoints. 
+		old_gradient = np.array([0.0 for x in start]) 
+		for step in range(100):
+			new_gradient = fprime(start)
+			start -= (old_gradient+new_gradient)*0.5 * 0.02
+			old_gradient = new_gradient
 
-def neb_test(name, states, theory, extra_section='', procs=1, queue=None, spring_atoms=None, k=0.1837, force=True): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
-#Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
-	import scipy.optimize
-	import numpy as np
-	#set which atoms will be affected by virtual springs
-	if not spring_atoms:#if not given, select all
-		spring_atoms = range(len(states[0]))
-	elif type(spring_atoms)==str: #a list of element names
-		elements = spring_atoms.split()
-		spring_atoms = [i for i,a in enumerate(states[0]) if a.element in elements]
-	#class to contain working variables
-	class NEB:
-		name, states, theory, k = None, None, None, None
-		error, forces = None, None
-		step = 0
-		def __init__(self, name, states, theory, k=1e-2):
-			NEB.name = name
-			NEB.states = states
-			NEB.theory = theory
-			NEB.k = k
-			
-			# We want to make sure we have the atom coordinates properly adjusted
-			try:
-				utils.procrustes(NEB.states)
-			except:
-				print "Unexpected error:", sys.exc_info()[0]
-				print "Error running Procrustes..."; exit()
+	def verlets_optimizer(f, start, fprime):
+		old_gradient = np.array([0.0 for x in start])
+		TIME_STEP = 0.02
+		for step in range(100):
+			new_gradient = fprime(start)
+			if np.dot(new_gradient,old_gradient) > 0: TIME_STEP += 0.05
+			else: TIME_STEP = 0.02
+			start -= (old_gradient+new_gradient)*0.5 * TIME_STEP
+			print("TIME_STEP, dot_prod = %lg,%lg" % (TIME_STEP,np.dot(new_gradient,old_gradient)))
 	
-			#load initial coordinates into flat array for optimizer
-			NEB.coords_start = []
-			for s in states[1:-1]:
-				for a in s:
-					NEB.coords_start += [a.x, a.y, a.z]
-	
-		@staticmethod
-		def calculate(coords):
-			coord_count = 0
-			for s in NEB.states[1:-1]:
-				for a in s:
-					a.x, a.y, a.z = coords[coord_count], coords[coord_count+1], coords[coord_count+2]
-					coord_count += 3
-			#start DFT jobs
-			running_jobs = []
-			for i,state in enumerate(NEB.states):
-				if NEB.step>0:
-					if (i==0 or i==len(NEB.states)-1): #only use DFT on endpoints on first step, because they don't change
-						continue
-					guess = ' Guess=Read'
-				else: guess = '' #no previous guess for first step
-				running_jobs.append( job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+' Force'+guess, state, procs=procs, queue=queue, force=force, previous=('%s-%d-%d'%(NEB.name,NEB.step-1,i)) if NEB.step>0 else None, extra_section=extra_section, neb=[True,'%s-%%d-%%d'%(NEB.name),len(NEB.states),i]) )
-			#wait for jobs to finish
-			for j in running_jobs: j.wait()
-			#get forces and energies from DFT calculations
-			energies = []
-
-			coord_count = 0 # Set to 0 for main loop
-			ERR_CHK = 1E-8
-			for i,state in enumerate(NEB.states):
-				try:
-					# state 0 and state N-1 don't change, so just use result from NEB.step==0
-					if (i==0 or i==len(NEB.states)-1):
-						step_to_use = 0
-					else:
-						step_to_use = NEB.step
-					new_energy, new_atoms = parse_atoms('%s-%d-%d' % (NEB.name, step_to_use, i), check_convergence=False)
-					
-					# Recenter the new atoms that are read in
-					try:
-						utils.procrustes([state,new_atoms])
-					except:
-						print "Unexpected error:", sys.exc_info()[0]
-						print "Error running Procrustes..."; exit()
-
-					# Here we do a quick check on the atom coordinates to make sure we're right
-					for a,b in zip(state,new_atoms):
-						if abs(a.x - coords[coord_count]) > ERR_CHK: print "ERROR - State not same. (%d,%lg)" % (i,coord_count,abs(a.x - coords[coord_count])); exit()
-						if abs(a.y - coords[coord_count + 1]) > ERR_CHK: print "ERROR - State not same. (%d,%lg)" % (i,coord_count+1,abs(a.x - coords[coord_count+1])); exit()
-						if abs(a.z - coords[coord_count + 2]) > ERR_CHK: print "ERROR - State not same. (%d,%lg)" % (i,coord_count+2,abs(a.x - coords[coord_count+2])); exit()
-
-						if abs(b.x - coords[coord_count]) > ERR_CHK: print "ERROR - new_atoms not same. (%d,%lg)" % (i,coord_count,abs(a.x - coords[coord_count])); exit()
-						if abs(b.y - coords[coord_count + 1]) > ERR_CHK: print "ERROR - new_atoms not same. (%d,%lg)" % (i,coord_count+1,abs(a.x - coords[coord_count+1])); exit()
-						if abs(b.z - coords[coord_count + 2]) > ERR_CHK: print "ERROR - new_atoms not same. (%d,%lg)" % (i,coord_count+2,abs(a.x - coords[coord_count+2])); exit()
-						
-						coord_count += 3
-
-				except:
-					print "Unexpected error in 'parse_atoms':", sys.exc_info()[0]
-					print 'Job failed: %s-%d-%d'%(NEB.name,NEB.step,i); exit()
-				energies.append(new_energy)
-				try:
-					for a,b in zip(state, new_atoms):
-						a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
-				except:
-					print "Unexpected error in collecting forces:", sys.exc_info()[0]
-					print 'Job failed: %s-%d-%d'%(NEB.name,NEB.step,i); exit()
-			V = copy.deepcopy(energies) # V = potential energy from DFT. energies = V+springs
-			#rigidly rotate jobs into alignment before calculating forces
-			#procrustes(NEB.states) #can't change coords - messes up optimization routine
-
-			#add spring forces to atoms
-			for i,state in enumerate(NEB.states):
-				if i==0 or i==len(NEB.states)-1: continue #don't change first or last state
-				for j,b in enumerate(state):
-					if j in spring_atoms:
-						a,c = NEB.states[i-1][j], NEB.states[i+1][j]
-					
-						#find tangent
-						tplus = np.array( [ c.x-b.x, c.y-b.y, c.z-b.z ] )
-						tminus = np.array( [ a.x-b.x, a.y-b.y, a.z-b.z ] )
-						dVmin = min(abs(V[i+1]-V[i]), abs(V[i-1]-V[i]))
-						dVmax = max(abs(V[i+1]-V[i]), abs(V[i-1]-V[i]))
-						if V[i+1]>V[i] and V[i]>V[i-1]: #not at an extremum, trend of V is up
-							tangent = tplus
-						elif V[i+1]<V[i] and V[i]<V[i-1]: #not at an extremum, trend of V is down
-							tangent = tminus
-						elif V[i+1]>V[i-1]: #at local extremum, next V is higher
-							tangent = tplus*dVmax + tminus*dVmin
-						else: #at local extremum, previous V is higher
-							tangent = tplus*dVmin + tminus*dVmax
-						
-						#normalize tangent
-						if np.linalg.norm(tangent) == 0: pass
-						else: tangent /= np.linalg.norm(tangent)
-					
-						#find spring forces parallel to tangent
-						F_spring_parallel = NEB.k*( utils.dist(c,b) - utils.dist(b,a) ) * tangent
-					
-						#find DFT forces perpendicular to tangent
-						real_force = np.array( [b.fx,b.fz,b.fz] )
-						F_real_perpendicular = real_force - np.dot(real_force, tangent)
-					
-						#set NEB forces
-						b.fx, b.fy, b.fz = F_spring_parallel + F_real_perpendicular
-			
-			#set error
-			NEB.error = sum(energies)
-			#set forces
-			NEB.forces = []
-			for state in NEB.states[1:-1]:
-				for a in state:
-					NEB.forces += [-a.fx, -a.fy, -a.fz] #gradient of NEB.error
-			RMS_force = (sum([a.fx**2+a.fy**2+a.fz**2 for state in states[1:-1] for a in state])/len([a for state in states[1:-1] for a in state]))**0.5
-			#print data
-			V = V[:1] + [ (e-V[0])/0.001 for e in V[1:] ]
-			print NEB.step, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:]), RMS_force
-			#increment step
-			NEB.step += 1
-	
-		@staticmethod
-		def get_error(coords):
-			if NEB.error is None:
-				NEB.calculate(coords)
-			error = NEB.error
-			NEB.error = None #set to None so it will recalculate next time
-			return error
-	
-		@staticmethod
-		def get_forces(coords):
-			if NEB.forces is None:
-				NEB.calculate(coords)
-			forces = NEB.forces
-			NEB.forces = None #set to None so it will recalculate next time
-			return np.array(forces)*1.8897 #convert from Hartree/Bohr to Hartree/Angstrom
-
-	n = NEB(name, states, theory, k)
-	# BFGS is the best method, cite http://theory.cm.utexas.edu/henkelman/pubs/sheppard08_134106.pdf
-	#scipy.optimize.minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_forces, options={'disp': True})
-	scipy.optimize.fmin_l_bfgs_b(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces, iprint=0, factr=1e7)
+	verlet_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces)
 
 def optimize_pm6(name, examples, param_string, starting_params, queue=None): #optimize a custom PM6 semi-empirical method based on Gaussian examples at a higher level of theory
 	from scipy.optimize import minimize

@@ -305,7 +305,6 @@ def procrustes(frames, count_atoms=None):
 		for a in frames[i]:
 			a.x,a.y,a.z = matvec(rotation, (a.x,a.y,a.z))
 			if hasattr(a,'fx'): a.fx,a.fy,a.fz = matvec(rotation, (a.fx,a.fy,a.fz))
-			else: print("Warning - No forces rotated.")
 
 def interpolate(atoms1, atoms2, N): #interpolate N steps between two sets of coordinates
 	frames = [[] for i in range(N)]
