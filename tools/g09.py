@@ -532,8 +532,6 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			v = v_new
 			a = a_new
 			
-	verlet_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces)
-
 	def order_2_optimizer(f, start, fprime): #better, but tends to push error up eventually, especially towards endpoints. 
 		old_gradient = np.array([0.0 for x in start]) 
 		for step in range(100):
@@ -544,18 +542,20 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 	def verlets_optimizer(f, start, fprime):
 		old_gradient = np.array([0.0 for x in start])
 		velocity = np.array([0.0 for x in start])
-		TIME_STEP = 0.02
+		TIME_STEP = 0.0
 		for step in range(100):
 			new_gradient = fprime(start)
 			if np.dot(velocity,new_gradient) > 0: TIME_STEP += 0.05
-			else: TIME_STEP = 0.02
+			else: TIME_STEP = 0.0
 			velocity = (old_gradient+new_gradient)*0.5*TIME_STEP
 			start -= velocity
 			print("-----------------")
-			print("TIME_STEP, velocity = %lg,%lg" % (TIME_STEP,velocity))
+			print("TIME_STEP = %lg" % TIME_STEP)
+			print velocity
 			print("-----------------")
 	
-	verlets_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces)
+	#verlets_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces)
+	verlet_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces)
 
 def optimize_pm6(name, examples, param_string, starting_params, queue=None): #optimize a custom PM6 semi-empirical method based on Gaussian examples at a higher level of theory
 	from scipy.optimize import minimize
