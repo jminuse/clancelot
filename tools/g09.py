@@ -699,12 +699,12 @@ def optimize_pm6(name, examples, param_string, starting_params, queue=None): #op
 	
 	minimize(pm6_error, starting_params, method='Nelder-Mead', options={'disp': True} )
 	
-# A function that returns the binding energy of a molecule A with corrections.
+# A function that returns the binding energy of a molecule A with BSSE (Basis Set Superposition Error) corrections.
 # job_total - This is the name of a gaussian job that holds the full system (optimized)
 # job_A - This is the name of a gaussian job that holds the optimized molecule A
 # job_B - This is the name of a gaussian job that holds the optimized molecule B
 # zero_indexed_atom_indices_A - This is a list of indices for molecule A in job_total.  First values of a .xyz file start at 0.
-def binding_energy_dz(job_total, job_A, job_B, zero_indexed_atom_indices_A, route='SP SCRF(Solvent=Toluene)', blurb=None, procs=1, queue='batch', force=False, lint=False):
+def binding_energy(job_total, job_A, job_B, zero_indexed_atom_indices_A, route='SP SCRF(Solvent=Toluene)', blurb=None, procs=1, queue='batch', force=False, lint=False):
 	#--------------------------
 	def ghost_job(atoms, name, previous_job=None, route='SP SCRF(Solvent=Toluene)', blurb=None, procs=1, queue='batch', extras='', force=False, lint=False):
 		# To ensure we do not overwrite a file we increment a value until we find that the run doesn't exist
