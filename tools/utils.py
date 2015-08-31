@@ -282,6 +282,7 @@ def dihedral_angle(a,b,c,d):
 	
 	return phi, math.cos(phi), math.cos(2*phi), math.cos(3*phi), math.cos(4*phi)
 
+# Procrustes works by geting an orthogonal frame to map frames[1:] to be as similar to frames[0] as possible
 def procrustes(frames, count_atoms=None):
 	if not count_atoms: count_atoms = range(len(frames[0]))
 	for s in frames:
@@ -292,16 +293,19 @@ def procrustes(frames, count_atoms=None):
 			a.x -= center_x
 			a.y -= center_y
 			a.z -= center_z
-	#rotate all frames to be as similar to their neighbors as possible
+	# rotate all frames to be as similar to their neighbors as possible
 	from scipy.linalg import orthogonal_procrustes
 	for i in range(1,len(frames)): #rotate all frames to optimal alignment
-		#only count spring-held atoms for finding alignment
+		# only count spring-held atoms for finding alignment
+		# orthogonal_procrustes maps count_atoms_1 onto count_atoms_2
 		count_atoms_1 = [(a.x,a.y,a.z) for j,a in enumerate(frames[i]) if j in count_atoms]
 		count_atoms_2 = [(a.x,a.y,a.z) for j,a in enumerate(frames[i-1]) if j in count_atoms]
 		rotation = orthogonal_procrustes(count_atoms_1,count_atoms_2)[0]
-		#rotate all atoms into alignment
+		# rotate all atoms into alignment
 		for a in frames[i]:
 			a.x,a.y,a.z = matvec(rotation, (a.x,a.y,a.z))
+			if hasattr(a,'fx'): a.fx,a.fy,a.fz = matvec(rotation, (a.fx,a.fy,a.fz))
+			else: print("Warning - No forces rotated.")
 
 def interpolate(atoms1, atoms2, N): #interpolate N steps between two sets of coordinates
 	frames = [[] for i in range(N)]

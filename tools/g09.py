@@ -484,148 +484,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 	scipy.optimize.fmin_l_bfgs_b(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces, iprint=0, factr=1e7)
 	#scipy.optimize.basinhopping(NEB.get_error, np.array(NEB.coords_start))
 
-def neb_verlet(name, states, theory, extra_section='', queue=None, spring_atoms=None, k=0.1837, fit_rigid=True, dt=1.0): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
-#Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
-	from scipy.optimize import minimize
-	import numpy as np
-	#set which atoms will be affected by virtual springs
-	if not spring_atoms:#if not given, select all
-		spring_atoms = range(len(states[0]))
-	elif type(spring_atoms)==str: #a list of element names
-		elements = spring_atoms.split()
-		spring_atoms = [i for i,a in enumerate(states[0]) if a.element in elements]
-	if fit_rigid:
-		#center all states around spring-held atoms
-		for s in states:
-			center_x = sum([a.x for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
-			center_y = sum([a.y for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
-			center_z = sum([a.z for i,a in enumerate(s) if i in spring_atoms])/len(spring_atoms)
-			for a in s:
-				a.x -= center_x
-				a.y -= center_y
-				a.z -= center_z
-		#rotate all states to be as similar to their neighbors as possible
-		from scipy.linalg import orthogonal_procrustes
-		for i in range(1,len(states)): #rotate all states to optimal alignment
-			#only count spring-held atoms for finding alignment
-			spring_atoms_1 = [(a.x,a.y,a.z) for j,a in enumerate(states[i]) if j in spring_atoms]
-			spring_atoms_2 = [(a.x,a.y,a.z) for j,a in enumerate(states[i-1]) if j in spring_atoms]
-			rotation = orthogonal_procrustes(spring_atoms_1,spring_atoms_2)[0]
-			#rotate all atoms into alignment
-			for a in states[i]:
-				a.x,a.y,a.z = utils.matvec(rotation, (a.x,a.y,a.z))
-	
-	for s in states:
-		for a in s:
-			a.vx, a.vy, a.vz = 0.0, 0.0, 0.0
-			a.ax, a.ay, a.az = 0.0, 0.0, 0.0
-	step = 0
-	while True:
-		#start DFT jobs
-		running_jobs = []
-		for i,state in enumerate(states):
-			if step>0:
-				if (i==0 or i==len(states)-1): #only perform evaluations of endpoints on first step
-					continue
-				guess = ' Guess=Read'
-			else: guess = '' #no previous guess for first step
-			running_jobs.append( job('%s-%d-%d'%(name,step,i), theory+' Force'+guess, state, queue=queue, force=True, previous=('%s-%d-%d'%(name,step-1,i)) if step>0 else None, extra_section=extra_section) )
-		#wait for jobs to finish
-		for j in running_jobs: j.wait()
-		#get forces and energies from DFT calculations
-		V = [] #potential energy
-		for i,state in enumerate(states):
-			try:
-				if (i==0 or i==len(states)-1): # if at an endpoint, just use first step's result
-					step_to_use = 0
-				else:
-					step_to_use = step
-				new_energy, new_atoms = parse_atoms('%s-%d-%d' % (name, step_to_use, i), check_convergence=False)
-			except:
-				print "Unexpected error in 'parse_atoms':", sys.exc_info()[0]
-				print 'Job failed: %s-%d-%d'%(name,step,i); exit()
-			V.append(new_energy)
-			for a,b in zip(state, new_atoms):
-				a.fx = b.fx; a.fy = b.fy; a.fz = b.fz #forces in Hartree/Bohr
-		#add spring forces to atoms
-		for i,state in enumerate(states):
-			if i==0 or i==len(states)-1: continue #don't change first or last state
-			for j,b in enumerate(state):
-				if j in spring_atoms:
-					a,c = states[i-1][j], states[i+1][j]
-					#find tangent
-					tplus = np.array( [ c.x-b.x, c.y-b.y, c.z-b.z ] )
-					tminus = np.array( [ a.x-b.x, a.y-b.y, a.z-b.z ] )
-					dVmin = min(V[i+1]-V[i], V[i-1]-V[i])
-					dVmax = max(V[i+1]-V[i], V[i-1]-V[i])
-					if V[i+1]>V[i] and V[i]>V[i-1]: #not at an extremum, trend of V is up
-						tangent = tplus
-					elif V[i+1]<V[i] and V[i]<V[i-1]: #not at an extremum, trend of V is down
-						tangent = tminus
-					elif V[i+1]>V[i-1]: #at local extremum, next V is higher
-						tangent = tplus*dVmax + tminus*dVmin
-					else: #at local extremum, previous V is higher
-						tangent = tplus*dVmin + tminus*dVmax
-					#normalize tangent
-					tangent /= np.linalg.norm(tangent)
-					#find spring forces parallel to tangent
-					F_spring_parallel = k*( utils.dist(c,b) - utils.dist(b,a) ) * tangent
-					#find DFT forces perpendicular to tangent
-					real_force = np.array( [b.fx,b.fz,b.fz] )
-					F_real_perpendicular = real_force - np.dot(real_force, tangent)
-					#set forces
-					b.fx, b.fy, b.fz = F_spring_parallel + F_real_perpendicular
-		# Quick-min: http://theory.cm.utexas.edu/henkelman/pubs/sheppard08_134106.pdf
-		masses = {'H':1.0008,'C':12.001,'O':15.998,'Si':28.085,'S':32.06,'Pb':208.2}
-		for state in states:
-			for a in state:
-				#project the velocity in the direction of the force
-				
-				#lame steepest descent
-				convert_to_amu_fs = 1/0.496
-				a.x += 0.1 * a.fx/masses[a.element] * convert_to_amu_fs
-				a.y += 0.1 * a.fy/masses[a.element] * convert_to_amu_fs
-				a.z += 0.1 * a.fz/masses[a.element] * convert_to_amu_fs
-			
-			
-				'''
-				#a = F/m
-				convert_to_amu_fs = 1/0.496
-				a.ax_new = a.fx/masses[a.element] * convert_to_amu_fs
-				a.ay_new = a.fy/masses[a.element] * convert_to_amu_fs
-				a.az_new = a.fz/masses[a.element] * convert_to_amu_fs
-				#if step 0, guess previous force
-				if step==0:
-					a.ax, a.ay, a.az = 0.5*a.ax_new, 0.5*a.ay_new, 0.5*a.az_new
-				#zero the velocity if it points opposite to the force
-				if np.dot( np.array([a.fx,a.fy,a.fz]), np.array([a.vx,a.vy,a.vz]) ) < 0.0:
-					a.vx, a.vy, a.vz = 0.0, 0.0, 0.0
-				#project velocity along direction of force
-				a.vx, a.vy, a.vz = np.linalg.norm([a.vx,a.vy,a.vz]) * np.array([a.fx,a.fy,a.fz]) / np.linalg.norm([a.fx,a.fy,a.fz])
-				#update position
-				a.x += a.vx*dt + 0.5*a.ax * dt**2
-				a.y += a.vy*dt + 0.5*a.ay * dt**2
-				a.z += a.vz*dt + 0.5*a.az * dt**2
-				#update velocity
-				a.vx += (a.ax + a.ax_new)*0.5*dt
-				a.vy += (a.ay + a.ay_new)*0.5*dt
-				a.vz += (a.az + a.az_new)*0.5*dt
-				#update acceleration
-				a.ax, a.ay, a.az = a.ax_new, a.ay_new, a.az_new
-				'''
-		#calculate convergence criterion
-		RMS_force = sum([a.fx**2+a.fy**2+a.fz**2 for state in states for a in state])**0.5
-		#print data
-		V = V[:1] + [ (e-V[0])/0.001 for e in V[1:] ]
-		print step, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:]), RMS_force, sum([a.vx**2+a.vy**2+a.vz**2 for state in states for a in state])**0.5
-		#test for convergence
-		if RMS_force < 0.0017: #Gaussian 09's "Opt=Loose" convergence criterion
-			print 'Optimization complete; RMS force = %g' % RMS_force
-			return
-		#increment step
-		step += 1
-
-def neb_test(name, states, theory, extra_section='', procs=1, queue=None, spring_atoms=None, k=0.1837, centerIDS=None, force=True): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
+def neb_test(name, states, theory, extra_section='', procs=1, queue=None, spring_atoms=None, k=0.1837, force=True): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
 #Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
 	import scipy.optimize
 	import numpy as np
@@ -649,7 +508,8 @@ def neb_test(name, states, theory, extra_section='', procs=1, queue=None, spring
 			
 			# We want to make sure we have the atom coordinates properly adjusted
 			try:
-				utils.center_frames(NEB.states,centerIDS)
+				#utils.center_frames(NEB.states,centerIDS)
+				utils.procrustes(NEB.states)
 			except:
 				print "Unexpected error:", sys.exc_info()[0]
 				print "Centering failed: User needs to re-specify new centerIDS"; exit()
@@ -680,6 +540,9 @@ def neb_test(name, states, theory, extra_section='', procs=1, queue=None, spring
 			for j in running_jobs: j.wait()
 			#get forces and energies from DFT calculations
 			energies = []
+
+			coord_count = 0 # Set to 0 for main loop
+			ERR_CHK = 1E-8
 			for i,state in enumerate(NEB.states):
 				try:
 					# state 0 and state N-1 don't change, so just use result from NEB.step==0
@@ -691,10 +554,22 @@ def neb_test(name, states, theory, extra_section='', procs=1, queue=None, spring
 					
 					# Recenter the new atoms that are read in
 					try:
-						utils.center_frames(new_atoms,NEB.centerIDS)
+						#utils.center_frames(new_atoms,NEB.centerIDS)
+						utils.procrustes([state,new_atoms])
 					except:
 						print "Unexpected error:", sys.exc_info()[0]
 						print "Centering failed: User needs to re-specify new centerIDS"; exit()
+
+					# Here we do a quick check on the atom coordinates to make sure we're right
+					for a,b in zip(state,new_atoms):
+						if abs(a.x - coords[coord_count]) > ERR_CHK: print "ERROR - State not same."; exit()
+						if abs(a.y - coords[coord_count + 1]) > ERR_CHK: print "ERROR - State not same."; exit()
+						if abs(a.z - coords[coord_count + 2]) > ERR_CHK: print "ERROR - State not same."; exit()
+
+						if abs(b.x - coords[coord_count]) > ERR_CHK: print "ERROR - new_atoms not same."; exit()
+						if abs(b.y - coords[coord_count + 1]) > ERR_CHK: print "ERROR - new_atoms not same."; exit()
+						if abs(b.z - coords[coord_count + 2]) > ERR_CHK: print "ERROR - new_atoms not same."; exit()
+					coord_count += 3
 
 				except:
 					print "Unexpected error in 'parse_atoms':", sys.exc_info()[0]
