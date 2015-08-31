@@ -352,7 +352,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 		name, states, theory, k = None, None, None, None
 		error, forces = None, None
 		step = 0
-		def __init__(self, name, states, theory, k=1e-2, fit_rigid=True, procrusts=True, centerIDS=None):
+		def __init__(self, name, states, theory, k=0.1837, fit_rigid=True, procrusts=True, centerIDS=None):
 			NEB.name = name
 			NEB.states = states
 			NEB.theory = theory
@@ -402,7 +402,19 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 					raise Exception('parse_atoms failed')
 				new_energy, new_atoms = result
 				energies.append(new_energy)
-				utils.procrustes([state,new_atoms]) #rigidly rotate jobs into alignment before calculating forces
+				
+				def check_atom_coords(atoms1,atoms2,precision=1e-6):
+					for a1,a2 in zip(atoms1,atoms2):
+						if abs(a1.x-a2.x)>precision or abs(a1.y-a2.y)>precision or abs(a1.z-a2.z)>precision:
+							print 'atoms not in same frame:', a1.x, a1.y, a1.z, 'vs', a2.x, a2.y, a2.z
+							print abs(a1.x-a2.x), abs(a1.y-a2.y), abs(a1.z-a2.z)
+							exit()
+				
+				#utils.center_frames([state,new_atoms],[0,1,2])
+				#utils.procrustes([state,new_atoms]) #rigidly rotate jobs into alignment before calculating forces
+				
+				check_atom_coords(state,new_atoms)
+				
 				for a,b in zip(state, new_atoms):
 					a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
 			V = copy.deepcopy(energies) # V = potential energy from DFT. energies = V+springs
@@ -476,17 +488,17 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 	# BFGS is the best method, cite http://theory.cm.utexas.edu/henkelman/pubs/sheppard08_134106.pdf
 	#scipy.optimize.minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_forces, options={'disp': True})
 	#scipy.optimize.fmin_l_bfgs_b(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces, iprint=0, factr=1e7)
-
+	
 	def euler_optimizer(f, start, fprime): #better, but tends to push error up eventually, especially towards endpoints. 
 		for step in range(100):
 			gradient = fprime(start)
 			start -= gradient*0.1
-			
-	def verlet_optimizer(f, start, fprime):
-		old_gradient = np.array([0.0 for x in start])
+	
+	def verlet_optimizer(f, start, fprime): #better, but tends to push error up eventually, especially towards endpoints. 
+		old_gradient = np.array([0.0 for x in start]) 
 		for step in range(100):
 			new_gradient = fprime(start)
-			start -= (old_gradient+new_gradient)*0.5 * 0.1
+			start -= (old_gradient+new_gradient)*0.5 * 0.02
 	
 	verlet_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces)
 
