@@ -559,14 +559,15 @@ def neb_test(name, states, theory, extra_section='', procs=1, queue=None, spring
 
 					# Here we do a quick check on the atom coordinates to make sure we're right
 					for a,b in zip(state,new_atoms):
-						if abs(a.x - coords[coord_count]) > ERR_CHK: print "ERROR - State not same."; exit()
-						if abs(a.y - coords[coord_count + 1]) > ERR_CHK: print "ERROR - State not same."; exit()
-						if abs(a.z - coords[coord_count + 2]) > ERR_CHK: print "ERROR - State not same."; exit()
+						if abs(a.x - coords[coord_count]) > ERR_CHK: print "ERROR - State not same. (%d,%lg)" % (i,coord_count,abs(a.x - coords[coord_count])); exit()
+						if abs(a.y - coords[coord_count + 1]) > ERR_CHK: print "ERROR - State not same. (%d,%lg)" % (i,coord_count+1,abs(a.x - coords[coord_count+1])); exit()
+						if abs(a.z - coords[coord_count + 2]) > ERR_CHK: print "ERROR - State not same. (%d,%lg)" % (i,coord_count+2,abs(a.x - coords[coord_count+2])); exit()
 
-						if abs(b.x - coords[coord_count]) > ERR_CHK: print "ERROR - new_atoms not same."; exit()
-						if abs(b.y - coords[coord_count + 1]) > ERR_CHK: print "ERROR - new_atoms not same."; exit()
-						if abs(b.z - coords[coord_count + 2]) > ERR_CHK: print "ERROR - new_atoms not same."; exit()
-					coord_count += 3
+						if abs(b.x - coords[coord_count]) > ERR_CHK: print "ERROR - new_atoms not same. (%d,%lg)" % (i,coord_count,abs(a.x - coords[coord_count])); exit()
+						if abs(b.y - coords[coord_count + 1]) > ERR_CHK: print "ERROR - new_atoms not same. (%d,%lg)" % (i,coord_count+1,abs(a.x - coords[coord_count+1])); exit()
+						if abs(b.z - coords[coord_count + 2]) > ERR_CHK: print "ERROR - new_atoms not same. (%d,%lg)" % (i,coord_count+2,abs(a.x - coords[coord_count+2])); exit()
+						
+						coord_count += 3
 
 				except:
 					print "Unexpected error in 'parse_atoms':", sys.exc_info()[0]
