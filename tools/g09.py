@@ -499,20 +499,18 @@ def neb_test(name, states, theory, extra_section='', procs=1, queue=None, spring
 		name, states, theory, k = None, None, None, None
 		error, forces = None, None
 		step = 0
-		def __init__(self, name, states, theory, k=1e-2, centerIDS=None):
+		def __init__(self, name, states, theory, k=1e-2):
 			NEB.name = name
 			NEB.states = states
 			NEB.theory = theory
 			NEB.k = k
-			NEB.centerIDS = centerIDS
 			
 			# We want to make sure we have the atom coordinates properly adjusted
 			try:
-				#utils.center_frames(NEB.states,centerIDS)
 				utils.procrustes(NEB.states)
 			except:
 				print "Unexpected error:", sys.exc_info()[0]
-				print "Centering failed: User needs to re-specify new centerIDS"; exit()
+				print "Error running Procrustes..."; exit()
 	
 			#load initial coordinates into flat array for optimizer
 			NEB.coords_start = []
@@ -554,11 +552,10 @@ def neb_test(name, states, theory, extra_section='', procs=1, queue=None, spring
 					
 					# Recenter the new atoms that are read in
 					try:
-						#utils.center_frames(new_atoms,NEB.centerIDS)
 						utils.procrustes([state,new_atoms])
 					except:
 						print "Unexpected error:", sys.exc_info()[0]
-						print "Centering failed: User needs to re-specify new centerIDS"; exit()
+						print "Error running Procrustes..."; exit()
 
 					# Here we do a quick check on the atom coordinates to make sure we're right
 					for a,b in zip(state,new_atoms):
@@ -650,7 +647,7 @@ def neb_test(name, states, theory, extra_section='', procs=1, queue=None, spring
 			NEB.forces = None #set to None so it will recalculate next time
 			return np.array(forces)*1.8897 #convert from Hartree/Bohr to Hartree/Angstrom
 
-	n = NEB(name, states, theory, k, centerIDS=centerIDS)
+	n = NEB(name, states, theory, k)
 	# BFGS is the best method, cite http://theory.cm.utexas.edu/henkelman/pubs/sheppard08_134106.pdf
 	#scipy.optimize.minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_forces, options={'disp': True})
 	scipy.optimize.fmin_l_bfgs_b(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces, iprint=0, factr=1e7)
