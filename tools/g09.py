@@ -490,11 +490,51 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 	#scipy.optimize.fmin_l_bfgs_b(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces, iprint=0, factr=1e7)
 	
 	def euler_optimizer(f, start, fprime): #better, but tends to push error up eventually, especially towards endpoints. 
-		for step in range(100):
+		for step in range(1000):
 			gradient = fprime(start)
 			start -= gradient*0.1
 	
+	masses_by_element = {'Pb':207.2,'O':16.0,'N':14.0,'C':12.0,'H':1.0}
+	masses = []
+	for s in states[1:-1]:
+		for a in s:
+			m = masses_by_element[a.element]
+			masses += [m, m, m]
+	
 	def verlet_optimizer(f, start, fprime): #better, but tends to push error up eventually, especially towards endpoints. 
+		dt = 1.0
+		viscosity = 1.0
+		r = start
+		v = np.array([0.0 for x in start])
+		a = np.array([0.0 for x in start])
+		for step in range(1000):
+			forces = -fprime(r)
+			a_new = forces/masses
+			
+			force_direction = forces/np.linalg.norm(forces) #find the direction of the force
+			v_parallel = np.linalg.norm(v)*force_direction #project velocity along force
+			
+			if True:
+				if np.dot(v_parallel,force_direction) < 0.0: #if the force and velocity point in different directions
+					v_parallel = 0.0 #zero the velocity
+			elif False:
+				for i in range(len(v_parallel)):
+					if v_parallel[i]*force_direction[i] < 0.0: #if the force and velocity are opposite in one direction
+						v_parallel[i] = 0.0 #zero the velocity in this direction
+			else:
+				a_new -= v*viscosity
+			
+			v = v_parallel
+			
+			r_new = r + v*dt + 0.5*a*dt**2
+			v_new = v + (a + a_new)*0.5 * dt
+			r = r_new
+			v = v_new
+			a = a_new
+			
+	verlet_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces)
+
+	def order_2_optimizer(f, start, fprime): #better, but tends to push error up eventually, especially towards endpoints. 
 		old_gradient = np.array([0.0 for x in start]) 
 		for step in range(100):
 			new_gradient = fprime(start)
