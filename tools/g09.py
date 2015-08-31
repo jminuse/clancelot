@@ -499,16 +499,21 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 		for step in range(100):
 			new_gradient = fprime(start)
 			start -= (old_gradient+new_gradient)*0.5 * 0.02
+			old_gradient = new_gradient
 
 	def verlets_optimizer(f, start, fprime):
 		old_gradient = np.array([0.0 for x in start])
+		velocity = np.array([0.0 for x in start])
 		TIME_STEP = 0.02
 		for step in range(100):
 			new_gradient = fprime(start)
-			if np.dot(new_gradient,old_gradient) > 0: TIME_STEP += 0.05
+			if np.dot(velocity,new_gradient) > 0: TIME_STEP += 0.05
 			else: TIME_STEP = 0.02
-			start -= (old_gradient+new_gradient)*0.5 * TIME_STEP
-			print("TIME_STEP, dot_prod = %lg,%lg" % (TIME_STEP,np.dot(new_gradient,old_gradient)))
+			velocity = (old_gradient+new_gradient)*0.5*TIME_STEP
+			start -= velocity
+			print("-----------------")
+			print("TIME_STEP, velocity = %lg,%lg" % (TIME_STEP,velocity)
+			print("-----------------")
 	
 	verlet_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces)
 
