@@ -502,6 +502,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 		for a in s:
 			m = masses_by_element[a.element]
 			masses += [m, m, m]
+	masses = np.array(masses)
 	
 	def verlet_optimizer(f, start, fprime): #better, but tends to push error up eventually, especially towards endpoints. 
 		dt = 0.1
@@ -544,11 +545,10 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 		    return v1
 		return v2 * (np.dot(v1, v2) / mag2)
 
-	def quick_min_optimizer(f, r, nframes, fprime):
-		dt = 0.05
-		max_dist = 0.2
+	def quick_min_optimizer(f, r, nframes, fprime, dt=0.5, max_dist=0.1, euler=False): #	dt = fs, max_dist = angstroms
 		v = np.array([0.0 for x in r])
-		a = np.array([0.0 for x in r])
+		acc = np.array([0.0 for x in r])
+		viscosity = 0.1
 
 		for step in range(1000):
 			forces = -fprime(r) # Get the forces
@@ -569,21 +569,27 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 					v[low:high] *= 0.0
 					#print 'zeroed velocity for frame %d' % i
 				
-				# Euler step
-				v[low:high] += dt * forces[low:high]
+			if euler:
+				#make Euler step
+				v += dt * forces
 
-				# Don't move atoms too far
-				if np.linalg.norm(v) > max_dist / dt:
-					v[low:high] = (max_dist / dt) * (v[low:high] / np.linalg.norm(v[low:high]))
-					#print 'prevented from moving too fast in frame %d' % i
+				#limit velocities
+				for i in range(len(v)):
+					if v[i]*dt > max_dist: v[i] = max_dist/dt
+					if v[i]*dt <-max_dist: v[i] =-max_dist/dt
 
-				# Distance to move
-				dist = dt * v[low:high]
-
-				# Move atoms
-				r[low:high] += dist
-				#print("%lg"% np.linalg.norm(v[low:high]))
-			#print("\n-----------\n")
+				#move atoms
+				r += v * dt
+			else:
+				#make Verlet step
+				a_new = forces/masses
+				a_new -= v*viscosity
+				
+				r_new = r + v*dt + 0.5*acc*dt**2 # New_Pos = Old_Pos + dist = Old_Pos + (v_i*t + 1/2*a*t**2)
+				v_new = v + (acc + a_new)*0.5 * dt
+				r = r_new
+				v = v_new
+				acc = a_new
 			
 			#prevent rotation or translation
 			coord_count = 0
@@ -592,7 +598,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 				for a in s:
 					a.x, a.y, a.z = r[coord_count], r[coord_count+1], r[coord_count+2]
 					coord_count += 3
-			utils.procrustes(st) #rotates and translates all frames
+			utils.procrustes(st) #translate and rotate each frame to fit its neighbor
 			coord_count = 0
 			for s in st[1:-1]:
 				for a in s:
