@@ -491,19 +491,6 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 	#scipy.optimize.minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_gradient, options={'disp': True})
 	#scipy.optimize.fmin_l_bfgs_b(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, iprint=0, factr=1e7)
 	
-	def euler_optimizer(f, start, fprime): #better, but tends to push error up eventually, especially towards endpoints. 
-		for step in range(1000):
-			gradient = fprime(start)
-			start -= gradient*0.1
-	
-	masses_by_element = {'Pb':207.2,'O':16.0,'N':14.0,'C':12.0,'H':1.0}
-	masses = []
-	for s in states[1:-1]:
-		for a in s:
-			m = masses_by_element[a.element]
-			masses += [m, m, m]
-	masses = np.array(masses)
-	
 	def verlet_optimizer(f, start, fprime): #better, but tends to push error up eventually, especially towards endpoints. 
 		dt = 0.1
 		viscosity = 0.0
@@ -604,14 +591,6 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 				for a in s:
 					r[coord_count:coord_count+3] = [a.x, a.y, a.z]
 					coord_count += 3
-			
-
-	def order_2_optimizer(f, start, fprime): #better, but tends to push error up eventually, especially towards endpoints. 
-		old_gradient = np.array([0.0 for x in start]) 
-		for step in range(100):
-			new_gradient = fprime(start)
-			start -= (old_gradient+new_gradient)*0.5 * 0.02
-			old_gradient = new_gradient
 	
 	quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, fprime=NEB.get_gradient)
 
