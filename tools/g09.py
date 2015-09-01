@@ -587,7 +587,6 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			
 			#prevent rotation or translation
 			coord_count = 0
-			st = copy.deepcopy(NEB.states)
 			st = NEB.states
 			for s in st[1:-1]:
 				for a in s:
