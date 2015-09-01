@@ -539,17 +539,18 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 
 		for step in range(1000):
 			forces = -fprime(r) # Get the forces
-			force_direction = forces/np.linalg.norm(forces) # Get the direction of the force
+			
 			# Get the parallel velocity if it's in the same direction as the force
 			# Note, this must be frame based, not individual atom based or total based
 			natoms = len(v)/(3*(nframes-2))
 			print("\nNum Atoms = %lg\n" % natoms)
 			for i in range(1,nframes-1):
+				force_direction[low:high] = forces[low:high]/np.linalg.norm(forces[low:high]) # Get the direction of the force
 				print("Frame %d of %d:" % (i,nframes)),
 				low = (i-1)*natoms*3
 				high = i*natoms*3
 				if np.dot(v[low:high],forces[low:high]) > 0.0:
-					v[low:high] = np.dot(v[low:high],force_direction[low:high])*force_direction[low:high]
+					v[low:high] = np.dot(v[low:high],force_direction)*force_direction
 				else:
 					v[low:high] *= 0.0
 				
