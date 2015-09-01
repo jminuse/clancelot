@@ -514,15 +514,16 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			force_direction = forces/np.linalg.norm(forces) #find the direction of the force
 			#v_parallel = np.linalg.norm(v)*force_direction #project velocity along force
 			
-			v_parallel = np.dot(v,force_direction)
+			v_parallel = np.dot(v,force_direction)*force_direction
 			
 			if np.dot(v_parallel,force_direction) < 0.0: #if the force and velocity point in different directions
 				v_parallel = 0.0 #zero the velocity
+
 			a_new -= v*viscosity
 			
 			v = v_parallel
 			
-			r_new = r + v*dt + 0.5*a*dt**2
+			r_new = r + v*dt + 0.5*a*dt**2 # New_Pos = Old_Pos + dist = Old_Pos + (v_i*t + 1/2*a*t**2)
 			v_new = v + (a + a_new)*0.5 * dt
 			r = r_new
 			v = v_new
