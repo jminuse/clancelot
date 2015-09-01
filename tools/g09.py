@@ -350,7 +350,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 	#class to contain working variables
 	class NEB:
 		name, states, theory, k = None, None, None, None
-		error, forces = None, None
+		error, gradient = None, None
 		step = 0
 		def __init__(self, name, states, theory, k=0.1837, fit_rigid=True, procrusts=True, centerIDS=None):
 			NEB.name = name
@@ -456,11 +456,11 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			
 			#set error
 			NEB.error = sum(energies)
-			#set forces
-			NEB.forces = []
+			#set gradient
+			NEB.gradient = []
 			for state in NEB.states[1:-1]:
 				for a in state:
-					NEB.forces += [-a.fx, -a.fy, -a.fz] #gradient of NEB.error
+					NEB.gradient += [-a.fx, -a.fy, -a.fz] #gradient of NEB.error
 			RMS_force = (sum([a.fx**2+a.fy**2+a.fz**2 for state in states[1:-1] for a in state])/len([a for state in states[1:-1] for a in state]))**0.5
 			#print data
 			V = V[:1] + [ (e-V[0])/0.001 for e in V[1:] ]
@@ -477,17 +477,17 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			return error
 	
 		@staticmethod
-		def get_forces(coords):
-			if NEB.forces is None:
+		def get_gradient(coords):
+			if NEB.gradient is None:
 				NEB.calculate(coords)
-			forces = NEB.forces
-			NEB.forces = None #set to None so it will recalculate next time
-			return np.array(forces)*1.8897 #convert from Hartree/Bohr to Hartree/Angstrom
+			gradient = NEB.gradient
+			NEB.gradient = None #set to None so it will recalculate next time
+			return np.array(gradient)*1.8897 #convert from Hartree/Bohr to Hartree/Angstrom
 
 	n = NEB(name, states, theory, k, fit_rigid, procrusts, centerIDS)
 	# BFGS is the best method, cite http://theory.cm.utexas.edu/henkelman/pubs/sheppard08_134106.pdf
-	#scipy.optimize.minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_forces, options={'disp': True})
-	#scipy.optimize.fmin_l_bfgs_b(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces, iprint=0, factr=1e7)
+	#scipy.optimize.minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_gradient, options={'disp': True})
+	#scipy.optimize.fmin_l_bfgs_b(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, iprint=0, factr=1e7)
 	
 	def euler_optimizer(f, start, fprime): #better, but tends to push error up eventually, especially towards endpoints. 
 		for step in range(1000):
@@ -531,8 +531,6 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			r = r_new
 			v = v_new
 			a = a_new
-			
-	verlet_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces)
 
 	def order_2_optimizer(f, start, fprime): #better, but tends to push error up eventually, especially towards endpoints. 
 		old_gradient = np.array([0.0 for x in start]) 
@@ -551,7 +549,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			start -= (old_gradient+new_gradient)*0.5 * TIME_STEP
 			print("TIME_STEP, dot_prod = %lg,%lg" % (TIME_STEP,np.dot(new_gradient,old_gradient)))
 	
-	verlet_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_forces)
+	verlet_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient)
 
 def optimize_pm6(name, examples, param_string, starting_params, queue=None): #optimize a custom PM6 semi-empirical method based on Gaussian examples at a higher level of theory
 	from scipy.optimize import minimize
