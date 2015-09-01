@@ -576,6 +576,112 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 					r[coord_count:coord_count+3] = [a.x, a.y, a.z]
 					coord_count += 3
 	
+	def fire_optimizer(f, r, nframes, fprime):
+		dt = 0.05
+		max_dist = 0.2
+		v = np.array([0.0 for x in r])
+		a = np.array([0.0 for x in r])
+
+		for step in range(1000):
+			forces = -fprime(r) # Get the forces
+			natoms = len(v)/(3*(nframes-2))
+
+			if np.dot(v,forces) > 0.0:
+				self.v = (1.0-self.a)*self.v + self.a*vmag(self.v)*vunit(totalf)
+					if(self.Nsteps>self.Nmin):
+					self.dt = min(self.dt*self.finc,self.dtmax)
+					self.a *= self.fa
+				self.Nsteps += 1
+			else:
+				# reset velocity and slow down
+				self.v  *= 0.0
+				self.a   = self.astart
+				self.dt *= self.fdec
+				self.Nsteps  = 0
+			for i in range(1,nframes-1):
+				#print("Frame %d of %d:" % (i,nframes)),
+				low = (i-1)*natoms*3
+				high = i*natoms*3
+
+				force_direction = forces[low:high]/np.linalg.norm(forces[low:high]) # Get the direction of the force
+				
+				if np.dot(v[low:high],forces[low:high]) > 0.0:
+					v[low:high] = vproj(v[low:high],forces[low:high])
+				else:
+					v[low:high] *= 0.0
+					#print 'zeroed velocity for frame %d' % i
+				
+				# Euler step
+				v[low:high] += dt * forces[low:high]
+
+				# Don't move atoms too far
+				if np.linalg.norm(v) > max_dist / dt:
+					v[low:high] = (max_dist / dt) * (v[low:high] / np.linalg.norm(v[low:high]))
+					#print 'prevented from moving too fast in frame %d' % i
+
+				# Distance to move
+				dist = dt * v[low:high]
+
+				# Move atoms
+				r[low:high] += dist
+				#print("%lg"% np.linalg.norm(v[low:high]))
+			#print("\n-----------\n")
+			
+			#prevent rotation or translation
+			coord_count = 0
+			st = NEB.states
+			for s in st[1:-1]:
+				for a in s:
+					a.x, a.y, a.z = r[coord_count], r[coord_count+1], r[coord_count+2]
+					coord_count += 3
+			utils.procrustes(st) #rotates and translates all frames
+			coord_count = 0
+			for s in st[1:-1]:
+				for a in s:
+					r[coord_count:coord_count+3] = [a.x, a.y, a.z]
+					coord_count += 3
+
+		'''
+		self.band.forces()
+        totalf = self.v.copy()
+        for i in range(1, self.band.numImages - 1):
+            totalf[i-1] = self.band.path[i].totalf
+        Power = vdot(totalf,self.v)
+
+        if Power > 0.0:
+            self.v = (1.0-self.a)*self.v + self.a*vmag(self.v)*vunit(totalf)
+            if(self.Nsteps>self.Nmin):
+				self.dt = min(self.dt*self.finc,self.dtmax)
+				self.a *= self.fa
+            self.Nsteps += 1
+        else:
+# reset velocity and slow down
+self.v  *= 0.0
+self.a   = self.astart
+self.dt *= self.fdec
+self.Nsteps  = 0
+
+        # Euler step
+        self.v += self.dt * totalf
+        # check for max step
+        #if vmag(self.v) > self.maxmove/self.dt :
+        #    self.v = self.maxmove/self.dt * vunit(self.v)
+
+        for i in range(1, self.band.numImages - 1):
+            dR = self.dt * self.v[i-1]
+            if vmag(dR) > self.maxmove:
+				dR = self.maxmove * vunit(dR)
+            # move R 
+            rt  = self.band.path[i].get_positions()
+            rt += dR[:-3]
+            self.band.path[i].set_positions(rt)
+
+            # move box and update cartesian coordinates
+            ct  = self.band.path[i].get_cell()
+            ct += np.dot(ct, dR[-3:]) / self.band.jacobian
+            self.band.path[i].set_cell(ct, scale_atoms=True)
+            '''
+
 	quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, fprime=NEB.get_gradient)
 
 def optimize_pm6(name, examples, param_string, starting_params, queue=None): #optimize a custom PM6 semi-empirical method based on Gaussian examples at a higher level of theory
