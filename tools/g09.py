@@ -502,7 +502,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			masses += [m, m, m]
 	
 	def verlet_optimizer(f, start, fprime): #better, but tends to push error up eventually, especially towards endpoints. 
-		dt = 0.1
+		dt = 0.5
 		viscosity = 0.0
 		r = start
 		v = np.array([0.0 for x in start])
@@ -514,10 +514,11 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			force_direction = forces/np.linalg.norm(forces) #find the direction of the force
 			#v_parallel = np.linalg.norm(v)*force_direction #project velocity along force
 			
-			v_parallel = np.dot(v,force_direction)
+			v_parallel = np.dot(v,force_direction)*force_direction
 			
 			if np.dot(v_parallel,force_direction) < 0.0: #if the force and velocity point in different directions
 				v_parallel = 0.0 #zero the velocity
+				print 'zeroed velocity at step', step
 			a_new -= v*viscosity
 			
 			v = v_parallel
