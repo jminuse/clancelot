@@ -545,7 +545,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 		TIME_STEP = 0.0
 		for step in range(100):
 			new_gradient = fprime(start)
-			if np.dot(velocity,new_gradient) >= 0: TIME_STEP += 0.05
+			if np.dot(velocity,new_gradient/np.linalg.norm(new_gradient)) >= 0: TIME_STEP += 0.05
 			else:
 				TIME_STEP = 0.0
 				new_gradient = old_gradient
@@ -553,6 +553,8 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			start -= velocity
 			print("-----------------")
 			print("TIME_STEP = %lg" % TIME_STEP)
+			print np.linalg.norm(new_gradient)
+			print("##########")
 			print velocity
 			print("-----------------")
 			old_gradient = new_gradient
