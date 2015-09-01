@@ -535,28 +535,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			new_gradient = fprime(start)
 			start -= (old_gradient+new_gradient)*0.5 * 0.02
 			old_gradient = new_gradient
-
-	def verlets_optimizer(f, start, fprime):
-		old_gradient = np.array([0.0 for x in start])
-		velocity = np.array([0.0 for x in start])
-		TIME_STEP = 0.0
-		for step in range(100):
-			new_gradient = fprime(start)
-			if np.dot(velocity,new_gradient/np.linalg.norm(new_gradient)) >= 0: TIME_STEP += 0.05
-			else:
-				TIME_STEP = 0.0
-				new_gradient = old_gradient
-			velocity = (old_gradient+new_gradient)*0.5*TIME_STEP
-			start -= velocity
-			print("-----------------")
-			print("TIME_STEP = %lg" % TIME_STEP)
-			print np.linalg.norm(new_gradient)
-			print("##########")
-			print velocity
-			print("-----------------")
-			old_gradient = new_gradient
 	
-	#verlet_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient)
 	verlet_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient)
 
 def optimize_pm6(name, examples, param_string, starting_params, queue=None): #optimize a custom PM6 semi-empirical method based on Gaussian examples at a higher level of theory
