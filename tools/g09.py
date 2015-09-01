@@ -414,10 +414,11 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 				#utils.center_frames([state,new_atoms],[0,1,2])
 				#utils.procrustes([state,new_atoms]) #rigidly rotate jobs into alignment before calculating forces
 				
-				check_atom_coords(state,new_atoms)
-				
-				for a,b in zip(state, new_atoms):
-					a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
+				if i!=0 and i!=len(NEB.states)-1:
+					check_atom_coords(state,new_atoms)
+					for a,b in zip(state, new_atoms):
+						a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
+			
 			V = copy.deepcopy(energies) # V = potential energy from DFT. energies = V+springs
 
 			#add spring forces to atoms
@@ -587,11 +588,12 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			#prevent rotation or translation
 			coord_count = 0
 			st = copy.deepcopy(NEB.states)
+			st = NEB.states
 			for s in st[1:-1]:
 				for a in s:
 					a.x, a.y, a.z = r[coord_count], r[coord_count+1], r[coord_count+2]
 					coord_count += 3
-			utils.procrustes(st)
+			utils.procrustes(st) #rotates and translates all frames
 			coord_count = 0
 			for s in st[1:-1]:
 				for a in s:
