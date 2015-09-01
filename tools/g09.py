@@ -450,9 +450,8 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 					
 						#find DFT forces perpendicular to tangent
 						real_force = np.array( [b.fx,b.fz,b.fz] )
-						#F_real_perpendicular = real_force - np.dot(real_force, tangent) #is this right?
 						F_real_perpendicular = real_force - np.dot(real_force, tangent)*tangent
-						
+					
 						#set NEB forces
 						b.fx, b.fy, b.fz = F_spring_parallel + F_real_perpendicular
 			
@@ -553,17 +552,17 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 
 		for step in range(1000):
 			forces = -fprime(r) # Get the forces
-			
-			#forces = -forces
-			
 			# Get the parallel velocity if it's in the same direction as the force
 			# Note, this must be frame based, not individual atom based or total based
 			natoms = len(v)/(3*(nframes-2))
 			#print("\nNum Atoms = %lg\n" % natoms)
 			for i in range(1,nframes-1):
-				#print("Frame %d of %d:" % (i,nframes)),
+				print("Frame %d of %d:" % (i,nframes)),
 				low = (i-1)*natoms*3
 				high = i*natoms*3
+
+				force_direction = forces[low:high]/np.linalg.norm(forces[low:high]) # Get the direction of the force
+				
 				if np.dot(v[low:high],forces[low:high]) > 0.0:
 					v[low:high] = vproj(v[low:high],forces[low:high])
 				else:
