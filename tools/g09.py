@@ -370,6 +370,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			for s in states[1:-1]:
 				for a in s:
 					NEB.coords_start += [a.x, a.y, a.z]
+			NEB.nframes = len(states)
 	
 		@staticmethod
 		def calculate(coords):
@@ -530,35 +531,52 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			v = v_new
 			a = a_new
 
+	def quick_min_optimizer(f, start, nframes, fprime): #better, but tends to push error up eventually, especially towards endpoints. 
+		dt = 0.1
+		max_dist = 0.2
+		r = start
+		v = np.array([0.0 for x in start])
+		a = np.array([0.0 for x in start])
+
+		for step in range(1000):
+			forces = -fprime(r) # Get the forces
+			force_direction = forces/np.linalg.norm(forces) # Get the direction of the force
+			# Get the parallel velocity if it's in the same direction as the force
+			# Note, this must be frame based, not individual atom based or total based
+			natoms = len(v)/(3*(nframes-2))
+			print("\nNum Atoms = %lg\n" % natoms)
+			for i in range(1,nframes-1):
+				print("Frame %d of %d:" % (i,nframes)),
+				low = (i-1)*natoms*3
+				high = i*natoms*3
+				if np.dot(v[low:high],forces[low:high]) > 0.0:
+					v[low:high] = np.dot(v[low:high],force_direction[low:high])*force_direction[low:high]
+				else:
+					v[low:high] *= 0.0
+				
+				# Euler step
+				v[low:high] += dt * forces[low:high]
+
+				# Don't move atoms too far
+				if np.linalg.norm(v) > max_dist / dt:
+					v[low:high] = (max_dist / dt) * (v[low:high] / np.linalg.norm(v[low:high]))
+
+				# Distance to move
+				dist = dt * v[low:high]
+
+				# Move atoms
+				r[low:high] += dist
+				print("%lg"% np.linalg.norm(v[low:high]))
+			print("\n-----------\n")
+
 	def order_2_optimizer(f, start, fprime): #better, but tends to push error up eventually, especially towards endpoints. 
 		old_gradient = np.array([0.0 for x in start]) 
 		for step in range(100):
 			new_gradient = fprime(start)
 			start -= (old_gradient+new_gradient)*0.5 * 0.02
 			old_gradient = new_gradient
-
-	def verlets_optimizer(f, start, fprime):
-		old_gradient = np.array([0.0 for x in start])
-		velocity = np.array([0.0 for x in start])
-		TIME_STEP = 0.0
-		for step in range(100):
-			new_gradient = fprime(start)
-			if np.dot(velocity,new_gradient/np.linalg.norm(new_gradient)) >= 0: TIME_STEP += 0.05
-			else:
-				TIME_STEP = 0.0
-				new_gradient = old_gradient
-			velocity = (old_gradient+new_gradient)*0.5*TIME_STEP
-			start -= velocity
-			print("-----------------")
-			print("TIME_STEP = %lg" % TIME_STEP)
-			print np.linalg.norm(new_gradient)
-			print("##########")
-			print velocity
-			print("-----------------")
-			old_gradient = new_gradient
 	
-	#verlet_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient)
-	verlet_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient)
+	quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, fprime=NEB.get_gradient)
 
 def optimize_pm6(name, examples, param_string, starting_params, queue=None): #optimize a custom PM6 semi-empirical method based on Gaussian examples at a higher level of theory
 	from scipy.optimize import minimize
