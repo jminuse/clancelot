@@ -502,8 +502,8 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			masses += [m, m, m]
 	
 	def verlet_optimizer(f, start, fprime): #better, but tends to push error up eventually, especially towards endpoints. 
-		dt = 1.0
-		viscosity = 1.0
+		dt = 0.1
+		viscosity = 0.0
 		r = start
 		v = np.array([0.0 for x in start])
 		a = np.array([0.0 for x in start])
@@ -512,17 +512,13 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			a_new = forces/masses
 			
 			force_direction = forces/np.linalg.norm(forces) #find the direction of the force
-			v_parallel = np.linalg.norm(v)*force_direction #project velocity along force
+			#v_parallel = np.linalg.norm(v)*force_direction #project velocity along force
 			
-			if True:
-				if np.dot(v_parallel,force_direction) < 0.0: #if the force and velocity point in different directions
-					v_parallel = 0.0 #zero the velocity
-			elif False:
-				for i in range(len(v_parallel)):
-					if v_parallel[i]*force_direction[i] < 0.0: #if the force and velocity are opposite in one direction
-						v_parallel[i] = 0.0 #zero the velocity in this direction
-			else:
-				a_new -= v*viscosity
+			v_parallel = np.dot(v,force_direction)
+			
+			if np.dot(v_parallel,force_direction) < 0.0: #if the force and velocity point in different directions
+				v_parallel = 0.0 #zero the velocity
+			a_new -= v*viscosity
 			
 			v = v_parallel
 			
@@ -560,7 +556,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			old_gradient = new_gradient
 	
 	#verlet_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient)
-	verlets_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient)
+	verlet_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient)
 
 def optimize_pm6(name, examples, param_string, starting_params, queue=None): #optimize a custom PM6 semi-empirical method based on Gaussian examples at a higher level of theory
 	from scipy.optimize import minimize
