@@ -491,11 +491,10 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 	#scipy.optimize.minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_gradient, options={'disp': True})
 	#scipy.optimize.fmin_l_bfgs_b(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, iprint=0, factr=1e7)
 	
-	masses_by_element = {'Pb':207.2,'O':16.0,'N':14.0,'C':12.0,'H':1.0}
 	masses = []
 	for s in states[1:-1]:
 		for a in s:
-			m = masses_by_element[a.element]
+			m = units.elem_weight(a.element)
 			masses += [m, m, m]
 	masses = np.array(masses)
 
