@@ -491,34 +491,13 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 	#scipy.optimize.minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_gradient, options={'disp': True})
 	#scipy.optimize.fmin_l_bfgs_b(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, iprint=0, factr=1e7)
 	
-	def verlet_optimizer(f, start, fprime): #better, but tends to push error up eventually, especially towards endpoints. 
-		dt = 0.1
-		viscosity = 0.0
-		r = start
-		v = np.array([0.0 for x in start])
-		a = np.array([0.0 for x in start])
-		for step in range(1000):
-			forces = -fprime(r)
-			a_new = forces/masses
-			
-			force_direction = forces/np.linalg.norm(forces) #find the direction of the force
-			#v_parallel = np.linalg.norm(v)*force_direction #project velocity along force
-			
-			v_parallel = np.dot(v,force_direction)*force_direction
-			
-			if np.dot(v,force_direction) < 0.0: #if the force and velocity point in different directions
-				v_parallel = 0.0 #zero the velocity
-				print 'zeroed velocity at step', step
-			
-			a_new -= v*viscosity
-			
-			v = v_parallel
-			
-			r_new = r + v*dt + 0.5*a*dt**2 # New_Pos = Old_Pos + dist = Old_Pos + (v_i*t + 1/2*a*t**2)
-			v_new = v + (a + a_new)*0.5 * dt
-			r = r_new
-			v = v_new
-			a = a_new
+	masses_by_element = {'Pb':207.2,'O':16.0,'N':14.0,'C':12.0,'H':1.0}
+	masses = []
+	for s in states[1:-1]:
+		for a in s:
+			m = masses_by_element[a.element]
+			masses += [m, m, m]
+	masses = np.array(masses)
 
 	def vproj(v1, v2):
 		"""
@@ -532,10 +511,9 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 		    return v1
 		return v2 * (np.dot(v1, v2) / mag2)
 
-	def quick_min_optimizer(f, r, nframes, fprime, dt=0.5, max_dist=0.1, euler=False): #	dt = fs, max_dist = angstroms
+	def quick_min_optimizer(f, r, nframes, fprime, dt=0.5, max_dist=0.1, euler=False, viscosity=0.1): #	dt = fs, max_dist = angstroms, viscosity = 1/fs
 		v = np.array([0.0 for x in r])
 		acc = np.array([0.0 for x in r])
-		viscosity = 0.1
 
 		for step in range(1000):
 			forces = -fprime(r) # Get the forces
@@ -572,7 +550,13 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 				a_new = forces/masses
 				a_new -= v*viscosity
 				
-				r_new = r + v*dt + 0.5*acc*dt**2 # New_Pos = Old_Pos + dist = Old_Pos + (v_i*t + 1/2*a*t**2)
+				dx = v*dt + 0.5*acc*dt**2
+				#limit distance moved
+				for i in range(len(r)):
+					if dx[i] > max_dist: dx[i] = max_dist
+					if dx[i] <-max_dist: dx[i] =-max_dist
+				
+				r_new = r + dx
 				v_new = v + (acc + a_new)*0.5 * dt
 				r = r_new
 				v = v_new
