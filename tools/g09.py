@@ -582,18 +582,19 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 
 				# Move atoms
 				r[low:high] += dist
-				#print("%lg"% np.linalg.norm(v[low:high]))
-			#print("\n-----------\n")
+				print("%lg"% np.linalg.norm(v[low:high]))
+			print("\n-----------\n")
 			
 			#prevent rotation or translation
 			coord_count = 0
-			for s in NEB.states[1:-1]:
+			st = copy.deepcopy(NEB.states)
+			for s in st[1:-1]:
 				for a in s:
 					a.x, a.y, a.z = r[coord_count], r[coord_count+1], r[coord_count+2]
 					coord_count += 3
-			utils.procrustes(NEB.states)
+			utils.procrustes(st)
 			r = []
-			for s in states[1:-1]:
+			for s in st:
 				for a in s:
 					r += [a.x, a.y, a.z]
 			r = np.array(r)
