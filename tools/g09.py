@@ -543,12 +543,11 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 		    return v1
 		return v2 * (np.dot(v1, v2) / mag2)
 
-	def quick_min_optimizer(f, start, nframes, fprime):
+	def quick_min_optimizer(f, r, nframes, fprime):
 		dt = 0.05
 		max_dist = 0.2
-		r = start
-		v = np.array([0.0 for x in start])
-		a = np.array([0.0 for x in start])
+		v = np.array([0.0 for x in r])
+		a = np.array([0.0 for x in r])
 
 		for step in range(1000):
 			forces = -fprime(r) # Get the forces
@@ -557,7 +556,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			natoms = len(v)/(3*(nframes-2))
 			#print("\nNum Atoms = %lg\n" % natoms)
 			for i in range(1,nframes-1):
-				print("Frame %d of %d:" % (i,nframes)),
+				#print("Frame %d of %d:" % (i,nframes)),
 				low = (i-1)*natoms*3
 				high = i*natoms*3
 
@@ -567,7 +566,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 					v[low:high] = vproj(v[low:high],forces[low:high])
 				else:
 					v[low:high] *= 0.0
-					print 'zeroed velocity for frame %d' % i
+					#print 'zeroed velocity for frame %d' % i
 				
 				# Euler step
 				v[low:high] += dt * forces[low:high]
@@ -575,15 +574,15 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 				# Don't move atoms too far
 				if np.linalg.norm(v) > max_dist / dt:
 					v[low:high] = (max_dist / dt) * (v[low:high] / np.linalg.norm(v[low:high]))
-					print 'prevented from moving too fast in frame %d' % i
+					#print 'prevented from moving too fast in frame %d' % i
 
 				# Distance to move
 				dist = dt * v[low:high]
 
 				# Move atoms
 				r[low:high] += dist
-				print("%lg"% np.linalg.norm(v[low:high]))
-			print("\n-----------\n")
+				#print("%lg"% np.linalg.norm(v[low:high]))
+			#print("\n-----------\n")
 			
 			#prevent rotation or translation
 			coord_count = 0
@@ -593,11 +592,11 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 					a.x, a.y, a.z = r[coord_count], r[coord_count+1], r[coord_count+2]
 					coord_count += 3
 			utils.procrustes(st)
-			r = []
-			for s in st:
+			coord_count = 0
+			for s in st[1:-1]:
 				for a in s:
-					r += [a.x, a.y, a.z]
-			r = np.array(r)
+					r[coord_count:coord_count+3] = [a.x, a.y, a.z]
+					coord_count += 3
 			
 
 	def order_2_optimizer(f, start, fprime): #better, but tends to push error up eventually, especially towards endpoints. 
