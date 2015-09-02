@@ -295,16 +295,20 @@ def procrustes(frames, count_atoms=None):
 			a.z -= center_z
 	# rotate all frames to be as similar to their neighbors as possible
 	from scipy.linalg import orthogonal_procrustes
+	from scipy.linalg import det
+	from numpy import dot
 	for i in range(1,len(frames)): #rotate all frames to optimal alignment
 		# only count spring-held atoms for finding alignment
 		# orthogonal_procrustes maps count_atoms_1 onto count_atoms_2
 		count_atoms_1 = [(a.x,a.y,a.z) for j,a in enumerate(frames[i]) if j in count_atoms]
 		count_atoms_2 = [(a.x,a.y,a.z) for j,a in enumerate(frames[i-1]) if j in count_atoms]
 		rotation = orthogonal_procrustes(count_atoms_1,count_atoms_2)[0]
+		if det(rotation) < 0:
+			raise Exception('Procrustes returned reflection matrix')
 		# rotate all atoms into alignment
 		for a in frames[i]:
-			a.x,a.y,a.z = matvec(rotation, (a.x,a.y,a.z))
-			if hasattr(a,'fx'): a.fx,a.fy,a.fz = matvec(rotation, (a.fx,a.fy,a.fz))
+			a.x,a.y,a.z = dot((a.x,a.y,a.z), rotation)
+			if hasattr(a,'fx'): a.fx,a.fy,a.fz = dot((a.x,a.y,a.z), rotation)
 
 def interpolate(atoms1, atoms2, N): #interpolate N steps between two sets of coordinates
 	frames = [[] for i in range(N)]

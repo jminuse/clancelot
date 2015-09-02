@@ -364,7 +364,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 				else:
 					print "Unexpected error:", sys.exc_info()[0]
 					print 'fit_rigid failed: User needs to specify centerIDS'; exit()
-	
+			
 			#load initial coordinates into flat array for optimizer
 			NEB.coords_start = []
 			for s in states[1:-1]:
@@ -531,13 +531,17 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 					v[low:high] = vproj(v[low:high],forces[low:high])
 				else:
 					v[low:high] *= 0.0
-					#print 'zeroed velocity for frame %d' % i
+				
+				speed = np.linalg.norm(v[low:high])
+				if speed*dt > max_dist:
+					max_speed = max_dist/dt
+					v[low:high] *= max_speed / speed
 				
 			if euler:
 				#make Euler step
 				v += dt * forces
 
-				#limit velocities
+				#limit distance moved
 				for i in range(len(v)):
 					if v[i]*dt > max_dist: v[i] = max_dist/dt
 					if v[i]*dt <-max_dist: v[i] =-max_dist/dt
@@ -568,6 +572,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 				for a in s:
 					a.x, a.y, a.z = r[coord_count], r[coord_count+1], r[coord_count+2]
 					coord_count += 3
+			#utils.center_frames(st,[0,len(st[0])/2, len(st[0])-1])
 			utils.procrustes(st) #translate and rotate each frame to fit its neighbor
 			coord_count = 0
 			for s in st[1:-1]:
@@ -627,7 +632,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 					r[coord_count:coord_count+3] = [a.x, a.y, a.z]
 					coord_count += 3
 
-	quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, fprime=NEB.get_gradient)
+	quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, fprime=NEB.get_gradient, dt=0.1, max_dist=0.01)
 
 def optimize_pm6(name, examples, param_string, starting_params, queue=None): #optimize a custom PM6 semi-empirical method based on Gaussian examples at a higher level of theory
 	from scipy.optimize import minimize
