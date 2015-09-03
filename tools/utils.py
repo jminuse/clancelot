@@ -282,6 +282,55 @@ def dihedral_angle(a,b,c,d):
 	
 	return phi, math.cos(phi), math.cos(2*phi), math.cos(3*phi), math.cos(4*phi)
 
+# A test procrustes code to remove possibility of reflection
+def orthogonal_procrustes(A, ref_matrix, reflection=False):
+	# Adaptation of scipy.linalg.orthogonal_procrustes -> https://github.com/scipy/scipy/blob/v0.16.0/scipy/linalg/_procrustes.py#L14
+	# Info here: http://compgroups.net/comp.soft-sys.matlab/procrustes-analysis-without-reflection/896635
+	# goal is to find unitary matrix R with det(R) > 0 such that ||A*R - ref_matrix||^2 is minimized
+	from scipy.linalg.decomp_svd import svd # Singular Value Decomposition, factors matrices
+	from scipy.linalg import det
+	import numpy as np
+
+	A = np.asarray_chkfinite(A)
+	ref_matrix = np.asarray_chkfinite(ref_matrix)
+
+	if A.ndim != 2:
+		raise ValueError('expected ndim to be 2, but observed %s' % A.ndim)
+	if A.shape != ref_matrix.shape:
+		raise ValueError('the shapes of A and ref_matrix differ (%s vs %s)' % (A.shape, ref_matrix.shape))
+
+
+	u, w, vt = svd(ref_matrix.T.dot(A).T)
+
+	# Goal: minimize ||A*R - ref||^2, switch to trace
+	# trace((A*R-ref).T*(A*R-ref)), now we distribute
+	# trace(R'*A'*A*R) + trace(ref.T*ref) - trace((A*R).T*ref) - trace(ref.T*(A*R)), trace doesn't care about order, so re-order
+	# trace(R*R.T*A.T*A) + trace(ref.T*ref) - trace(R.T*A.T*ref) - trace(ref.T*A*R), simplify
+	# trace(A.T*A) + trace(ref.T*ref) - 2*trace(ref.T*A*R)
+	# Thus, to minimize we want to maximize trace(ref.T * A * R) 
+
+	# u*w*v.T = (ref.T*A).T
+	# ref.T * A = w * u.T * v
+	# trace(ref.T * A * R) = trace (w * u.T * v * R)
+	# differences minimized when trace(ref.T * A * R) is maximized, thus when trace(u.T * v * R) is maximized
+	# This occurs when u.T * v * R = I (as u, v and R are all unitary matrices so max is 1)
+	# R is a rotation matrix so R.T = R^-1
+	# u.T * v * I = R^-1 = R.T
+	# R = u * v.T
+	# Thus, R = u.dot(vt)
+
+	R = u.dot(vt) # Get the rotation matrix, including reflections
+	if not reflection and det(R) < 0: # If we don't want reflection
+		# To remove reflection, we change the sign of the rightmost column of u (or v) and the scalar associated
+		# with that column
+		u[:,-1] *= -1
+		w[-1] *= -1
+		R = u.dot(vt)
+	
+	scale = w.sum() # Get the scaled difference
+
+	return R,scale
+
 # Procrustes works by geting an orthogonal frame to map frames[1:] to be as similar to frames[0] as possible
 def procrustes(frames, count_atoms=None):
 	if not count_atoms: count_atoms = range(len(frames[0]))
@@ -294,7 +343,6 @@ def procrustes(frames, count_atoms=None):
 			a.y -= center_y
 			a.z -= center_z
 	# rotate all frames to be as similar to their neighbors as possible
-	from scipy.linalg import orthogonal_procrustes
 	from scipy.linalg import det
 	from numpy import dot
 	for i in range(1,len(frames)): #rotate all frames to optimal alignment
@@ -303,6 +351,7 @@ def procrustes(frames, count_atoms=None):
 		count_atoms_1 = [(a.x,a.y,a.z) for j,a in enumerate(frames[i]) if j in count_atoms]
 		count_atoms_2 = [(a.x,a.y,a.z) for j,a in enumerate(frames[i-1]) if j in count_atoms]
 		rotation = orthogonal_procrustes(count_atoms_1,count_atoms_2)[0]
+
 		if det(rotation) < 0:
 			raise Exception('Procrustes returned reflection matrix')
 		# rotate all atoms into alignment
