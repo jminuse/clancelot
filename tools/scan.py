@@ -237,23 +237,13 @@ def comp_matplot(yy,start_val):
 	plt.legend()
 	plt.show()
 
+# Get max and min, and generate plot
 if comp != None:
-	try:
-		aa = max(compE)
-		bb = min(compE)
-		while 1:
-			a = max(aa)
-			aa = max(aa)
-			b = min(bb)
-			bb = min(bb)
-	except:
-		print "Max E = %lg, Min E = %lg (Units = %s)\n" % (a,b,s_units)
-
-	# For a full neb we want the fixed ends also
-	#if loops[0]==0 and neb_force != 2:
-#		print "Appending endpoints for NEB calculation"
-#		for i,c in enumerate(compE):
-#			if i==0: continue
-#			compE[i] = [compE[0][0]] + c + [compE[0][-1]]
+	a = float('-inf')
+	b = float('inf')
+	for c in compE:
+		if max(c) > a: a = max(c)
+		if min(c) < b: b = min(c)
+	print "Max E = %lg, Min E = %lg (Units = %s)\n" % (a,b,s_units)
 
 	comp_matplot(compE,comp[1])
