@@ -139,7 +139,9 @@ g09 <<END > '''+run_name+'''.log
 		if previous:	
 			shutil.copyfile(previous+'.chk', run_name+'.chk')
 		process_handle = Popen('/bin/csh %s.inp' % run_name, shell=True)
-	if not err: shutil.copyfile('../'+sys.argv[0], run_name+'.py')
+	pyPath = '../'+sys.argv[0]
+	if not os.path.isfile(pyPath): pyPath = '../'+sys.argv[0][sys.argv[0].rfind('/')+1:] # This is if sys.argv[0] is a full path
+	if not err: shutil.copyfile(pyPath, run_name+'.py')
 	os.chdir('..')
 
 	log.put_gaussian(run_name,route,extra_section=extra_section,blurb=blurb,eRec=eRec,force=force,neb=neb) # Places info in log if simulation is run
@@ -489,7 +491,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 	n = NEB(name, states, theory, k, fit_rigid, procrusts, centerIDS)
 	# BFGS is the best method, cite http://theory.cm.utexas.edu/henkelman/pubs/sheppard08_134106.pdf
 	#scipy.optimize.minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_gradient, options={'disp': True})
-	#scipy.optimize.fmin_l_bfgs_b(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, iprint=0, factr=1e7)
+	#scipy.optimize.fmin_l_bfgs_b(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, iprint=0)
 	
 	masses = []
 	for s in states[1:-1]:
@@ -633,7 +635,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 					coord_count += 3
 
 	quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, fprime=NEB.get_gradient, dt=0.5, max_dist=0.01)
-
+	
 def optimize_pm6(name, examples, param_string, starting_params, queue=None): #optimize a custom PM6 semi-empirical method based on Gaussian examples at a higher level of theory
 	from scipy.optimize import minimize
 	import numpy as np
