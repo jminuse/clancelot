@@ -492,7 +492,7 @@ def pretty_xyz(name,R_MAX=1,F_MIN=1,F_MAX=50,CENTER=None,outName=None,write_xyz=
 				index, maxVal = i, t
 		i = index
 		# Now, split the list, interpolate, and regenerate
-		if i>0 and i < len(frames) - 3:
+		if i>0 and i < len(frames) - 1:
 			f_low = frames[:i-1]
 			f_high = frames[i+2:]
 			f_mid = interpolate(frames[i-1],frames[i+2],4)

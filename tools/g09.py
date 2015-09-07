@@ -417,7 +417,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 				if i!=0 and i!=len(NEB.states)-1:
 					check_atom_coords(state,new_atoms)
 					for a,b in zip(state, new_atoms):
-						a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
+						a.fx = b.fx*1.8897; a.fy = b.fy*1.8897; a.fz = b.fz*1.8897  #convert from Hartree/Bohr to Hartree/Angstrom
 			
 			V = copy.deepcopy(energies) # V = potential energy from DFT. energies = V+springs
 
@@ -448,6 +448,8 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 					
 						#find spring forces parallel to tangent
 						F_spring_parallel = NEB.k*( utils.dist(c,b) - utils.dist(b,a) ) * tangent
+						
+						energies[i] += 627.5 * 0.5*NEB.k*( utils.dist_squared(c,b) + utils.dist_squared(b,a) )
 					
 						#find DFT forces perpendicular to tangent
 						real_force = np.array( [b.fx,b.fz,b.fz] )
@@ -457,7 +459,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 						b.fx, b.fy, b.fz = F_spring_parallel + F_real_perpendicular
 			
 			#set error
-			NEB.error = sum(energies)
+			NEB.error = 0.5*sum([a.fx**2+a.fy**2+a.fz**2 for state in states[1:-1] for a in state])/len([a for state in states[1:-1] for a in state]) #max(V)#sum(energies)
 			#set gradient
 			NEB.gradient = []
 			for state in NEB.states[1:-1]:
@@ -466,16 +468,20 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			RMS_force = (sum([a.fx**2+a.fy**2+a.fz**2 for state in states[1:-1] for a in state])/len([a for state in states[1:-1] for a in state]))**0.5
 			#print data
 			V = V[:1] + [ (e-V[0])/0.001 for e in V[1:] ]
-			print NEB.step, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:]), RMS_force
+			print NEB.step, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:]), RMS_force, NEB.error
 			#increment step
 			NEB.step += 1
 	
 		@staticmethod
 		def get_error(coords):
 			if NEB.error is None:
+				NEB.error = 0.0
+			if NEB.gradient is None:
 				NEB.calculate(coords)
+				
+			NEB.error -= NEB.gradient
+			
 			error = NEB.error
-			NEB.error = None #set to None so it will recalculate next time
 			return error
 	
 		@staticmethod
@@ -484,12 +490,13 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 				NEB.calculate(coords)
 			gradient = NEB.gradient
 			NEB.gradient = None #set to None so it will recalculate next time
-			return np.array(gradient)*1.8897 #convert from Hartree/Bohr to Hartree/Angstrom
+			return np.array(gradient)
 
 	n = NEB(name, states, theory, k, fit_rigid, procrusts, centerIDS)
 	# BFGS is the best method, cite http://theory.cm.utexas.edu/henkelman/pubs/sheppard08_134106.pdf
 	#scipy.optimize.minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_gradient, options={'disp': True})
 	#scipy.optimize.fmin_l_bfgs_b(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, iprint=0, factr=1e7)
+	#scipy.optimize.fmin_cg(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient)
 	
 	masses = []
 	for s in states[1:-1]:
@@ -527,10 +534,15 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 
 				force_direction = forces[low:high]/np.linalg.norm(forces[low:high]) # Get the direction of the force
 				
-				if np.dot(v[low:high],forces[low:high]) > 0.0:
+				import random
+				
+				if np.dot(forces[low:high],v[low:high]) > 0.0:
+					#print sum(v[low:high]),
 					v[low:high] = vproj(v[low:high],forces[low:high])
+					#print sum(v[low:high])
 				else:
 					v[low:high] *= 0.0
+					print 'zeroed velocities in frame %d' % i
 				
 				speed = np.linalg.norm(v[low:high])
 				if speed*dt > max_dist:
@@ -542,9 +554,17 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 				v += dt * forces
 
 				#limit distance moved
-				for i in range(len(v)):
-					if v[i]*dt > max_dist: v[i] = max_dist/dt
-					if v[i]*dt <-max_dist: v[i] =-max_dist/dt
+				#for i in range(len(v)):
+				#	if v[i]*dt > max_dist: v[i] = max_dist/dt
+				#	if v[i]*dt <-max_dist: v[i] =-max_dist/dt
+
+				for i in range(1,nframes-1):
+					low = (i-1)*natoms*3
+					high = i*natoms*3
+					speed = np.linalg.norm(v[low:high])
+					if speed*dt > max_dist:
+						max_speed = max_dist/dt
+						v[low:high] *= max_speed / speed
 
 				#move atoms
 				r += v * dt
@@ -555,9 +575,9 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 				
 				dx = v*dt + 0.5*acc*dt**2
 				#limit distance moved
-				for i in range(len(r)):
-					if dx[i] > max_dist: dx[i] = max_dist
-					if dx[i] <-max_dist: dx[i] =-max_dist
+				#for i in range(len(r)):
+				#	if dx[i] > max_dist: dx[i] = max_dist
+				#	if dx[i] <-max_dist: dx[i] =-max_dist
 				
 				r_new = r + dx
 				v_new = v + (acc + a_new)*0.5 * dt
@@ -632,7 +652,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 					r[coord_count:coord_count+3] = [a.x, a.y, a.z]
 					coord_count += 3
 
-	quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, fprime=NEB.get_gradient, dt=0.1, max_dist=0.01)
+	quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, fprime=NEB.get_gradient, euler=True, dt=0.05)
 
 def optimize_pm6(name, examples, param_string, starting_params, queue=None): #optimize a custom PM6 semi-empirical method based on Gaussian examples at a higher level of theory
 	from scipy.optimize import minimize
@@ -686,9 +706,9 @@ def optimize_pm6(name, examples, param_string, starting_params, queue=None): #op
 # job_A - This is the name of a gaussian job that holds the optimized molecule A
 # job_B - This is the name of a gaussian job that holds the optimized molecule B
 # zero_indexed_atom_indices_A - This is a list of indices for molecule A in job_total.  First values of a .xyz file start at 0.
-def binding_energy(job_total, job_A, job_B, zero_indexed_atom_indices_A, route='SP SCRF(Solvent=Toluene)', blurb=None, procs=1, queue='batch', force=False, lint=False):
+def binding_energy(job_total, job_A, job_B, zero_indexed_atom_indices_A, route=None, blurb=None, procs=1, queue='batch', force=False, lint=False):
 	#--------------------------
-	def ghost_job(atoms, name, previous_job=None, route='SP SCRF(Solvent=Toluene)', blurb=None, procs=1, queue='batch', extras='', force=False, lint=False):
+	def ghost_job(atoms, name, previous_job=None, route=None, blurb=None, procs=1, queue='batch', extras='', force=False, lint=False):
 		# To ensure we do not overwrite a file we increment a value until we find that the run doesn't exist
 		if os.path.isfile('gaussian/%s.inp' % name): # Check if normal file exists
 			i = 1
@@ -700,15 +720,17 @@ def binding_energy(job_total, job_A, job_B, zero_indexed_atom_indices_A, route='
 				while os.path.isfile('gaussian/%s_%d.inp' % (name,i)): i+=1
 				name = '%s_%d' % (name,i)		
 
-		# Get appropriate level of theory
-		theory = open('gaussian/'+previous_job+'.inp').readline()[2:].strip().split()[0].split('/')
-		# If we need to get mixed basis sets
-		if theory[1].lower() in ['genecp','gen']:
-			extras = open('gaussian/'+previous_job+'.inp').read().split('\n\n')[3:]
-			extras = '\n\n'.join(extras)
-			extras = extras.strip() + '\n\n'
-			if len(extras.split('\n\n')) == 3: route = 'Pseudo=Read ' + route
-		route = '/'.join(theory) + ' ' + route
+		# Get appropriate level of theory, if not supplied
+		if route is None:
+			theory = open('gaussian/'+previous_job+'.inp').readline()[2:].strip().split()[0].split('/')
+			# If we need to get mixed basis sets
+			if theory[1].lower() in ['genecp','gen']:
+				extras = open('gaussian/'+previous_job+'.inp').read().split('\n\n')[3:]
+				extras = '\n\n'.join(extras)
+				extras = extras.strip() + '\n\n'
+				if len(extras.split('\n\n')) == 3: route = 'Pseudo=Read ' + route
+			route = '/'.join(theory) + ' ' + route
+		
 
 		# Run the job and return the job name for the user to use later
 		job(name, route, atoms=atoms, queue=queue, extra_section=extras, blurb=blurb, procs=procs, previous=previous_job, force=force, lint=lint)
@@ -724,14 +746,14 @@ def binding_energy(job_total, job_A, job_B, zero_indexed_atom_indices_A, route='
 		if i in zero_indexed_atom_indices_A: atom.element+='-Bq'
 	
 	# Now AB_A is A from AB, AB_B is B from AB
-	name1 = ghost_job(AB_A, job_total + '_A0', blurb=blurb, queue=queue, procs=procs, previous_job=job_total, force=force, lint=lint)
-	name2 = ghost_job(AB_B, job_total + '_B0', blurb=blurb, queue=queue, procs=procs, previous_job=job_total, force=force, lint=lint)
+	name1 = ghost_job(AB_A, job_total + '_A0', blurb=blurb, queue=queue, procs=procs, previous_job=job_total, force=force, lint=lint, route=route)
+	name2 = ghost_job(AB_B, job_total + '_B0', blurb=blurb, queue=queue, procs=procs, previous_job=job_total, force=force, lint=lint, route=route)
 	
 	#non-rigid correction:
 	AB_A = [atom for atom in AB_A if not atom.element.endswith('-Bq')]
 	AB_B = [atom for atom in AB_B if not atom.element.endswith('-Bq')]
-	name3 = ghost_job(AB_A, job_A + '_AB0', blurb=blurb, queue=queue, procs=procs, previous_job=job_A, force=force, lint=lint)
-	name4 = ghost_job(AB_B, job_B + '_AB0'+('2' if job_A==job_B else '') , blurb=blurb, queue=queue, procs=procs, previous_job=job_B, force=force, lint=lint)
+	name3 = ghost_job(AB_A, job_A + '_AB0', blurb=blurb, queue=queue, procs=procs, previous_job=job_A, force=force, lint=lint, route=route)
+	name4 = ghost_job(AB_B, job_B + '_AB0'+('2' if job_A==job_B else '') , blurb=blurb, queue=queue, procs=procs, previous_job=job_B, force=force, lint=lint, route=route)
 	
 	# To get the binding energy we need to take into account the superposition error and the deformation error:
 	# Superposition Error Correction is done by taking the total energy of the job and subtracting from it:
