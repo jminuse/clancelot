@@ -1,5 +1,8 @@
 # Everything is converted to Joules
-ENERGY = {'Ha':4.359744E-18,'eV':1.602E-19,'J':1.,'kcal/mol':4184./6.022E23,'kJ/mol':1000./6.022E23,'kT_300':4.14195E-21}
+ENERGY = {'Ha':4.359744E-18,'eV':1.602E-19,'J':1.,'kcal/mol':4184./6.022E23,'kJ/mol':1000./6.022E23,'kT_300':4.14195E-21,'Ry':2.1798741e-18}
+
+# Everything is converted to Angstroms
+DISTANCE = {'Bohr':0.529177249, 'Ang':1, 'Angstrom':1}
 
 # Periodic Table data from http://www.science.co.il/PTelements.asp
 # Van der Waals Radii from http://link.springer.com/article/10.1023%2FA%3A1011625728803
