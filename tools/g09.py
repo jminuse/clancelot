@@ -99,7 +99,7 @@ def chk_lint(run_name, route, atoms=[], extra_section='', queue='batch', procs=1
 		print('If you believe this/these error(s) to be wrong, please resubmit with lint=False.')
 		sys.exit(0)
 
-def job(run_name, route, atoms=[], extra_section='', queue='batch', procs=1, charge_and_multiplicity='0,1', title='run by gaussian.py', blurb=None, eRec=True, force=False, previous=None, neb=[False,None,None,None], err=False, lint=False):
+def job(run_name, route, atoms=[], extra_section='', queue='batch', procs=1, charge_and_multiplicity='0,1', title='run by gaussian.py', blurb=None, eRec=True, force=False, previous=None, neb=[False,None,None,None], err=False, lint=False, mem=25):
 	if lint: chk_lint(run_name, route, atoms, extra_section, queue, procs, charge_and_multiplicity, title, blurb, eRec, force, previous,neb,err)
 	log.chk_gaussian(run_name,force=force,neb=neb) # Checks if run exists
 	head = '#N '+route+'\n\n'+title+'\n\n'+charge_and_multiplicity+'\n' # Header for inp file
@@ -133,8 +133,8 @@ g09 <<END > '''+run_name+'''.log
 %NProcShared=1
 %RWF=/tmp/
 %Chk='''+run_name+'''.chk
-%Mem=25MW
-'''
+%Mem=$$MEM$$MW
+'''.replace("$$MEM$$",str(mem))
 			inp.write(csh+head+xyz+extra_section+'\neof\nrm /tmp/*.rwf')
 		if previous:	
 			shutil.copyfile(previous+'.chk', run_name+'.chk')
@@ -339,7 +339,7 @@ def parse_chelpg(input_file):
 			charges.append( float(columns[2]) )
 	return charges
 
-def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atoms=None, fit_rigid=True, k=0.1837, procrusts=True, centerIDS=None, force=True, dt = 0.5): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
+def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atoms=None, fit_rigid=True, k=0.1837, procrusts=True, centerIDS=None, force=True, dt = 0.5, euler=True, mem=25): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
 #Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
 	import scipy.optimize
 	import numpy as np
@@ -349,6 +349,9 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 	elif type(spring_atoms)==str: #a list of element names
 		elements = spring_atoms.split()
 		spring_atoms = [i for i,a in enumerate(states[0]) if a.element in elements]
+	
+	print("Running neb with dt = %lg and euler = %s" % (dt,str(euler)))
+	print("\n----------------------------------------")
 	#class to contain working variables
 	class NEB:
 		name, states, theory, k = None, None, None, None
@@ -389,7 +392,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 						continue
 					guess = ' Guess=Read'
 				else: guess = '' #no previous guess for first step
-				running_jobs.append( job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+' Force'+guess, state, procs=procs, queue=queue, force=force, previous=('%s-%d-%d'%(NEB.name,NEB.step-1,i)) if NEB.step>0 else None, extra_section=extra_section, neb=[True,'%s-%%d-%%d'%(NEB.name),len(NEB.states),i]) )
+				running_jobs.append( job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+' Force'+guess, state, procs=procs, queue=queue, force=force, previous=('%s-%d-%d'%(NEB.name,NEB.step-1,i)) if NEB.step>0 else None, extra_section=extra_section, neb=[True,'%s-%%d-%%d'%(NEB.name),len(NEB.states),i], mem=mem) )
 			#wait for jobs to finish
 			for j in running_jobs: j.wait()
 			#get forces and energies from DFT calculations
@@ -432,7 +435,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 					
 						#find tangent
 						tplus = np.array( [ c.x-b.x, c.y-b.y, c.z-b.z ] )
-						tminus = np.array( [ a.x-b.x, a.y-b.y, a.z-b.z ] )
+						tminus = np.array( [ b.x-a.x, b.y-a.y, b.z-a.z ] )
 						dVmin = min(abs(V[i+1]-V[i]), abs(V[i-1]-V[i]))
 						dVmax = max(abs(V[i+1]-V[i]), abs(V[i-1]-V[i]))
 						if V[i+1]>V[i] and V[i]>V[i-1]: #not at an extremum, trend of V is up
@@ -634,7 +637,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 					r[coord_count:coord_count+3] = [a.x, a.y, a.z]
 					coord_count += 3
 
-	quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, fprime=NEB.get_gradient, dt=0.5, max_dist=0.01)
+	quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, fprime=NEB.get_gradient, dt=dt, max_dist=0.01, euler=euler)
 	
 def optimize_pm6(name, examples, param_string, starting_params, queue=None): #optimize a custom PM6 semi-empirical method based on Gaussian examples at a higher level of theory
 	from scipy.optimize import minimize
