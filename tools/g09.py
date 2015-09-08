@@ -466,9 +466,10 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 				for a in state:
 					NEB.gradient += [-a.fx, -a.fy, -a.fz] #gradient of NEB.error
 			RMS_force = (sum([a.fx**2+a.fy**2+a.fz**2 for state in states[1:-1] for a in state])/len([a for state in states[1:-1] for a in state]))**0.5
+			NEB.RMS_force = RMS_force
 			#print data
 			V = V[:1] + [ (e-V[0])/0.001 for e in V[1:] ]
-			print NEB.step, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:]), RMS_force, NEB.error
+			print NEB.step, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:]), RMS_force
 			#increment step
 			NEB.step += 1
 	
