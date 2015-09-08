@@ -339,7 +339,7 @@ def parse_chelpg(input_file):
 			charges.append( float(columns[2]) )
 	return charges
 
-def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atoms=None, fit_rigid=True, k=0.1837, procrusts=True, centerIDS=None, force=True, dt = 0.5, euler=True, mem=25): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
+def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, spring_atoms=None, fit_rigid=True, k=0.1837, procrusts=True, centerIDS=None, force=True, dt = 0.5, euler=True, mem=25): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
 #Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
 	import scipy.optimize
 	import numpy as np
@@ -350,7 +350,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 		elements = spring_atoms.split()
 		spring_atoms = [i for i,a in enumerate(states[0]) if a.element in elements]
 	
-	print("\nRunning neb with dt = %lg and euler = %s" % (dt,str(euler)))
+	print("\nRunning neb with dt = %lg, euler = %s, opt = %s" % (dt,str(euler),str(opt)))
 	print("---------------------------------------------")
 	#class to contain working variables
 	class NEB:
@@ -645,8 +645,18 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 					r[coord_count:coord_count+3] = [a.x, a.y, a.z]
 					coord_count += 3
 
-	quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, fprime=NEB.get_gradient, dt=dt, max_dist=0.01, euler=euler)
+	if opt=='FIRE':
+		fire_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, 
+			fprime=NEB.get_gradient, dt = dt, dtmax = 1.0, max_dist = 0.2,
+			Nmin = 5, finc = 1.1, fdec = 0.5, astart = 0.1, fa = 0.99, euler=euler)
+	elif opt=='QM':
+		quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, 
+			fprime=NEB.get_gradient, dt=dt, max_dist=0.01, euler=euler)
+	else:
+		print("ERROR - %s optimizations method does not exist!" % str(opt))
+		sys.exit()
 	
+
 def optimize_pm6(name, examples, param_string, starting_params, queue=None): #optimize a custom PM6 semi-empirical method based on Gaussian examples at a higher level of theory
 	from scipy.optimize import minimize
 	import numpy as np
