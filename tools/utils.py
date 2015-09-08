@@ -1,6 +1,7 @@
 import os, sys, math, copy, subprocess, time
 import numpy
 import files
+import constants
 
 class Struct:
 	def __init__(self, **kwargs):
@@ -561,3 +562,7 @@ def pretty_xyz(name,R_MAX=1,F_MIN=1,F_MAX=50,CENTER=None,outName=None,write_xyz=
 
 	if write_xyz: files.write_xyz(frames,'pretty_xyz' if outName==None else outName)
 	else: return frames
+
+# A function to format a string's colour 
+def color_set(s,c): return constants.COLOR[c] + str(s) + constants.COLOR['ENDC']
+colour_set = color_set

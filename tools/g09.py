@@ -350,8 +350,8 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 		elements = spring_atoms.split()
 		spring_atoms = [i for i,a in enumerate(states[0]) if a.element in elements]
 	
-	print("Running neb with dt = %lg and euler = %s" % (dt,str(euler)))
-	print("\n----------------------------------------")
+	print("\nRunning neb with dt = %lg and euler = %s" % (dt,str(euler)))
+	print("---------------------------------------------")
 	#class to contain working variables
 	class NEB:
 		name, states, theory, k = None, None, None, None
@@ -362,7 +362,8 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			NEB.states = states
 			NEB.theory = theory
 			NEB.k = k
-			
+			NEB.prv_RMS = None
+
 			if fit_rigid: 
 				if procrusts: utils.procrustes(NEB.states) #fit rigid before relaxing
 				elif centerIDS != None: utils.center_frames(NEB.states,centerIDS)
@@ -471,7 +472,14 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			RMS_force = (sum([a.fx**2+a.fy**2+a.fz**2 for state in states[1:-1] for a in state])/len([a for state in states[1:-1] for a in state]))**0.5
 			#print data
 			V = V[:1] + [ (e-V[0])/0.001 for e in V[1:] ]
-			print NEB.step, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:]), RMS_force
+
+			if NEB.prv_RMS == None or NEB.prv_RMS > RMS_force:
+				rms = utils.color_set(RMS_force,'GREEN')
+			else:
+				rms = utils.color_set(RMS_force,'RED')
+
+			print NEB.step, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:]), rms
+			NEB.prv_RMS = RMS_force
 			#increment step
 			NEB.step += 1
 	
