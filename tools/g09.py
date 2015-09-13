@@ -363,6 +363,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 			NEB.theory = theory
 			NEB.k = k
 			NEB.prv_RMS = None
+			NEB.converge_criteria = 3E-4 # In units of Ha/Bohr
 
 			if fit_rigid: 
 				if procrusts: utils.procrustes(NEB.states) #fit rigid before relaxing
