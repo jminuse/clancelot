@@ -31,3 +31,17 @@ def elem_weight(elem):
 	if type(elem) == int: return PERIODIC_TABLE[elem]['weight']
 	print("Warning - No weight found for %s!" % str(elem))
 	return -1
+
+def convert(old,new,val):
+	a,b = old.split('/')
+	a2,b2 = new.split('/')
+
+	if a in ENERGY:	new_val = convert_energy(a,a2,val)
+	else: new_val = convert_dist(a,a2,val)
+
+	if new_val != 0: new_val = 1./new_val
+
+	if b in ENERGY: new_val = convert_energy(b,b2,new_val)
+	else: new_val = convert_dist(b,b2,new_val)
+
+	return 1./new_val
