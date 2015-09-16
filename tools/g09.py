@@ -710,7 +710,7 @@ def optimize_pm6(name, examples, param_string, starting_params, queue=None): #op
 # job_A - This is the name of a gaussian job that holds the optimized molecule A
 # job_B - This is the name of a gaussian job that holds the optimized molecule B
 # zero_indexed_atom_indices_A - This is a list of indices for molecule A in job_total.  First values of a .xyz file start at 0.
-def binding_energy(job_total, job_A, job_B, zero_indexed_atom_indices_A, route='SP SCRF(Solvent=Toluene)', blurb=None, procs=1, queue='batch', force=False, lint=False):
+def binding_energy(job_total, job_A, job_B, zero_indexed_atom_indices_A, route='SP SCRF(Solvent=Toluene)', blurb=None, procs=1, queue='batch', force=False, lint=False, bind_tck_name=None):
 	#--------------------------
 	def ghost_job(atoms, name, previous_job=None, route='SP SCRF(Solvent=Toluene)', blurb=None, procs=1, queue='batch', extras='', force=False, lint=False):
 		# To ensure we do not overwrite a file we increment a value until we find that the run doesn't exist
@@ -771,10 +771,16 @@ def binding_energy(job_total, job_A, job_B, zero_indexed_atom_indices_A, route='
 	#		job_B = Molecule B in the basis set it was done in
 	print 'E_binding = %s - %s - %s + %s + %s - %s - %s' % (job_total, name1, name2, name3, name4, job_A, job_B)
 
-	i = 0
-	while os.path.isfile('bind_tck_#.py'.replace('#',str(i))): i += 1
-	
-	f = open('bind_tck_#.py'.replace('#',str(i)),'w')
+	if bind_tck_name==None:
+		i = 0
+		while os.path.isfile('bind_tck_#.py'.replace('#',str(i))): i += 1
+		
+		f = open('bind_tck_#.py'.replace('#',str(i)),'w')
+	else:
+		if len(bind_tck_name) > 3 and bind_tck_name[-3:] == '.py':
+			f = open(bind_tck_name,'w')
+		else:
+			f = open("%s.py" % bind_tck_name,'w')
 
 	job_names = [job_total, name1, name2, name3, name4, job_A, job_B]
 	for i in range(len(job_names)): job_names[i] = "'"+job_names[i]+"'"
