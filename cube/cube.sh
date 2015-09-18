@@ -1,0 +1,1 @@
+python /fs/home/hch54/clancelot/cube/cube.py $@
