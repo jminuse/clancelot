@@ -1,1 +1,1 @@
-python /fs/home/hch54/clancelot/cube/cube.py $@
+python ~/clancelot/cube/cube.py $@
