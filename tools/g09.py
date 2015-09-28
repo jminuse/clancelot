@@ -339,7 +339,9 @@ def parse_chelpg(input_file):
 			charges.append( float(columns[2]) )
 	return charges
 
-def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, spring_atoms=None, fit_rigid=True, k=0.1837, procrusts=True, centerIDS=None, force=True, dt = 0.5, euler=True, mem=25): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
+def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, spring_atoms=None, fit_rigid=True, 
+		k=0.1837, procrusts=True, centerIDS=None, force=True, dt = 0.5, euler=True, mem=25, ftol=3E-4, 
+		alpha=0.01, beta=10.0, gtol=1e-5): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
 #Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
 	import scipy.optimize
 	import numpy as np
@@ -363,7 +365,8 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 			NEB.theory = theory
 			NEB.k = k
 			NEB.prv_RMS = None
-			NEB.converge_criteria = 3E-4 # In units of Ha/Bohr
+			NEB.convergence_criteria = ftol # Gaussian03 has 3E-4 Ha/Bohr
+			NEB.convergence = float('inf') # Where the convergence is currently
 
 			if fit_rigid: 
 				if procrusts: utils.procrustes(NEB.states) #fit rigid before relaxing
@@ -425,9 +428,10 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 					check_atom_coords(state,new_atoms)
 					for a,b in zip(state, new_atoms):
 						a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
-			
+
 			V = copy.deepcopy(energies) # V = potential energy from DFT. energies = V+springs
 
+			NEB.convergence = 0 # Reset convergence check
 			#add spring forces to atoms
 			for i,state in enumerate(NEB.states):
 				if i==0 or i==len(NEB.states)-1: continue #don't change first or last state
@@ -458,18 +462,21 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 					
 						#find DFT forces perpendicular to tangent
 						real_force = np.array( [b.fx,b.fz,b.fz] )
+						NEB.convergence += b.fx**2 + b.fz**2 + b.fz**2 # Sum convergence check
 						F_real_perpendicular = real_force - np.dot(real_force, tangent)*tangent
 					
 						#set NEB forces
 						b.fx, b.fy, b.fz = F_spring_parallel + F_real_perpendicular
-			
+			NEB.convergence = NEB.convergence**0.5 # Get the RMF real force
+
 			#set error
-			NEB.error = sum(energies)
+			NEB.error = max(energies)
 			#set gradient
 			NEB.gradient = []
 			for state in NEB.states[1:-1]:
 				for a in state:
 					NEB.gradient += [-a.fx, -a.fy, -a.fz] #gradient of NEB.error
+
 			RMS_force = (sum([a.fx**2+a.fy**2+a.fz**2 for state in states[1:-1] for a in state])/len([a for state in states[1:-1] for a in state]))**0.5
 			#print data
 			V = V[:1] + [ (e-V[0])/0.001 for e in V[1:] ]
@@ -524,12 +531,46 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 		    return v1
 		return v2 * (np.dot(v1, v2) / mag2)
 
+	def recenter(r):
+		# Prevent rotation or translation
+		coord_count = 0
+		st = NEB.states
+		for s in st[1:-1]:
+			for a in s:
+				a.x, a.y, a.z = r[coord_count], r[coord_count+1], r[coord_count+2]
+				coord_count += 3
+		utils.procrustes(st) #translate and rotate each frame to fit its neighbor
+		coord_count = 0
+		for s in st[1:-1]:
+			for a in s:
+				r[coord_count:coord_count+3] = [a.x, a.y, a.z]
+				coord_count += 3
+
+		return r
+
+	def steepest_decent(f, r, fprime, alpha=0.1): #better, but tends to push error up eventually, especially towards endpoints.
+		print("Running with alpha = %lg" % alpha)
+		for step in range(1000):
+			if NEB.convergence < NEB.convergence_criteria:
+				print("\nConvergence achieved in %d iterations with %lg < %lg\n" % (NEB.step,NEB.convergence,NEB.convergence_criteria))
+				sys.exit()
+			else: print("On step %d with real force RMS %lg\n" % (NEB.step,NEB.convergence))
+			gradient = -fprime(r)
+			r += gradient*alpha
+			r = recenter(r)
+
 	def quick_min_optimizer(f, r, nframes, fprime, dt=0.5, max_dist=0.1, euler=False, viscosity=0.1): #	dt = fs, max_dist = angstroms, viscosity = 1/fs
 		v = np.array([0.0 for x in r])
 		acc = np.array([0.0 for x in r])
 
 		for step in range(1000):
+			if NEB.convergence < NEB.convergence_criteria:
+				print("\nConvergence achieved in %d iterations with %lg < %lg\n" % (NEB.step,NEB.convergence,NEB.convergence_criteria))
+				sys.exit()
+			else: print("On step %d with real force RMS %lg\n" % (NEB.step,NEB.convergence))
+
 			forces = -fprime(r) # Get the forces
+
 			# Get the parallel velocity if it's in the same direction as the force
 			# Note, this must be frame based, not individual atom based or total based
 			natoms = len(v)/(3*(nframes-2))
@@ -579,20 +620,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 				v = v_new
 				acc = a_new
 			
-			#prevent rotation or translation
-			coord_count = 0
-			st = NEB.states
-			for s in st[1:-1]:
-				for a in s:
-					a.x, a.y, a.z = r[coord_count], r[coord_count+1], r[coord_count+2]
-					coord_count += 3
-			#utils.center_frames(st,[0,len(st[0])/2, len(st[0])-1])
-			utils.procrustes(st) #translate and rotate each frame to fit its neighbor
-			coord_count = 0
-			for s in st[1:-1]:
-				for a in s:
-					r[coord_count:coord_count+3] = [a.x, a.y, a.z]
-					coord_count += 3
+			r = recenter(r)
 	
 	def fire_optimizer(f, r, nframes, fprime, dt = 0.05, dtmax = 1.0, max_dist = 0.2, 
 						Nmin = 5, finc = 1.1, fdec = 0.5, astart = 0.1, fa = 0.99, euler = True):
@@ -632,19 +660,102 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 				#move atoms
 				r += v * dt
 
-			#prevent rotation or translation
-			coord_count = 0
-			st = NEB.states
-			for s in st[1:-1]:
-				for a in s:
-					a.x, a.y, a.z = r[coord_count], r[coord_count+1], r[coord_count+2]
-					coord_count += 3
-			utils.procrustes(st) #translate and rotate each frame to fit its neighbor
-			coord_count = 0
-			for s in st[1:-1]:
-				for a in s:
-					r[coord_count:coord_count+3] = [a.x, a.y, a.z]
-					coord_count += 3
+			r = recenter(r)
+
+	def bfgs_optimizer(f, r, fprime, alpha=0.01, beta=1, H_reset=False,gtol=1e-5):
+		# BFGS optimizer adapted from scipy.optimize._minmize_bfgs
+		import numpy as np
+		def vecnorm(x, ord=2):
+			if ord == np.Inf:
+				return np.amax(np.abs(x))
+			elif ord == -np.Inf:
+				return np.amin(np.abs(x))
+			else:
+				return np.sum(np.abs(x)**ord, axis=0)**(1.0 / ord)
+
+		if beta <= 1.0:
+			print("Warning - Unreasonable Beta (must be greater than 1). Setting to 10.\n")
+			beta = 10.0
+
+		# Get x0 as a flat array
+		x0 = np.asarray(r).flatten()
+		if x0.ndim == 0:
+			x0.shape = (1,)
+		
+		maxiter = len(x0) * 200
+
+		g0 = fprime(x0)
+
+		loop_counter,N = 0,len(x0)
+		I = np.eye(N, dtype=int)
+
+		# Initialize inv Hess as Identity matrix
+		Hk = I
+
+		# Store your old energy
+		E_old = f(x0)
+
+		xk = x0
+
+		# Criteria on gradient for continuing simulation
+		norm = np.Inf
+		gnorm = vecnorm(g0, ord=norm)
+		
+		# Main Loop:
+		while (gnorm > gtol) and (loop_counter < maxiter):
+			# Get your step direction
+			sk = -np.dot(Hk, g0)
+
+			# If we are doing unreasonably small step sizes, quit
+			if np.linalg.norm(sk*alpha) < 1E-7:
+				print("Error - Step size unreasonable (%lg Angstroms)" % np.linalg.norm(sk*alpha))
+				sys.exit()
+
+			# Hold new position
+			xkp1 = xk + alpha * sk
+
+			# Recenter position
+			#xkp1 = recenter(xkp1)
+
+			# Get the new gradient
+			gfkp1 = fprime(xkp1)
+
+			# Check if max energy has increased
+			E_new = f(xkp1)
+			if E_new > E_old:
+				# Step taken overstepped the minimum.  Lowering step size
+				print("Resetting System as %lg > %lg!" % (E_new, E_old))
+				print("\talpha: %lg" % alpha),
+				alpha *= float(beta)
+				print("-> %lg\n" % alpha)
+				#print("------HESS CHECK------\n%s\n-------\n" % str(Hk))
+				# NOTE! Maybe add a scalar for lowering the mag of Hk
+				if H_reset: Hk = I
+				# Lower the NEB step count by one to "erase" the bad data step
+				#NEB.step -= 1
+				continue
+			
+			# Store new position, as it has passed the check (E_new < E_old is True)
+			xk = xkp1
+			
+			# Store new energy in old energy for future comparison
+			E_old = E_new
+
+			# Get difference in gradients for further calculations
+			yk = gfkp1 - g0
+			# Store new gradient in old gradient
+			g0 = gfkp1
+
+			# Run BFGS Update for the Hessian
+			A1 = I - sk[:, np.newaxis] * yk[np.newaxis, :]
+			A2 = I - yk[:, np.newaxis] * sk[np.newaxis, :]
+			Hk = np.dot(A1, np.dot(Hk, A2)) + (sk[:, np.newaxis] * sk[np.newaxis, :])
+
+			# Update the conditional check
+			gnorm = vecnorm(g0, ord=norm)
+
+			# Increment the loop counter
+			loop_counter += 1
 
 	if opt=='FIRE':
 		fire_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, 
@@ -653,8 +764,24 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 	elif opt=='QM':
 		quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, 
 			fprime=NEB.get_gradient, dt=dt, max_dist=0.01, euler=euler)
+#	elif opt=='BFGS':
+#		#sys.path.append('/fs/home/hch54/clancelot/scipy_mod/')
+#		#from lbfgs import fmin_l_bfgs_b as bfgs
+#		#bfgs(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, iprint=0, hess=True)
+#		#bfgs(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, fprime=NEB.get_gradient, alpha=alpha)
+#		import imp
+#		optimize = imp.load_source('optimize', '/fs/home/hch54/tmp/scipy/scipy/optimize/optimize.py')
+#		optimize.fmin_bfgs(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient)
+	elif opt=='BFGS':
+		bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=float(alpha), beta=float(beta), gtol=gtol)
+	elif opt=='SD':
+		steepest_decent(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=alpha)
 	else:
-		print("ERROR - %s optimizations method does not exist!" % str(opt))
+		print("\nERROR - %s optimizations method does not exist! Choose from the following:" % str(opt))
+		print("\t1. QM")
+		print("\t2. BFGS")
+		print("\t3. FIRE")
+		print("\t4. SD\n")
 		sys.exit()
 	
 
