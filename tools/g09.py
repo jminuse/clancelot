@@ -341,7 +341,7 @@ def parse_chelpg(input_file):
 
 def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, spring_atoms=None, fit_rigid=True, 
 		k=0.1837, procrusts=True, centerIDS=None, force=True, dt = 0.5, euler=True, mem=25, ftol=3E-4, 
-		alpha=0.01, beta=10.0, gtol=1e-5): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
+		alpha=0.01, beta=1, H_reset=False, gtol=1e-5): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
 #Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
 	import scipy.optimize
 	import numpy as np
@@ -662,7 +662,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 
 			r = recenter(r)
 
-	def bfgs_optimizer(f, r, fprime, alpha=0.01, beta=1, H_reset=False,gtol=1e-5):
+	def bfgs_optimizer(f, r, fprime, alpha=0.01, beta=1, H_reset=False, gtol=1e-5):
 		# BFGS optimizer adapted from scipy.optimize._minmize_bfgs
 		import numpy as np
 		def vecnorm(x, ord=2):
@@ -773,7 +773,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 #		optimize = imp.load_source('optimize', '/fs/home/hch54/tmp/scipy/scipy/optimize/optimize.py')
 #		optimize.fmin_bfgs(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient)
 	elif opt=='BFGS':
-		bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=float(alpha), beta=float(beta), gtol=gtol)
+		bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=float(alpha), beta=float(beta), gtol=gtol, H_reset=H_reset)
 	elif opt=='SD':
 		steepest_decent(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=alpha)
 	else:
