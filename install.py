@@ -81,6 +81,7 @@ for key in to_install: # Make directories for what we want to install
 	if key == 'matplotlib': continue
 	if key == 'anaconda': continue
 	if key == 'sublime_text_3_build_3083': continue
+	if key == 'prnt': continue
 	if to_install[key]: os.system('mkdir -p '+INSTALLDIR+key+'/')
 
 
@@ -212,13 +213,12 @@ os.system('rm pysub.nbs')''')
 	g.close()
 	os.system('chmod 755 '+INSTALLDIR+'pysub/pysub.sh')
 if to_install['gcube']:
-	os.system('mkdir -p '+INSTALLDIR+"cube/")
-	f.write("alias gcube='"+INSTALLDIR+"cube/cube.sh'\n")
-	f.write('complete -F _gaussAutoTab '+INSTALLDIR+'cube/cube.sh\n\n')
-	g = open(INSTALLDIR+'cube/cube.sh','w')
-	g.write('python '+INSTALLDIR+'''cube/cube.py $PWD'/' $@''')
+	f.write("alias gcube='"+INSTALLDIR+"gcube/cube.sh'\n")
+	f.write('complete -F _gaussAutoTab '+INSTALLDIR+'gcube/cube.sh\n\n')
+	g = open(INSTALLDIR+'gcube/cube.sh','w')
+	g.write('python '+INSTALLDIR+'''gcube/cube.py $PWD'/' $@''')
 	g.close()
-	g = open(INSTALLDIR+'cube/cube.py','w')
+	g = open(INSTALLDIR+'gcube/cube.py','w')
 	g.write('''from merlin import *
 from subprocess import Popen
 
@@ -272,7 +272,7 @@ f.close()
 
 Popen('/fs/europa/g_pc/vmd-1.9 -e tmp.vmd', shell=True)\n''')
 	g.close()
-	os.system('chmod 755 '+INSTALLDIR+'cube/cube.sh')
+	os.system('chmod 755 '+INSTALLDIR+'gcube/cube.sh')
 if to_install['jsub']: f.write('complete -F _nbsAutoTab jsub\n\n')
 if to_install['jdel']: f.write('complete -F _jAutoTab jdel\n\n')
 if to_install['viewg']:
