@@ -12,12 +12,12 @@ to_install = {
 'chkg':1,
 'chkg_all':1,
 'scang':1,
-'junest (formerly juju)':1,
-'anaconda':1, 				# a Python 2.7.9 distribution that installs to ~/anaconda
+'junest (formerly juju)':0,
+'anaconda':0, 				# a Python 2.7.9 distribution that installs to ~/anaconda
 'vmd default settings':1,	# improves the default settings of vmd
 'file_browser':1, 			# set the file browser not to open a new window per folder
 'merlin':1,
-'sublime_text_3_build_3083':1,
+'sublime_text_3_build_3083':0,
 'prnt':0 # ONLY install if lpstat -p -d returns no available printers
 }
 
@@ -199,7 +199,7 @@ s_hold = \'\'\'#!/bin/bash
 ##NBS-queue: "batch"
 
 rm ^^^^^^^$$$$$$.log
-python -u ^^^^^^^$$$$$$.py >> ^^^^^^^$$$$$$.log 2>&1
+/fs/home/'''+USERNAME+'''/anaconda/bin/python2.7 -u ^^^^^^^$$$$$$.py >> ^^^^^^^$$$$$$.log 2>&1
 \'\'\'
 for i,s in enumerate(sys.argv):
 	if i == 0: continue
