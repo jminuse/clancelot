@@ -17,7 +17,8 @@ to_install = {
 'vmd default settings':1,	# improves the default settings of vmd
 'file_browser':1, 			# set the file browser not to open a new window per folder
 'merlin':1,
-'sublime_text_3_build_3083':1
+'sublime_text_3_build_3083':1,
+'prnt':0 # ONLY install if lpstat -p -d returns no available printers
 }
 
 ####################################################################################################################
@@ -291,7 +292,7 @@ if to_install['chkg']:
 if to_install['chkg_all']: f.write("alias chkg_all='python "+INSTALLDIR+"tools/chkg_all.py'\n")
 if to_install['merlin']: f.write("alias merlin='python -i "+INSTALLDIR+"tools/merlin.py'\n")
 if to_install['scang']: f.write("\nalias scang='python "+INSTALLDIR+"tools/scan.py'\n")
-
+if to_install['prnt']: f.write('''alias prnt='function _prnt(){ssh omaha "lpr -P hplj4525-365 -o sides=two-sided-long-edge $PWD/$1;logout";echo "Printed..."};_prnt'\n''')
 f.write('''\n###############################################################
 ################## END OF THE CLANCELOT CODE ##################
 ###############################################################''')
