@@ -222,7 +222,7 @@ if to_install['gcube']:
 	g.write('''from merlin import *
 from subprocess import Popen
 
-old_job = sys.argv[1]
+old_job = sys.argv[2]
 
 if not os.path.exists('gaussian/%s.chk' % old_job):
 	print 'Fatal error: file "gaussian/%s.chk" does not exist.' % old_job
@@ -264,7 +264,7 @@ mol modstyle 0 0 CPK
 mol addrep 0
 mol modcolor 1 0 Volume 1
 mol modstyle 1 0 Isosurface 0.040000 0 0 0 1 1
-mol modmaterial 1 0 Transparent\'\'\'.replace('$$FPTR$$',sys.argv[1])
+mol modmaterial 1 0 Transparent\'\'\'.replace('$$FPTR$$',old_job)
 
 f = open('tmp.vmd','w')
 f.write(vmd_file)
