@@ -292,7 +292,7 @@ if to_install['chkg']:
 if to_install['chkg_all']: f.write("alias chkg_all='python "+INSTALLDIR+"tools/chkg_all.py'\n")
 if to_install['merlin']: f.write("alias merlin='python -i "+INSTALLDIR+"tools/merlin.py'\n")
 if to_install['scang']: f.write("\nalias scang='python "+INSTALLDIR+"tools/scan.py'\n")
-if to_install['prnt']: f.write('''alias prnt='function _prnt(){ssh omaha "lpr -P hplj4525-365 -o sides=two-sided-long-edge $PWD/$1;logout";echo "Printed..."};_prnt'\n''')
+if to_install['prnt']: f.write('''alias prnt='function _prnt(){ssh asimov "lpr -P hplj4525-365 -o sides=two-sided-long-edge $PWD/$1;logout";echo "Printed..."};_prnt'\n''')
 f.write('''\n###############################################################
 ################## END OF THE CLANCELOT CODE ##################
 ###############################################################''')
