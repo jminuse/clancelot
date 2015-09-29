@@ -340,7 +340,7 @@ def parse_chelpg(input_file):
 	return charges
 
 def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, spring_atoms=None, fit_rigid=True, 
-		k=0.1837, procrusts=True, centerIDS=None, force=True, dt = 0.5, euler=True, mem=25, ftol=3E-4, 
+		k=0.1837, procrusts=True, centerIDS=None, force=True, dt = 0.5, euler=True, mem=25, blurb=None,
 		alpha=0.01, beta=1, H_reset=False, gtol=1e-5): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
 #Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
 	import scipy.optimize
@@ -352,7 +352,28 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 		elements = spring_atoms.split()
 		spring_atoms = [i for i,a in enumerate(states[0]) if a.element in elements]
 	
-	print("\nRunning neb with dt = %lg, euler = %s, opt = %s" % (dt,str(euler),str(opt)))
+	if opt in ['QM','FIRE']:
+		if euler: tmp = ' with euler'
+		else: tmp = ' with verlet alg.'
+		print("\nRunning neb with optimization method %s%s" % (str(opt), tmp))
+		print("\tdt = %lg" % dt)
+	elif opt == 'BFGS':
+		print("\nRunning neb with optimization method %s" % str(opt))
+		print("\talpha = %lg, beta = %lg, H_reset = %s" % (alpha, beta, str(H_reset)))
+	elif opt == 'SD':
+		print("\nRunning neb with optimization method %s" % str(opt))
+		print("\talpha = %lg" % alpha)
+	else:
+		print("\nERROR - %s optimizations method does not exist! Choose from the following:" % str(opt))
+		print("\t1. QM")
+		print("\t2. BFGS")
+		print("\t3. FIRE")
+		print("\t4. SD\n")
+		sys.exit()
+	print("Spring Constant for NEB: %lg Ha/Ang" % k)
+	print("Convergence Criteria: gtol = %lg (Ha/Ang)" % gtol)
+	print("Run_Name = %s" % str(name))
+	if blurb != None: print("-----\n" + blurb)
 	print("---------------------------------------------")
 	#class to contain working variables
 	class NEB:
@@ -365,7 +386,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 			NEB.theory = theory
 			NEB.k = k
 			NEB.prv_RMS = None
-			NEB.convergence_criteria = ftol # Gaussian03 has 3E-4 Ha/Bohr
+			NEB.convergence_criteria = gtol # Gaussian03 has 3E-4 Ha/Bohr, scipy bfgs has 1E-5 Ha/Ang.  Current default is scipy
 			NEB.convergence = float('inf') # Where the convergence is currently
 
 			if fit_rigid: 
@@ -554,7 +575,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 			if NEB.convergence < NEB.convergence_criteria:
 				print("\nConvergence achieved in %d iterations with %lg < %lg\n" % (NEB.step,NEB.convergence,NEB.convergence_criteria))
 				sys.exit()
-			else: print("On step %d with real force RMS %lg\n" % (NEB.step,NEB.convergence))
+			print("%d. Real RMS: %lg," % (NEB.step,NEB.convergence)),
 			gradient = -fprime(r)
 			r += gradient*alpha
 			r = recenter(r)
@@ -567,7 +588,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 			if NEB.convergence < NEB.convergence_criteria:
 				print("\nConvergence achieved in %d iterations with %lg < %lg\n" % (NEB.step,NEB.convergence,NEB.convergence_criteria))
 				sys.exit()
-			else: print("On step %d with real force RMS %lg\n" % (NEB.step,NEB.convergence))
+			print("%d. Real RMS: %lg," % (NEB.step,NEB.convergence)),
 
 			forces = -fprime(r) # Get the forces
 
@@ -630,6 +651,10 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 		acc = astart
 
 		for step in range(1000):
+			if NEB.convergence < NEB.convergence_criteria:
+				print("\nConvergence achieved in %d iterations with %lg < %lg\n" % (NEB.step,NEB.convergence,NEB.convergence_criteria))
+				sys.exit()
+			print("%d. Real RMS: %lg," % (NEB.step,NEB.convergence)),
 			# Get forces and number of atoms
 			forces = -fprime(r)
 			natoms = len(v)/(3*(nframes-2))
@@ -703,6 +728,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 		
 		# Main Loop:
 		while (gnorm > gtol) and (loop_counter < maxiter):
+			print("%d. Real RMS: %lg," % (NEB.step,NEB.convergence)),
 			# Get your step direction
 			sk = -np.dot(Hk, g0)
 
@@ -756,6 +782,9 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 
 			# Increment the loop counter
 			loop_counter += 1
+		if NEB.convergence < NEB.convergence_criteria:
+			print("\nConvergence achieved in %d iterations with %lg < %lg\n" % (NEB.step,NEB.convergence,NEB.convergence_criteria))
+			sys.exit()
 
 	if opt=='FIRE':
 		fire_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, 
