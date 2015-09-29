@@ -698,8 +698,8 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 			else:
 				return np.sum(np.abs(x)**ord, axis=0)**(1.0 / ord)
 
-		if beta <= 1.0:
-			print("Warning - Unreasonable Beta (must be greater than 1). Setting to 10.\n")
+		if beta > 1:
+			print("Warning - Unreasonable Beta (must be less than or equal to 1). Setting to 1.\n")
 			beta = 10.0
 
 		# Get x0 as a flat array
