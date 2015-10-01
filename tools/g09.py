@@ -67,18 +67,26 @@ def chk_lint(run_name, route, atoms=[], extra_section='', queue='batch', procs=1
 		#for t in tmp: elem_list += t.split()
 		elem_list = [item for l in  ([ l.split() for l in re.findall('((?:[A-Z][a-e]?\s*)+)\s0',extra_section)]) for item in l]
 
-		
 		a_elem = []
 		# Check if all atoms in elements
 		for a in atoms:
-			if len(units.elem_i2s(a.element))>2: e = units.elem_i2s(a.element)[:units.elem_i2s(a.element).find('-')]
-			else: e = ''
-			if (units.elem_i2s(a.element) not in elem_list) and (e not in elem_list):
-				print('Lint Err - Element %s is not defined in mixed basis set.' % units.elem_i2s(a.element))
-				return False
-			if (e != '') and (e not in a_elem): a_elem.append(e)
-			elif units.elem_i2s(a.element) not in a_elem: a_elem.append(units.elem_i2s(a.element))
-
+			if hasattr(a,'element'):
+				if len(units.elem_i2s(a.element))>2: e = units.elem_i2s(a.element)[:units.elem_i2s(a.element).find('-')]
+				else: e = ''
+				if (units.elem_i2s(a.element) not in elem_list) and (e not in elem_list):
+					print('Lint Err - Element %s is not defined in mixed basis set.' % units.elem_i2s(a.element))
+					return False
+				if (e != '') and (e not in a_elem): a_elem.append(e)
+				elif units.elem_i2s(a.element) not in a_elem: a_elem.append(units.elem_i2s(a.element))
+			else:
+				for b in a:
+					if len(units.elem_i2s(b.element))>2: e = units.elem_i2s(b.element)[:units.elem_i2s(b.element).find('-')]
+					else: e = ''
+					if (units.elem_i2s(b.element) not in elem_list) and (e not in elem_list):
+						print('Lint Err - Element %s is not defined in mixed basis set.' % units.elem_i2s(b.element))
+						return False
+					if (e != '') and (e not in a_elem): a_elem.append(e)
+					elif units.elem_i2s(b.element) not in a_elem: a_elem.append(units.elem_i2s(b.element))	
 		# Check if all atoms defined in mixed basis set are account for in elements
 		for a in elem_list:
 			if a not in a_elem:
