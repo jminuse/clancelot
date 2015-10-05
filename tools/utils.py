@@ -509,7 +509,7 @@ def center_frames(frames,ids,X_TOL=0.1,XY_TOL=0.1,Z_TOL=0.1,THETA_STEP=0.005,TRA
 
 	if chk: frames = frames[0]
 
-def pretty_xyz(name,R_MAX=1,F_MIN=1,F_MAX=50,CENTER=None,outName=None,write_xyz=False,verbose=False):
+def pretty_xyz(name,R_MAX=1,F_MIN=1,F_MAX=50,PROCRUSTS=False,outName=None,write_xyz=False,verbose=False):
 	# Get data as either frames or a file
 	if type(name)==type(''): frames = files.read_xyz(name)
 	elif type(name)==type([]): frames = name
@@ -517,7 +517,7 @@ def pretty_xyz(name,R_MAX=1,F_MIN=1,F_MAX=50,CENTER=None,outName=None,write_xyz=
 		print "Error - Invalid name input.  Should be either the name of an xyz file or a list.", sys.exc_info()[0]
 		exit()
 
-	if CENTER != None: center_frames(frames,CENTER)
+	if PROCRUSTS: procrustes(frames)
 
 	# Loop till we're below R_MAX
 	while 1:
@@ -558,7 +558,7 @@ def pretty_xyz(name,R_MAX=1,F_MIN=1,F_MAX=50,CENTER=None,outName=None,write_xyz=
 
 		if verbose: print "\tInterpolated %d,%d ... %lg" % (index-1,index+1,max(motion_per_frame(frames)))
 
-	if CENTER != None: center_frames(frames,CENTER)
+	if PROCRUSTS: procrustes(frames)
 
 	if write_xyz: files.write_xyz(frames,'pretty_xyz' if outName==None else outName)
 	else: return frames

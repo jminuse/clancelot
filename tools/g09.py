@@ -708,7 +708,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 
 		if beta > 1:
 			print("Warning - Unreasonable Beta (must be less than or equal to 1). Setting to 1.\n")
-			beta = 10.0
+			beta = 1.0
 
 		# Get x0 as a flat array
 		x0 = np.asarray(r).flatten()
