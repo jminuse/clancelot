@@ -695,7 +695,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 
 			r = recenter(r)
 
-	def bfgs_optimizer(f, r, fprime, alpha=0.01, beta=1, H_reset=False, gtol=1e-5):
+	def bfgs_optimizer(f, r, fprime, alpha=0.01, beta=1, H_reset=False, procrustes=True, gtol=1e-5):
 		# BFGS optimizer adapted from scipy.optimize._minmize_bfgs
 		import numpy as np
 		def vecnorm(x, ord=2):
@@ -735,7 +735,9 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 		gnorm = vecnorm(g0, ord=norm)
 		
 		# Main Loop:
+		backtrack_counter = 0
 		while (gnorm > gtol) and (loop_counter < maxiter):
+			if backtrack_counter >= 10: break
 			print("%d. Real RMS: %lg," % (NEB.step,NEB.convergence)),
 			# Get your step direction
 			pk = -np.dot(Hk, g0)
@@ -752,7 +754,8 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 			sk = xkp1 - xk
 
 			# Recenter position
-			#xkp1 = recenter(xkp1)
+			if procrustes:
+				xkp1 = recenter(xkp1)
 
 			# Get the new gradient
 			gfkp1 = fprime(xkp1)
@@ -770,6 +773,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 					print("\t<yk|sk> = %lg\n" % (np.dot(yk, sk)))
 				# NOTE! Maybe add a scalar for lowering the mag of Hk
 				if H_reset: Hk = I
+				backtrack_counter += 1
 				continue
 			
 			# Store new position, as it has passed the check (E_new < E_old is True)
@@ -803,6 +807,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 
 			# Increment the loop counter
 			loop_counter += 1
+
 		if NEB.convergence < NEB.convergence_criteria:
 			print("\nConvergence achieved in %d iterations with %lg < %lg\n" % (NEB.step,NEB.convergence,NEB.convergence_criteria))
 			sys.exit()
@@ -815,7 +820,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 		quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, 
 			fprime=NEB.get_gradient, dt=dt, max_dist=0.01, euler=euler)
 	elif opt=='BFGS':
-		bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=float(alpha), beta=float(beta), gtol=gtol, H_reset=H_reset)
+		bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=float(alpha), beta=float(beta), gtol=gtol, H_reset=H_reset, procrustes=procrustes)
 	elif opt=='SD':
 		steepest_decent(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=alpha)
 	else:
