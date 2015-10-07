@@ -1,8 +1,14 @@
+import constants
 from constants import ENERGY, DISTANCE, PERIODIC_TABLE
 
 def convert_energy(e0, e1, e_val):
 	if e0 == e1: return e_val
-	val = e_val * ENERGY[e0] # This many joules
+	if len(e0) > 2 and e0[0:2] == 'kT':
+		val = e_val * constants.K_b * float(e0[3:])
+	else:
+		val = e_val * ENERGY[e0] # This many joules
+	if len(e1) > 2 and e1[0:2] == 'kT':
+		return val/(constants.K_b * float(e1[3:]))
 	return val/ENERGY[e1] # This many of unit e1
 
 def convert_dist(d0, d1, d_val):

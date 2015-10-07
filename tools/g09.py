@@ -738,15 +738,18 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 		while (gnorm > gtol) and (loop_counter < maxiter):
 			print("%d. Real RMS: %lg," % (NEB.step,NEB.convergence)),
 			# Get your step direction
-			sk = -np.dot(Hk, g0)
+			pk = -np.dot(Hk, g0)
 
 			# If we are doing unreasonably small step sizes, quit
-			if np.linalg.norm(sk*alpha) < 1E-7:
-				print("Error - Step size unreasonable (%lg Angstroms)" % np.linalg.norm(sk*alpha))
+			if np.linalg.norm(pk*alpha) < 1E-7:
+				print("Error - Step size unreasonable (%lg Angstroms)" % np.linalg.norm(pk*alpha))
 				sys.exit()
 
 			# Hold new position
-			xkp1 = xk + alpha * sk
+			xkp1 = xk + alpha * pk
+
+			# Recalculate sk to maintain the secant condition
+			sk = xkp1 - xk
 
 			# Recenter position
 			#xkp1 = recenter(xkp1)
@@ -780,10 +783,19 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 			# Store new gradient in old gradient
 			g0 = gfkp1
 
-			# Run BFGS Update for the Hessian
-			A1 = I - sk[:, np.newaxis] * yk[np.newaxis, :]
-			A2 = I - yk[:, np.newaxis] * sk[np.newaxis, :]
-			Hk = np.dot(A1, np.dot(Hk, A2)) + (sk[:, np.newaxis] * sk[np.newaxis, :])
+			try:  # this was handled in numeric, let it remaines for more safety
+				rhok = 1.0 / (np.dot(yk, sk))
+			except ZeroDivisionError:
+				rhok = 1000.0
+				print("Divide-by-zero encountered: rhok assumed large")
+			if np.isinf(rhok):  # this is patch for numpy
+				rhok = 1000.0
+				print("Divide-by-zero encountered: rhok assumed large")
+			# Run BFGS Update for the Inverse Hessian
+			A1 = I - sk[:, np.newaxis] * yk[np.newaxis, :] * rhok
+			A2 = I - yk[:, np.newaxis] * sk[np.newaxis, :] * rhok
+			Hk = np.dot(A1, np.dot(Hk, A2)) + \
+				 (rhok * sk[:, np.newaxis] * sk[np.newaxis, :])
 
 			# Update the conditional check
 			gnorm = vecnorm(g0, ord=norm)
@@ -801,14 +813,6 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 	elif opt=='QM':
 		quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, 
 			fprime=NEB.get_gradient, dt=dt, max_dist=0.01, euler=euler)
-#	elif opt=='BFGS':
-#		#sys.path.append('/fs/home/hch54/clancelot/scipy_mod/')
-#		#from lbfgs import fmin_l_bfgs_b as bfgs
-#		#bfgs(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, iprint=0, hess=True)
-#		#bfgs(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, fprime=NEB.get_gradient, alpha=alpha)
-#		import imp
-#		optimize = imp.load_source('optimize', '/fs/home/hch54/tmp/scipy/scipy/optimize/optimize.py')
-#		optimize.fmin_bfgs(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient)
 	elif opt=='BFGS':
 		bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=float(alpha), beta=float(beta), gtol=gtol, H_reset=H_reset)
 	elif opt=='SD':
