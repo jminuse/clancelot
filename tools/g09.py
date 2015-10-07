@@ -764,12 +764,12 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 				print("Resetting System as %lg > %lg!" % (E_new, E_old))
 				print("\talpha: %lg" % alpha),
 				alpha *= float(beta)
-				print("-> %lg\n" % alpha)
-				#print("------HESS CHECK------\n%s\n-------\n" % str(Hk))
+				print("-> %lg" % alpha)
+				print("\tmag(sk) = %lg" % vecnorm(sk, ord=norm))
+				if 'yk' in locals():
+					print("\t<yk|sk> = %lg\n" % (np.dot(yk, sk)))
 				# NOTE! Maybe add a scalar for lowering the mag of Hk
 				if H_reset: Hk = I
-				# Lower the NEB step count by one to "erase" the bad data step
-				#NEB.step -= 1
 				continue
 			
 			# Store new position, as it has passed the check (E_new < E_old is True)
@@ -791,6 +791,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 			if np.isinf(rhok):  # this is patch for numpy
 				rhok = 1000.0
 				print("Divide-by-zero encountered: rhok assumed large")
+
 			# Run BFGS Update for the Inverse Hessian
 			A1 = I - sk[:, np.newaxis] * yk[np.newaxis, :] * rhok
 			A2 = I - yk[:, np.newaxis] * sk[np.newaxis, :] * rhok
