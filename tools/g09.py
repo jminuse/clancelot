@@ -347,10 +347,12 @@ def parse_chelpg(input_file):
 			charges.append( float(columns[2]) )
 	return charges
 
-def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, spring_atoms=None, fit_rigid=True, 
-		k=0.1837, procrusts=True, centerIDS=None, force=True, dt = 0.5, euler=True, mem=25, blurb=None,
-		alpha=0.01, beta=1, H_reset=False, gtol=1e-5): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
+def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, spring_atoms=None, 
+		fit_rigid=True, k=0.1837, force=True, dt = 0.5, euler=True, mem=25, blurb=None,
+		alpha=0.01, beta=1, H_reset=False, gtol=1e-5, scipy_test=False, center=True): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
 #Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
+	# If using test code, import path
+	if scipy_test or opt=='BFGS2': sys.path.insert(1,'/fs/home/hch54/scipy_mod/scipy/')
 	import scipy.optimize
 	import numpy as np
 	#set which atoms will be affected by virtual springs
@@ -367,7 +369,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 		else: tmp = ' with verlet alg.'
 		print("\nRunning neb with optimization method %s%s" % (str(opt), tmp))
 		print("\tdt = %lg" % dt)
-	elif opt == 'BFGS':
+	elif opt in ['BFGS','BFGS2']:
 		print("\nRunning neb with optimization method %s" % str(opt))
 		print("\talpha = %lg, beta = %lg, H_reset = %s" % (alpha, beta, str(H_reset)))
 	elif opt == 'SD':
@@ -390,7 +392,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 		name, states, theory, k = None, None, None, None
 		error, gradient = None, None
 		step = 0
-		def __init__(self, name, states, theory, k=0.1837, fit_rigid=True, procrusts=True, centerIDS=None):
+		def __init__(self, name, states, theory, k=0.1837, fit_rigid=True):
 			NEB.name = name
 			NEB.states = states
 			NEB.theory = theory
@@ -400,11 +402,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 			NEB.convergence = float('inf') # Where the convergence is currently
 
 			if fit_rigid: 
-				if procrusts: utils.procrustes(NEB.states) #fit rigid before relaxing
-				elif centerIDS != None: utils.center_frames(NEB.states,centerIDS)
-				else:
-					print "Unexpected error:", sys.exc_info()[0]
-					print 'fit_rigid failed: User needs to specify centerIDS'; exit()
+				utils.procrustes(NEB.states) #fit rigid before relaxing
 			
 			#load initial coordinates into flat array for optimizer
 			NEB.coords_start = []
@@ -452,7 +450,6 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 							print abs(a1.x-a2.x), abs(a1.y-a2.y), abs(a1.z-a2.z)
 							exit()
 				
-				#utils.center_frames([state,new_atoms],[0,1,2])
 				#utils.procrustes([state,new_atoms]) #rigidly rotate jobs into alignment before calculating forces
 				
 				if i!=0 and i!=len(NEB.states)-1:
@@ -538,7 +535,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 			NEB.gradient = None #set to None so it will recalculate next time
 			return np.array(gradient)*1.8897 #convert from Hartree/Bohr to Hartree/Angstrom
 
-	n = NEB(name, states, theory, k, fit_rigid, procrusts, centerIDS)
+	n = NEB(name, states, theory, k, fit_rigid)
 	# BFGS is the best method, cite http://theory.cm.utexas.edu/henkelman/pubs/sheppard08_134106.pdf
 	#scipy.optimize.minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_gradient, options={'disp': True})
 	#scipy.optimize.fmin_l_bfgs_b(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, iprint=0)
@@ -588,7 +585,8 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 			print("%d. Real RMS: %lg," % (NEB.step,NEB.convergence)),
 			gradient = -fprime(r)
 			r += gradient*alpha
-			r = recenter(r)
+			if center:
+				r = recenter(r)
 
 	def quick_min_optimizer(f, r, nframes, fprime, dt=0.5, max_dist=0.1, euler=False, viscosity=0.1): #	dt = fs, max_dist = angstroms, viscosity = 1/fs
 		v = np.array([0.0 for x in r])
@@ -651,7 +649,8 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 				v = v_new
 				acc = a_new
 			
-			r = recenter(r)
+			if center:
+				r = recenter(r)
 	
 	def fire_optimizer(f, r, nframes, fprime, dt = 0.05, dtmax = 1.0, max_dist = 0.2, 
 						Nmin = 5, finc = 1.1, fdec = 0.5, astart = 0.1, fa = 0.99, euler = True):
@@ -695,9 +694,10 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 				#move atoms
 				r += v * dt
 
-			r = recenter(r)
+			if center:
+				r = recenter(r)
 
-	def bfgs_optimizer(f, r, fprime, alpha=0.01, beta=1, H_reset=False, procrusts=True, gtol=1e-5):
+	def bfgs_optimizer(f, r, fprime, alpha=0.01, beta=1, H_reset=False, gtol=1e-5):
 		# BFGS optimizer adapted from scipy.optimize._minmize_bfgs
 		import numpy as np
 		def vecnorm(x, ord=2):
@@ -756,7 +756,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 			sk = xkp1 - xk
 
 			# Recenter position
-			if procrusts:
+			if center:
 				xkp1 = recenter(xkp1)
 
 			# Get the new gradient
@@ -822,9 +822,12 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 		quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, 
 			fprime=NEB.get_gradient, dt=dt, max_dist=0.01, euler=euler)
 	elif opt=='BFGS':
-		bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=float(alpha), beta=float(beta), gtol=gtol, H_reset=H_reset, procrusts=procrusts)
+		bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=float(alpha), beta=float(beta), gtol=gtol, H_reset=H_reset)
 	elif opt=='BFGS_root':
 		scipy.optimize.broyden1(NEB.get_gradient, np.array(NEB.coords_start), alpha=float(alpha), verbose=True)
+	elif opt=='BFGS2':
+		from scipy.optimize.bfgsh import fmin_bfgs_h
+		fmin_bfgs_h(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=float(alpha), beta=float(beta), gtol=gtol, H_reset=H_reset)
 	elif opt=='SD':
 		steepest_decent(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=alpha)
 	else:
