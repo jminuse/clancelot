@@ -359,8 +359,10 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 	elif type(spring_atoms)==str: #a list of element names
 		elements = spring_atoms.split()
 		spring_atoms = [i for i,a in enumerate(states[0]) if a.element in elements]
-	
-	if opt in ['QM','FIRE']:
+
+	if opt == 'BFGS_root':
+		print("\nRunning neb with optimizaiton method %s" % str(opt))	
+	elif opt in ['QM','FIRE']:
 		if euler: tmp = ' with euler'
 		else: tmp = ' with verlet alg.'
 		print("\nRunning neb with optimization method %s%s" % (str(opt), tmp))
@@ -695,7 +697,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 
 			r = recenter(r)
 
-	def bfgs_optimizer(f, r, fprime, alpha=0.01, beta=1, H_reset=False, procrustes=True, gtol=1e-5):
+	def bfgs_optimizer(f, r, fprime, alpha=0.01, beta=1, H_reset=False, procrusts=True, gtol=1e-5):
 		# BFGS optimizer adapted from scipy.optimize._minmize_bfgs
 		import numpy as np
 		def vecnorm(x, ord=2):
@@ -754,7 +756,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 			sk = xkp1 - xk
 
 			# Recenter position
-			if procrustes:
+			if procrusts:
 				xkp1 = recenter(xkp1)
 
 			# Get the new gradient
@@ -820,7 +822,9 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 		quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, 
 			fprime=NEB.get_gradient, dt=dt, max_dist=0.01, euler=euler)
 	elif opt=='BFGS':
-		bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=float(alpha), beta=float(beta), gtol=gtol, H_reset=H_reset, procrustes=procrustes)
+		bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=float(alpha), beta=float(beta), gtol=gtol, H_reset=H_reset, procrusts=procrusts)
+	elif opt=='BFGS_root':
+		scipy.optimize.broyden1(NEB.get_gradient, np.array(NEB.coords_start), alpha=float(alpha), verbose=True)
 	elif opt=='SD':
 		steepest_decent(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=alpha)
 	else:
