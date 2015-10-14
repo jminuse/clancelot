@@ -195,7 +195,8 @@ s_hold = \'\'\'#!/bin/bash
 ##NBS-nproc: 1
 ##NBS-queue: "batch"
 
-python ^^^^^^^$$$$$$.py
+rm ^^^^^^^$$$$$$.log
+python -u ^^^^^^^$$$$$$.py >> ^^^^^^^$$$$$$.log 2>&1
 \'\'\'
 for i,s in enumerate(sys.argv):
 	if i == 0: continue
