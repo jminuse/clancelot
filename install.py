@@ -5,6 +5,7 @@ from getpass import getuser
 to_install = {
 'vmd':1,
 'pysub':1,
+'gcube':1,
 'jsub':1,
 'jdel':1,
 'viewg':1,
@@ -13,10 +14,11 @@ to_install = {
 'scang':1,
 'junest (formerly juju)':0,
 'anaconda':0, 				# a Python 2.7.9 distribution that installs to ~/anaconda
-'vmd default settings':0,	# improves the default settings of vmd
-'file_browser':0, 			# set the file browser not to open a new window per folder
+'vmd default settings':1,	# improves the default settings of vmd
+'file_browser':1, 			# set the file browser not to open a new window per folder
 'merlin':1,
-'sublime_text_3_build_3083':0
+'sublime_text_3_build_3083':0,
+'prnt':0 # ONLY install if lpstat -p -d returns no available printers
 }
 
 ####################################################################################################################
@@ -79,6 +81,7 @@ for key in to_install: # Make directories for what we want to install
 	if key == 'matplotlib': continue
 	if key == 'anaconda': continue
 	if key == 'sublime_text_3_build_3083': continue
+	if key == 'prnt': continue
 	if to_install[key]: os.system('mkdir -p '+INSTALLDIR+key+'/')
 
 
@@ -196,7 +199,7 @@ s_hold = \'\'\'#!/bin/bash
 ##NBS-queue: "batch"
 
 rm ^^^^^^^$$$$$$.log
-python -u ^^^^^^^$$$$$$.py >> ^^^^^^^$$$$$$.log 2>&1
+/fs/home/'''+USERNAME+'''/anaconda/bin/python2.7 -u ^^^^^^^$$$$$$.py >> ^^^^^^^$$$$$$.log 2>&1
 \'\'\'
 for i,s in enumerate(sys.argv):
 	if i == 0: continue
@@ -209,6 +212,67 @@ for i,s in enumerate(sys.argv):
 os.system('rm pysub.nbs')''')
 	g.close()
 	os.system('chmod 755 '+INSTALLDIR+'pysub/pysub.sh')
+if to_install['gcube']:
+	f.write("alias gcube='"+INSTALLDIR+"gcube/cube.sh'\n")
+	f.write('complete -F _gaussAutoTab '+INSTALLDIR+'gcube/cube.sh\n\n')
+	g = open(INSTALLDIR+'gcube/cube.sh','w')
+	g.write('python '+INSTALLDIR+'''gcube/cube.py $PWD'/' $@''')
+	g.close()
+	g = open(INSTALLDIR+'gcube/cube.py','w')
+	g.write('''from merlin import *
+from subprocess import Popen
+
+old_job = sys.argv[2]
+
+if not os.path.exists('gaussian/%s.chk' % old_job):
+	print 'Fatal error: file "gaussian/%s.chk" does not exist.' % old_job
+	exit()
+
+if not g09.parse_atoms(old_job):
+	print 'Fatal error: "%s" is not converged. gcube does not work on unconverged jobs.' % old_job
+	exit()
+
+# Get the file to check
+if not os.path.exists('gaussian/%s.fchk' % old_job):
+	print 'Making gaussian/%s.fchk' % old_job
+	Popen('/usr/local/gaussian/g09/g09/formchk gaussian/%s.chk gaussian/%s.fchk' % (old_job,old_job), shell=True).wait()
+
+# Make the density and potential cube files
+if not os.path.exists('gaussian/%s.cube' % (old_job+'_d')):
+	print 'Making gaussian/%s.cube' % (old_job+'_d')
+	Popen('/usr/local/gaussian/g09/g09/cubegen 0 density gaussian/%s.fchk gaussian/%s.cube 0 h'% (old_job,old_job+'_d'), shell=True).wait()
+
+if not os.path.exists('gaussian/%s.cube' % (old_job+'_p')):
+	print 'Making gaussian/%s.cube' % (old_job+'_p')
+	Popen('/usr/local/gaussian/g09/g09/cubegen 0 potential gaussian/%s.fchk gaussian/%s.cube 0 h'% (old_job,old_job+'_p'), shell=True).wait()
+
+if not (os.path.exists('gaussian/%s.cube' % (old_job+'_p')) and os.path.exists('gaussian/%s.cube' % (old_job+'_d')) ):
+	print 'Fatal error: cube files not created'
+	exit()
+
+vmd_file = \'\'\'# Type logfile console into console to see all commands
+
+# Get data
+mol new gaussian/$$FPTR$$_d.cube
+mol addfile gaussian/$$FPTR$$_p.cube
+
+# Adjust first rep
+mol modcolor 0 0 element
+mol modstyle 0 0 CPK
+
+# Adjust second rep
+mol addrep 0
+mol modcolor 1 0 Volume 1
+mol modstyle 1 0 Isosurface 0.040000 0 0 0 1 1
+mol modmaterial 1 0 Transparent\'\'\'.replace('$$FPTR$$',old_job)
+
+f = open('tmp.vmd','w')
+f.write(vmd_file)
+f.close()
+
+Popen('/fs/europa/g_pc/vmd-1.9 -e tmp.vmd', shell=True)\n''')
+	g.close()
+	os.system('chmod 755 '+INSTALLDIR+'gcube/cube.sh')
 if to_install['jsub']: f.write('complete -F _nbsAutoTab jsub\n\n')
 if to_install['jdel']: f.write('complete -F _jAutoTab jdel\n\n')
 if to_install['viewg']:
@@ -228,7 +292,7 @@ if to_install['chkg']:
 if to_install['chkg_all']: f.write("alias chkg_all='python "+INSTALLDIR+"tools/chkg_all.py'\n")
 if to_install['merlin']: f.write("alias merlin='python -i "+INSTALLDIR+"tools/merlin.py'\n")
 if to_install['scang']: f.write("\nalias scang='python "+INSTALLDIR+"tools/scan.py'\n")
-
+if to_install['prnt']: f.write('''alias prnt='function _prnt(){ssh asimov "lpr -P hplj4525-365 -o sides=two-sided-long-edge -o InputSlot=Tray2 $PWD/$1;logout";echo "Printed..."};_prnt'\n''')
 f.write('''\n###############################################################
 ################## END OF THE CLANCELOT CODE ##################
 ###############################################################''')

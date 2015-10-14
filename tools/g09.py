@@ -67,18 +67,26 @@ def chk_lint(run_name, route, atoms=[], extra_section='', queue='batch', procs=1
 		#for t in tmp: elem_list += t.split()
 		elem_list = [item for l in  ([ l.split() for l in re.findall('((?:[A-Z][a-e]?\s*)+)\s0',extra_section)]) for item in l]
 
-		
 		a_elem = []
 		# Check if all atoms in elements
 		for a in atoms:
-			if len(units.elem_i2s(a.element))>2: e = units.elem_i2s(a.element)[:units.elem_i2s(a.element).find('-')]
-			else: e = ''
-			if (units.elem_i2s(a.element) not in elem_list) and (e not in elem_list):
-				print('Lint Err - Element %s is not defined in mixed basis set.' % units.elem_i2s(a.element))
-				return False
-			if (e != '') and (e not in a_elem): a_elem.append(e)
-			elif units.elem_i2s(a.element) not in a_elem: a_elem.append(units.elem_i2s(a.element))
-
+			if hasattr(a,'element'):
+				if len(units.elem_i2s(a.element))>2: e = units.elem_i2s(a.element)[:units.elem_i2s(a.element).find('-')]
+				else: e = ''
+				if (units.elem_i2s(a.element) not in elem_list) and (e not in elem_list):
+					print('Lint Err - Element %s is not defined in mixed basis set.' % units.elem_i2s(a.element))
+					return False
+				if (e != '') and (e not in a_elem): a_elem.append(e)
+				elif units.elem_i2s(a.element) not in a_elem: a_elem.append(units.elem_i2s(a.element))
+			else:
+				for b in a:
+					if len(units.elem_i2s(b.element))>2: e = units.elem_i2s(b.element)[:units.elem_i2s(b.element).find('-')]
+					else: e = ''
+					if (units.elem_i2s(b.element) not in elem_list) and (e not in elem_list):
+						print('Lint Err - Element %s is not defined in mixed basis set.' % units.elem_i2s(b.element))
+						return False
+					if (e != '') and (e not in a_elem): a_elem.append(e)
+					elif units.elem_i2s(b.element) not in a_elem: a_elem.append(units.elem_i2s(b.element))	
 		# Check if all atoms defined in mixed basis set are account for in elements
 		for a in elem_list:
 			if a not in a_elem:
@@ -339,8 +347,12 @@ def parse_chelpg(input_file):
 			charges.append( float(columns[2]) )
 	return charges
 
-def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atoms=None, fit_rigid=True, k=0.1837, procrusts=True, centerIDS=None, force=True, dt = 0.5, euler=True, mem=25): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
+def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, spring_atoms=None, 
+		fit_rigid=True, k=0.1837, force=True, dt = 0.5, euler=True, mem=25, blurb=None,
+		alpha=0.01, beta=1, H_reset=False, gtol=1e-5, scipy_test=False, center=True): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
 #Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
+	# If using test code, import path
+	if scipy_test or opt=='BFGS2': sys.path.insert(1,'/fs/home/hch54/scipy_mod/scipy/')
 	import scipy.optimize
 	import numpy as np
 	#set which atoms will be affected by virtual springs
@@ -349,27 +361,48 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 	elif type(spring_atoms)==str: #a list of element names
 		elements = spring_atoms.split()
 		spring_atoms = [i for i,a in enumerate(states[0]) if a.element in elements]
-	
-	print("\nRunning neb with dt = %lg and euler = %s" % (dt,str(euler)))
+
+	if opt == 'BFGS_root':
+		print("\nRunning neb with optimizaiton method %s" % str(opt))	
+	elif opt in ['QM','FIRE']:
+		if euler: tmp = ' with euler'
+		else: tmp = ' with verlet alg.'
+		print("\nRunning neb with optimization method %s%s" % (str(opt), tmp))
+		print("\tdt = %lg" % dt)
+	elif opt in ['BFGS','BFGS2']:
+		print("\nRunning neb with optimization method %s" % str(opt))
+		print("\talpha = %lg, beta = %lg, H_reset = %s" % (alpha, beta, str(H_reset)))
+	elif opt == 'SD':
+		print("\nRunning neb with optimization method %s" % str(opt))
+		print("\talpha = %lg" % alpha)
+	else:
+		print("\nERROR - %s optimizations method does not exist! Choose from the following:" % str(opt))
+		print("\t1. QM")
+		print("\t2. BFGS")
+		print("\t3. FIRE")
+		print("\t4. SD\n")
+		sys.exit()
+	print("Spring Constant for NEB: %lg Ha/Ang" % k)
+	print("Convergence Criteria: gtol = %lg (Ha/Ang)" % gtol)
+	print("Run_Name = %s" % str(name))
+	if blurb != None: print("-----\n" + blurb)
 	print("---------------------------------------------")
 	#class to contain working variables
 	class NEB:
 		name, states, theory, k = None, None, None, None
 		error, gradient = None, None
 		step = 0
-		def __init__(self, name, states, theory, k=0.1837, fit_rigid=True, procrusts=True, centerIDS=None):
+		def __init__(self, name, states, theory, k=0.1837, fit_rigid=True):
 			NEB.name = name
 			NEB.states = states
 			NEB.theory = theory
 			NEB.k = k
 			NEB.prv_RMS = None
+			NEB.convergence_criteria = gtol # Gaussian03 has 3E-4 Ha/Bohr, scipy bfgs has 1E-5 Ha/Ang.  Current default is scipy
+			NEB.convergence = float('inf') # Where the convergence is currently
 
 			if fit_rigid: 
-				if procrusts: utils.procrustes(NEB.states) #fit rigid before relaxing
-				elif centerIDS != None: utils.center_frames(NEB.states,centerIDS)
-				else:
-					print "Unexpected error:", sys.exc_info()[0]
-					print 'fit_rigid failed: User needs to specify centerIDS'; exit()
+				utils.procrustes(NEB.states) #fit rigid before relaxing
 			
 			#load initial coordinates into flat array for optimizer
 			NEB.coords_start = []
@@ -417,16 +450,15 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 							print abs(a1.x-a2.x), abs(a1.y-a2.y), abs(a1.z-a2.z)
 							exit()
 				
-				#utils.center_frames([state,new_atoms],[0,1,2])
 				#utils.procrustes([state,new_atoms]) #rigidly rotate jobs into alignment before calculating forces
 				
 				if i!=0 and i!=len(NEB.states)-1:
 					check_atom_coords(state,new_atoms)
 					for a,b in zip(state, new_atoms):
-						a.fx = b.fx*1.8897; a.fy = b.fy*1.8897; a.fz = b.fz*1.8897  #convert from Hartree/Bohr to Hartree/Angstrom
-			
+						a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
 			V = copy.deepcopy(energies) # V = potential energy from DFT. energies = V+springs
 
+			NEB.convergence = 0 # Reset convergence check
 			#add spring forces to atoms
 			for i,state in enumerate(NEB.states):
 				if i==0 or i==len(NEB.states)-1: continue #don't change first or last state
@@ -459,18 +491,21 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 					
 						#find DFT forces perpendicular to tangent
 						real_force = np.array( [b.fx,b.fz,b.fz] )
+						NEB.convergence += b.fx**2 + b.fz**2 + b.fz**2 # Sum convergence check
 						F_real_perpendicular = real_force - np.dot(real_force, tangent)*tangent
 					
 						#set NEB forces
 						b.fx, b.fy, b.fz = F_spring_parallel + F_real_perpendicular
-			
+			NEB.convergence = NEB.convergence**0.5 # Get the RMF real force
+
 			#set error
-			NEB.error = 0.5*sum([a.fx**2+a.fy**2+a.fz**2 for state in states[1:-1] for a in state]) #max(V) #sum(energies)
+			NEB.error = max(energies) #0.5*sum([a.fx**2+a.fy**2+a.fz**2 for state in states[1:-1] for a in state]) #max(V) #sum(energies)
 			#set gradient
 			NEB.gradient = []
 			for state in NEB.states[1:-1]:
 				for a in state:
 					NEB.gradient += [-a.fx, -a.fy, -a.fz] #gradient of NEB.error
+
 			RMS_force = (sum([a.fx**2+a.fy**2+a.fz**2 for state in states[1:-1] for a in state])/len([a for state in states[1:-1] for a in state]))**0.5
 			NEB.RMS_force = RMS_force
 			#print data
@@ -502,7 +537,7 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 			NEB.gradient = None #set to None so it will recalculate next time
 			return np.array(gradient)
 
-	n = NEB(name, states, theory, k, fit_rigid, procrusts, centerIDS)
+	n = NEB(name, states, theory, k, fit_rigid)
 	# BFGS is the best method, cite http://theory.cm.utexas.edu/henkelman/pubs/sheppard08_134106.pdf
 	#scipy.optimize.minimize(NEB.get_error, np.array(NEB.coords_start), method='BFGS', jac=NEB.get_gradient, options={'disp': True})
 	#scipy.optimize.fmin_l_bfgs_b(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, iprint=0, factr=1e7)
@@ -527,12 +562,47 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 		    return v1
 		return v2 * (np.dot(v1, v2) / mag2)
 
+	def recenter(r):
+		# Prevent rotation or translation
+		coord_count = 0
+		st = NEB.states
+		for s in st[1:-1]:
+			for a in s:
+				a.x, a.y, a.z = r[coord_count], r[coord_count+1], r[coord_count+2]
+				coord_count += 3
+		utils.procrustes(st) #translate and rotate each frame to fit its neighbor
+		coord_count = 0
+		for s in st[1:-1]:
+			for a in s:
+				r[coord_count:coord_count+3] = [a.x, a.y, a.z]
+				coord_count += 3
+
+		return r
+
+	def steepest_decent(f, r, fprime, alpha=0.1): #better, but tends to push error up eventually, especially towards endpoints.
+		print("Running with alpha = %lg" % alpha)
+		for step in range(1000):
+			if NEB.convergence < NEB.convergence_criteria:
+				print("\nConvergence achieved in %d iterations with %lg < %lg\n" % (NEB.step,NEB.convergence,NEB.convergence_criteria))
+				sys.exit()
+			print("%d. Real RMS: %lg," % (NEB.step,NEB.convergence)),
+			gradient = -fprime(r)
+			r += gradient*alpha
+			if center:
+				r = recenter(r)
+
 	def quick_min_optimizer(f, r, nframes, fprime, dt=0.5, max_dist=0.1, euler=False, viscosity=0.1): #	dt = fs, max_dist = angstroms, viscosity = 1/fs
 		v = np.array([0.0 for x in r])
 		acc = np.array([0.0 for x in r])
 
 		for step in range(1000):
+			if NEB.convergence < NEB.convergence_criteria:
+				print("\nConvergence achieved in %d iterations with %lg < %lg\n" % (NEB.step,NEB.convergence,NEB.convergence_criteria))
+				sys.exit()
+			print("%d. Real RMS: %lg," % (NEB.step,NEB.convergence)),
+
 			forces = -fprime(r) # Get the forces
+
 			# Get the parallel velocity if it's in the same direction as the force
 			# Note, this must be frame based, not individual atom based or total based
 			natoms = len(v)/(3*(nframes-2))
@@ -595,20 +665,8 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 				v = v_new
 				acc = a_new
 			
-			#prevent rotation or translation
-			coord_count = 0
-			st = NEB.states
-			for s in st[1:-1]:
-				for a in s:
-					a.x, a.y, a.z = r[coord_count], r[coord_count+1], r[coord_count+2]
-					coord_count += 3
-			#utils.center_frames(st,[0,len(st[0])/2, len(st[0])-1])
-			utils.procrustes(st) #translate and rotate each frame to fit its neighbor
-			coord_count = 0
-			for s in st[1:-1]:
-				for a in s:
-					r[coord_count:coord_count+3] = [a.x, a.y, a.z]
-					coord_count += 3
+			if center:
+				r = recenter(r)
 	
 	def fire_optimizer(f, r, nframes, fprime, dt = 0.05, dtmax = 1.0, max_dist = 0.2, 
 						Nmin = 5, finc = 1.1, fdec = 0.5, astart = 0.1, fa = 0.99, euler = True):
@@ -618,6 +676,10 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 		acc = astart
 
 		for step in range(1000):
+			if NEB.convergence < NEB.convergence_criteria:
+				print("\nConvergence achieved in %d iterations with %lg < %lg\n" % (NEB.step,NEB.convergence,NEB.convergence_criteria))
+				sys.exit()
+			print("%d. Real RMS: %lg," % (NEB.step,NEB.convergence)),
 			# Get forces and number of atoms
 			forces = -fprime(r)
 			natoms = len(v)/(3*(nframes-2))
@@ -648,22 +710,151 @@ def neb(name, states, theory, extra_section='', procs=1, queue=None, spring_atom
 				#move atoms
 				r += v * dt
 
-			#prevent rotation or translation
-			coord_count = 0
-			st = NEB.states
-			for s in st[1:-1]:
-				for a in s:
-					a.x, a.y, a.z = r[coord_count], r[coord_count+1], r[coord_count+2]
-					coord_count += 3
-			utils.procrustes(st) #translate and rotate each frame to fit its neighbor
-			coord_count = 0
-			for s in st[1:-1]:
-				for a in s:
-					r[coord_count:coord_count+3] = [a.x, a.y, a.z]
-					coord_count += 3
+			if center:
+				r = recenter(r)
 
-	quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, fprime=NEB.get_gradient, dt=dt, max_dist=0.01, euler=euler)
+	def bfgs_optimizer(f, r, fprime, alpha=0.01, beta=1, H_reset=False, gtol=1e-5):
+		# BFGS optimizer adapted from scipy.optimize._minmize_bfgs
+		import numpy as np
+		def vecnorm(x, ord=2):
+			if ord == np.Inf:
+				return np.amax(np.abs(x))
+			elif ord == -np.Inf:
+				return np.amin(np.abs(x))
+			else:
+				return np.sum(np.abs(x)**ord, axis=0)**(1.0 / ord)
+
+		if beta > 1:
+			print("Warning - Unreasonable Beta (must be less than or equal to 1). Setting to 1.\n")
+			beta = 1.0
+
+		# Get x0 as a flat array
+		x0 = np.asarray(r).flatten()
+		if x0.ndim == 0:
+			x0.shape = (1,)
+		
+		maxiter = len(x0) * 200
+
+		g0 = fprime(x0)
+
+		loop_counter,N = 0,len(x0)
+		I = np.eye(N, dtype=int)
+
+		# Initialize inv Hess as Identity matrix
+		Hk = I
+
+		# Store your old energy
+		E_old = f(x0)
+
+		xk = x0
+
+		# Criteria on gradient for continuing simulation
+		norm = np.Inf
+		gnorm = vecnorm(g0, ord=norm)
+		
+		# Main Loop:
+		backtrack_counter = 0
+		while (gnorm > gtol) and (loop_counter < maxiter):
+			if backtrack_counter >= 10: break
+			print("%d. Real RMS: %lg," % (NEB.step,NEB.convergence)),
+			# Get your step direction
+			pk = -np.dot(Hk, g0)
+
+			# If we are doing unreasonably small step sizes, quit
+			if np.linalg.norm(pk*alpha) < 1E-7:
+				print("Error - Step size unreasonable (%lg Angstroms)" % np.linalg.norm(pk*alpha))
+				sys.exit()
+
+			# Hold new position
+			xkp1 = xk + alpha * pk
+
+			# Recalculate sk to maintain the secant condition
+			sk = xkp1 - xk
+
+			# Recenter position
+			if center:
+				xkp1 = recenter(xkp1)
+
+			# Get the new gradient
+			gfkp1 = fprime(xkp1)
+
+			# Check if max energy has increased
+			E_new = f(xkp1)
+			if E_new > E_old:
+				# Step taken overstepped the minimum.  Lowering step size
+				print("Resetting System as %lg > %lg!" % (E_new, E_old))
+				print("\talpha: %lg" % alpha),
+				alpha *= float(beta)
+				print("-> %lg" % alpha)
+				print("\tmag(sk) = %lg" % vecnorm(sk, ord=norm))
+				if 'yk' in locals():
+					print("\t<yk|sk> = %lg\n" % (np.dot(yk, sk)))
+				# NOTE! Maybe add a scalar for lowering the mag of Hk
+				if H_reset: Hk = I
+				backtrack_counter += 1
+				continue
+			
+			# Store new position, as it has passed the check (E_new < E_old is True)
+			xk = xkp1
+			
+			# Store new energy in old energy for future comparison
+			E_old = E_new
+
+			# Get difference in gradients for further calculations
+			yk = gfkp1 - g0
+			# Store new gradient in old gradient
+			g0 = gfkp1
+
+			try:  # this was handled in numeric, let it remaines for more safety
+				rhok = 1.0 / (np.dot(yk, sk))
+			except ZeroDivisionError:
+				rhok = 1000.0
+				print("Divide-by-zero encountered: rhok assumed large")
+			if np.isinf(rhok):  # this is patch for numpy
+				rhok = 1000.0
+				print("Divide-by-zero encountered: rhok assumed large")
+
+			# Run BFGS Update for the Inverse Hessian
+			A1 = I - sk[:, np.newaxis] * yk[np.newaxis, :] * rhok
+			A2 = I - yk[:, np.newaxis] * sk[np.newaxis, :] * rhok
+			Hk = np.dot(A1, np.dot(Hk, A2)) + \
+				 (rhok * sk[:, np.newaxis] * sk[np.newaxis, :])
+
+			# Update the conditional check
+			gnorm = vecnorm(g0, ord=norm)
+
+			# Increment the loop counter
+			loop_counter += 1
+
+		if NEB.convergence < NEB.convergence_criteria:
+			print("\nConvergence achieved in %d iterations with %lg < %lg\n" % (NEB.step,NEB.convergence,NEB.convergence_criteria))
+			sys.exit()
+
+	if opt=='FIRE':
+		fire_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, 
+			fprime=NEB.get_gradient, dt = dt, dtmax = 1.0, max_dist = 0.2,
+			Nmin = 5, finc = 1.1, fdec = 0.5, astart = 0.1, fa = 0.99, euler=euler)
+	elif opt=='QM':
+		quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, 
+			fprime=NEB.get_gradient, dt=dt, max_dist=0.01, euler=euler)
+	elif opt=='BFGS':
+		bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=float(alpha), beta=float(beta), gtol=gtol, H_reset=H_reset)
+	elif opt=='BFGS_root':
+		scipy.optimize.broyden1(NEB.get_gradient, np.array(NEB.coords_start), alpha=float(alpha), verbose=True)
+	elif opt=='BFGS2':
+		from scipy.optimize.bfgsh import fmin_bfgs_h
+		fmin_bfgs_h(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=float(alpha), beta=float(beta), gtol=gtol, H_reset=H_reset)
+	elif opt=='SD':
+		steepest_decent(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=alpha)
+	else:
+		print("\nERROR - %s optimizations method does not exist! Choose from the following:" % str(opt))
+		print("\t1. QM")
+		print("\t2. BFGS")
+		print("\t3. FIRE")
+		print("\t4. SD\n")
+		sys.exit()
 	
+
 def optimize_pm6(name, examples, param_string, starting_params, queue=None): #optimize a custom PM6 semi-empirical method based on Gaussian examples at a higher level of theory
 	from scipy.optimize import minimize
 	import numpy as np
@@ -716,7 +907,7 @@ def optimize_pm6(name, examples, param_string, starting_params, queue=None): #op
 # job_A - This is the name of a gaussian job that holds the optimized molecule A
 # job_B - This is the name of a gaussian job that holds the optimized molecule B
 # zero_indexed_atom_indices_A - This is a list of indices for molecule A in job_total.  First values of a .xyz file start at 0.
-def binding_energy(job_total, job_A, job_B, zero_indexed_atom_indices_A, route=None, blurb=None, procs=1, queue='batch', force=False, lint=False):
+def binding_energy(job_total, job_A, job_B, zero_indexed_atom_indices_A, route='SP SCRF(Solvent=Toluene)', blurb=None, procs=1, queue='batch', force=False, lint=False, bind_tck_name=None):
 	#--------------------------
 	def ghost_job(atoms, name, previous_job=None, route=None, blurb=None, procs=1, queue='batch', extras='', force=False, lint=False):
 		# To ensure we do not overwrite a file we increment a value until we find that the run doesn't exist
@@ -779,10 +970,16 @@ def binding_energy(job_total, job_A, job_B, zero_indexed_atom_indices_A, route=N
 	#		job_B = Molecule B in the basis set it was done in
 	print 'E_binding = %s - %s - %s + %s + %s - %s - %s' % (job_total, name1, name2, name3, name4, job_A, job_B)
 
-	i = 0
-	while os.path.isfile('bind_tck_#.py'.replace('#',str(i))): i += 1
-	
-	f = open('bind_tck_#.py'.replace('#',str(i)),'w')
+	if bind_tck_name==None:
+		i = 0
+		while os.path.isfile('bind_tck_#.py'.replace('#',str(i))): i += 1
+		
+		f = open('bind_tck_#.py'.replace('#',str(i)),'w')
+	else:
+		if len(bind_tck_name) > 3 and bind_tck_name[-3:] == '.py':
+			f = open(bind_tck_name,'w')
+		else:
+			f = open("%s.py" % bind_tck_name,'w')
 
 	job_names = [job_total, name1, name2, name3, name4, job_A, job_B]
 	for i in range(len(job_names)): job_names[i] = "'"+job_names[i]+"'"
