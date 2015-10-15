@@ -349,7 +349,7 @@ def parse_chelpg(input_file):
 
 def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, spring_atoms=None, 
 		fit_rigid=True, k=0.1837, force=True, dt = 0.5, euler=True, mem=25, blurb=None,
-		alpha=0.01, beta=1, H_reset=False, gtol=1e-5, scipy_test=False, center=True): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
+		alpha=0.01, beta=1, H_reset=False, gtol=1e-5, scipy_test=False, center=True, previous_neb=None): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
 #Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
 	# If using test code, import path
 	if scipy_test or opt=='BFGS2': sys.path.insert(1,'/fs/home/hch54/scipy_mod/scipy/')
@@ -425,8 +425,12 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 					if (i==0 or i==len(NEB.states)-1): #only use DFT on endpoints on first step, because they don't change
 						continue
 					guess = ' Guess=Read'
-				else: guess = '' #no previous guess for first step
-				running_jobs.append( job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+' Force'+guess, state, procs=procs, queue=queue, force=force, previous=('%s-%d-%d'%(NEB.name,NEB.step-1,i)) if NEB.step>0 else None, extra_section=extra_section, neb=[True,'%s-%%d-%%d'%(NEB.name),len(NEB.states),i], mem=mem) )
+				else:
+					if previous_neb:
+						 guess = ' Guess=Read'
+					else:
+						guess = '' #no previous guess for first step
+				running_jobs.append( job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+' Force'+guess, state, procs=procs, queue=queue, force=force, previous=('%s-%d-%d'%(NEB.name,NEB.step-1,i)) if NEB.step>0 else (None if not previous_neb else (previous_neb%i)), extra_section=extra_section, neb=[True,'%s-%%d-%%d'%(NEB.name),len(NEB.states),i], mem=mem) )
 			#wait for jobs to finish
 			for j in running_jobs: j.wait()
 			#get forces and energies from DFT calculations
