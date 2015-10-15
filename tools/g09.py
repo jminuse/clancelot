@@ -347,9 +347,9 @@ def parse_chelpg(input_file):
 			charges.append( float(columns[2]) )
 	return charges
 
-def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, spring_atoms=None, 
+def neb(name, states, theory, extra_section='', opt='BFGS', procs=1, queue=None, spring_atoms=None, 
 		fit_rigid=True, k=0.1837, force=True, dt = 0.5, euler=True, mem=25, blurb=None,
-		alpha=0.01, beta=1, H_reset=False, gtol=1e-5, scipy_test=False, center=True, previous_neb=None): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
+		alpha=0.3, beta=0.7, H_reset=True, gtol=1e-5, scipy_test=False, center=True): #Nudged Elastic Band. k for VASP is 5 eV/Angstrom, ie 0.1837 Hartree/Angstrom. 
 #Cite NEB: http://scitation.aip.org/content/aip/journal/jcp/113/22/10.1063/1.1323224
 	# If using test code, import path
 	if scipy_test or opt=='BFGS2': sys.path.insert(1,'/fs/home/hch54/scipy_mod/scipy/')
@@ -362,7 +362,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 		elements = spring_atoms.split()
 		spring_atoms = [i for i,a in enumerate(states[0]) if a.element in elements]
 
-	if opt == 'BFGS_root':
+	if opt == 'Broyden_root':
 		print("\nRunning neb with optimizaiton method %s" % str(opt))	
 	elif opt in ['QM','FIRE']:
 		if euler: tmp = ' with euler'
@@ -717,7 +717,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 			if center:
 				r = recenter(r)
 
-	def bfgs_optimizer(f, r, fprime, alpha=0.01, beta=1, H_reset=False, gtol=1e-5):
+	def bfgs_optimizer(f, r, fprime, alpha=0.3, beta=0.7, H_reset=True, gtol=1e-5):
 		# BFGS optimizer adapted from scipy.optimize._minmize_bfgs
 		import numpy as np
 		def vecnorm(x, ord=2):
@@ -843,7 +843,7 @@ def neb(name, states, theory, extra_section='', opt='QM', procs=1, queue=None, s
 			fprime=NEB.get_gradient, dt=dt, max_dist=0.01, euler=euler)
 	elif opt=='BFGS':
 		bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=float(alpha), beta=float(beta), gtol=gtol, H_reset=H_reset)
-	elif opt=='BFGS_root':
+	elif opt=='Broyden_root':
 		scipy.optimize.broyden1(NEB.get_gradient, np.array(NEB.coords_start), alpha=float(alpha), verbose=True)
 	elif opt=='BFGS2':
 		from scipy.optimize.bfgsh import fmin_bfgs_h
