@@ -1,13 +1,52 @@
-import os, string, sys, re, shutil, copy
-from subprocess import Popen
-import utils, units, log, files
+from merlin import *
 
-def job(run_name, route, atoms=[], extra_section='', queue='batch', procs=1, charge_and_multiplicity='0 1', title='run by gaussian.py', blurb=None, eRec=True, force=False, previous=None, neb=[False,None,None,None], err=False, lint=False):
+# A function to check if path variable points to openmpi
+def openmpi_exists():
+	#chk = 'orca_3_0_3_linux_x86-64'
+	chk = '/opt/voyager/nbs/bin'
+	return chk in os.environ['PATH']
+
+def job(run_name, route, atoms=[], extra_section='', queue=None, procs=1, charge_and_multiplicity='0 1', title='', blurb=None, force=False, previous=None, neb=[False,None,None,None], lint=False):
+	# Generate the orca input file
 	os.chdir('orca')
-	f = open(run_name+'.orca', 'w')
-	f.write(route+'\n*xyz '+charge_and_multiplicity+'\n')
+
+	# If running on system with more than one core, ensure it's set correctly
+	if procs > 1 and openmpi_exists():
+		#extra_section += '''\n%%pal\nnprocs %d\nend''' % procs
+		route += ' PAL%d' % procs
+	elif procs > 1:
+		print("Error - Openmpi not installed and/or in $PATH variable.")
+		sys.exit()
+
+	# Get input for orca formatted correctly
+	inp = route.strip()+'\n'+extra_section.strip()+'\n*xyz '+charge_and_multiplicity+'\n'
 	for a in atoms:
-		f.write('%s %f %f %f\n' % (a.element, a.x, a.y, a.z) )
-	f.write('*\n')
-	os.system('/fs/home/jms875/build/orca/orca_3_0_2_linux_x86-64/orca %s.orca > %s.out &' % (run_name,run_name))
+		inp += '%s %f %f %f\n' % (a.element, a.x, a.y, a.z)
+	inp += '*\n'
+
+	# Write the orca file
+	f = open(run_name+'.orca', 'w')
+	f.write(inp)
+	f.close()
+
+	# Run the simulation
+	if queue is None:
+		os.system('/fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca %s.orca > %s.out &' % (run_name,run_name))
+	else:
+		NBS = '''#!/bin/bash
+##NBS-name: "%s"
+##NBS-nproc: %d
+##NBS-queue: "%s"
+
+export PATH=/fs/europa/g_pc/ompi_1_6_5/bin:/fs/europa/g_pc/orca_3_0_3_linux_x86-64:$PATH
+export LD_LIBRARY_PATH=/fs/europa/g_pc/ompi_1_6_5/lib:$LD_LIBRARY_PATH
+
+/fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca %s.orca >> %s.out 2>&1
+''' % (run_name, procs, queue, run_name, run_name)
+		f = open(run_name+'.nbs', 'w')
+		f.write(NBS)
+		f.close()
+		os.system('jsub %s.nbs' % run_name)
+
+	# Return to the appropriate directory
 	os.chdir('..')
