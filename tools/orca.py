@@ -1,22 +1,12 @@
 from merlin import *
 
-# A function to check if path variable points to openmpi
-def openmpi_exists():
-	#chk = 'orca_3_0_3_linux_x86-64'
-	chk = '/opt/voyager/nbs/bin'
-	return chk in os.environ['PATH']
-
 def job(run_name, route, atoms=[], extra_section='', queue=None, procs=1, charge_and_multiplicity='0 1', title='', blurb=None, force=False, previous=None, neb=[False,None,None,None], lint=False):
 	# Generate the orca input file
 	os.chdir('orca')
 
-	# If running on system with more than one core, ensure it's set correctly
-	if procs > 1 and openmpi_exists():
-		#extra_section += '''\n%%pal\nnprocs %d\nend''' % procs
+	# If running on system with more than one core, tell orca
+	if procs > 1:
 		route += ' PAL%d' % procs
-	elif procs > 1:
-		print("Error - Openmpi not installed and/or in $PATH variable.")
-		sys.exit()
 
 	# Get input for orca formatted correctly
 	inp = route.strip()+'\n'+extra_section.strip()+'\n*xyz '+charge_and_multiplicity+'\n'
