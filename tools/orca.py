@@ -2,7 +2,8 @@ from merlin import *
 
 def job(run_name, route, atoms=[], extra_section='', queue=None, procs=1, charge_and_multiplicity='0 1', title='', blurb=None, force=False, previous=None, neb=[False,None,None,None], lint=False):
 	# Generate the orca input file
-	os.chdir('orca')
+	os.system('mkdir -p orca/%s' % run_name)
+	os.chdir('orca/%s' % run_name)
 
 	# If running on system with more than one core, tell orca
 	if procs > 1:
@@ -32,11 +33,11 @@ export PATH=/fs/europa/g_pc/ompi_1_6_5/bin:/fs/europa/g_pc/orca_3_0_3_linux_x86-
 export LD_LIBRARY_PATH=/fs/europa/g_pc/ompi_1_6_5/lib:$LD_LIBRARY_PATH
 
 /fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca %s.orca >> %s.out 2>&1
-''' % (run_name, procs, queue, run_name, run_name)
+''' % (run_name, procs, queue, os.getcwd()+'/'+run_name, os.getcwd()+'/'+run_name)
 		f = open(run_name+'.nbs', 'w')
 		f.write(NBS)
 		f.close()
 		os.system('jsub %s.nbs' % run_name)
 
 	# Return to the appropriate directory
-	os.chdir('..')
+	os.chdir('../..')
