@@ -93,10 +93,12 @@ f.write('''###############################################################
 ###############################################################
 # Append Path
 export PYTHONPATH=$$$$$$/tools:$PYTHONPATH
+export PATH=/fs/europa/g_pc/orca_3_0_3_linux_x86-64/:$PATH
 
 # Aliases for our tools
 alias get_ext_list='python $$$$$$/tools/get_ext_list.py'
 alias get_gauss_list='python $$$$$$/tools/get_gauss_list.py'
+alias get_orca_list='python $$$$$$/tools/get_orca_list.py'
 alias get_jlist='python $$$$$$/tools/get_jlist.py'
 
 # Bind keys
@@ -174,6 +176,20 @@ GAUSSLIST=$(get_gauss_list $PWD)
 case "$cur" in
 *)
 COMPREPLY=( $( compgen -W '$GAUSSLIST' $cur ) );;
+esac
+return 0
+}
+
+_orcaAutoTab()
+{
+local cur 
+local ORCALIST 
+COMPREPLY=() 
+cur=${COMP_WORDS[COMP_CWORD]}
+ORCALIST=$(get_orca_list $PWD)
+case "$cur" in
+*)
+COMPREPLY=( $( compgen -W '$ORCALIST' $cur ) );;
 esac
 return 0
 }''')
