@@ -50,28 +50,44 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, 
 	# If parse_all is on, everything is in lists containing all information from the simulation
 	data = open('orca/%s/%s.out' % (input_file,input_file),'r').read()
 	atoms, energies, charges, times, convergence = [], [], [], [], []
-	tmp_atoms, tmp_energy, tmp_time, tmp_convergence, chk_done = [], None, None, [], False
+	tmp_atoms, tmp_energy, tmp_time, tmp_convergence, chk_done, incomplete = [], None, None, [], False, False
 	while data.find('CARTESIAN COORDINATES (ANGSTROEM)') != -1:
 		tmp_atoms, tmp_energy, tmp_times, tmp_convergence = [], None, None, []
-		if get_atoms:
-			s = 'CARTESIAN COORDINATES (ANGSTROEM)'
+		
+		s = 'CARTESIAN COORDINATES (ANGSTROEM)'
+		if get_atoms and data.find(s)!=-1:
 			data = data[data.find(s)+len(s):]
 			b = data[:data.find('\n\n')].split('\n')[2:]
 			for a in b:
 				a = a.split()
 				tmp_atoms.append(utils.Atom(a[0],float(a[1]),float(a[2]),float(a[3])))
-		if get_time:
-			s = 'Total SCF time'
+			tmp_atoms_hold = tmp_atoms
+		elif get_atoms:
+			tmp_atoms = tmp_atoms_hold
+			incomplete = True
+
+		s = 'Total SCF time'
+		if get_time and data.find(s)!=-1:
 			data = data[data.find(s):]
 			b = data[:data.find('\n')].split()
 			data = data[data.find('\n'):]
 			tmp_times = float(b[3])*3600*24 + float(b[5])*3600 + float(b[7])*60 + float(b[9])
-		if get_energy:
-			s = 'FINAL SINGLE POINT ENERGY'
+			tmp_times_hold = tmp_times
+		elif get_time:
+			tmp_times = tmp_times_hold
+			incomplete = True
+		
+		s = 'FINAL SINGLE POINT ENERGY'
+		if get_energy and data.find(s)!=-1:
 			data = data[data.find(s):]
 			b = data[:data.find('\n')].split()[-1]
 			data = data[data.find('\n'):]
 			tmp_energy = float(b)
+			tmp_energy_hold = tmp_energy
+		elif get_energy:
+			tmp_energy = tmp_energy_hold
+			incomplete = True
+		
 		if check_convergence and data.find('Geometry convergence') != -1:
 			s = 'Geometry convergence'
 			data = data[data.find(s)+len(s):]
@@ -92,6 +108,8 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, 
 			if get_time: times.append(tmp_time)
 			if get_energy: energies.append(tmp_energy)
 			if check_convergence: convergence.append(tmp_convergence)
+		if incomplete:
+			break
 
 	if get_charges:
 		if charge_type.strip().upper() not in ['MULLIKEN','LOEWDIN']:
