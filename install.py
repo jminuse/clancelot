@@ -292,7 +292,7 @@ if to_install['chkg']:
 	os.system('chmod 755 '+INSTALLDIR+'chkg/chkg.sh')
 if to_install['chko']:
 	f.write("alias chko='"+INSTALLDIR+"chko/chko.sh'\n")
-	f.write('complete -F _gaussAutoTab '+INSTALLDIR+'chko/chko.sh\n\n')
+	f.write('complete -F _orcaAutoTab '+INSTALLDIR+'chko/chko.sh\n\n')
 	g = open(INSTALLDIR+'chko/chko.sh','w')
 	g.write('python '+INSTALLDIR+'tools/chko.py $@')
 	g.close()
