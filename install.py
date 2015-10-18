@@ -10,6 +10,7 @@ to_install = {
 'jdel':1,
 'viewg':1,
 'chkg':1,
+'chko':1,
 'chkg_all':1,
 'scang':1,
 'junest (formerly juju)':0,
@@ -289,6 +290,13 @@ if to_install['chkg']:
 	g.write('python '+INSTALLDIR+'tools/chkg.py $@')
 	g.close()
 	os.system('chmod 755 '+INSTALLDIR+'chkg/chkg.sh')
+if to_install['chko']:
+	f.write("alias chko='"+INSTALLDIR+"chko/chko.sh'\n")
+	f.write('complete -F _gaussAutoTab '+INSTALLDIR+'chko/chko.sh\n\n')
+	g = open(INSTALLDIR+'chko/chko.sh','w')
+	g.write('python '+INSTALLDIR+'tools/chko.py $@')
+	g.close()
+	os.system('chmod 755 '+INSTALLDIR+'chko/chko.sh')
 if to_install['chkg_all']: f.write("alias chkg_all='python "+INSTALLDIR+"tools/chkg_all.py'\n")
 if to_install['merlin']: f.write("alias merlin='python -i "+INSTALLDIR+"tools/merlin.py'\n")
 if to_install['scang']: f.write("\nalias scang='python "+INSTALLDIR+"tools/scan.py'\n")
