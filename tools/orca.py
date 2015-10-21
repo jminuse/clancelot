@@ -56,92 +56,71 @@ export LD_LIBRARY_PATH=/fs/europa/g_pc/ompi_1_6_5/lib:$LD_LIBRARY_PATH
 
 # A function to parse and Orca DFT output file (assumes by default a .out file format)
 def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, charge_type='MULLIKEN', get_time=False, check_convergence=False, parse_all=False):
-	# This function returns data as:
-	#	atoms, energy, charges, time, convergence
-	# If parse_all is on, everything is in lists containing all information from the simulation
 	data = open('orca/%s/%s.out' % (input_file,input_file),'r').read()
-	atoms, energies, charges, times, convergence = [], [], [], [], []
-	tmp_atoms, tmp_energy, tmp_time, tmp_convergence, chk_done, incomplete = [], None, None, [], False, False
-	while data.find('CARTESIAN COORDINATES (ANGSTROEM)') != -1:
-		tmp_atoms, tmp_energy, tmp_times, tmp_convergence = [], None, None, []
-		
+
+	# Get all the positions
+	if get_atoms:
+		hold, atoms = data, []
 		s = 'CARTESIAN COORDINATES (ANGSTROEM)'
-		if get_atoms and data.find(s)!=-1:
-			data = data[data.find(s)+len(s):]
-			b = data[:data.find('\n\n')].split('\n')[2:]
-			for a in b:
+		while hold.find(s) != -1:
+			hold = hold[hold.find(s)+len(s):]
+			tmp = hold[:hold.find('\n\n')].split('\n')[2:]
+			tmp_atoms = []
+			for a in tmp:
 				a = a.split()
 				tmp_atoms.append(utils.Atom(a[0],float(a[1]),float(a[2]),float(a[3])))
-			tmp_atoms_hold = tmp_atoms
-		elif get_atoms:
-			tmp_atoms = tmp_atoms_hold
-			incomplete = True
+			atoms.append(tmp_atoms)
+		if not parse_all: atoms = atoms[-1]
 
-		s = 'Total SCF time'
-		if get_time and data.find(s)!=-1:
-			data = data[data.find(s):]
-			b = data[:data.find('\n')].split()
-			data = data[data.find('\n'):]
-			tmp_times = float(b[3])*3600*24 + float(b[5])*3600 + float(b[7])*60 + float(b[9])
-			tmp_times_hold = tmp_times
-		elif get_time:
-			tmp_times = tmp_times_hold
-			incomplete = True
-		
+	# Get all the energies
+	if get_energy:
+		hold, energies = data, []
 		s = 'FINAL SINGLE POINT ENERGY'
-		if get_energy and data.find(s)!=-1:
-			data = data[data.find(s):]
-			b = data[:data.find('\n')].split()[-1]
-			data = data[data.find('\n'):]
-			tmp_energy = float(b)
-			tmp_energy_hold = tmp_energy
-		elif get_energy:
-			tmp_energy = tmp_energy_hold
-			incomplete = True
-		
-		if check_convergence and data.find('Geometry convergence') != -1:
-			s = 'Geometry convergence'
-			data = data[data.find(s)+len(s):]
-			b = data[:data.find('Max(Bonds)')].split('\n')[3:-2]
-			for a in b:
-				a = a.split()
-				tmp_convergence.append([' '.join(a[:2]),float(a[2]),float(a[3]), a[4]=='YES'])
-			tmp_convergence_hold = tmp_convergence
-		elif check_convergence and not chk_done:
-			tmp_convergence = tmp_convergence_hold
-			chk_done = True
-		elif chk_done:
-			print("Error - Could not get the geometry convergence value")
-			sys.exit()
+		while hold.find(s) != -1:
+			hold = hold[hold.find(s):]
+			tmp = hold[:hold.find('\n')].split()[-1]
+			energies.append(float(tmp))
+			hold = hold[hold.find('\n'):]
+		if not parse_all: energies = energies[-1]
 
-		if parse_all:
-			if get_atoms: atoms.append(tmp_atoms)
-			if get_time: times.append(tmp_time)
-			if get_energy: energies.append(tmp_energy)
-			if check_convergence: convergence.append(tmp_convergence)
-		if incomplete:
-			break
-
-	if not parse_all:
-		# Get the gradient for the atoms
-
-		if get_atoms: atoms.append(tmp_atoms)
-		if get_time: times.append(tmp_time)
-		if get_energy: energies.append(tmp_energy)
-		if check_convergence: convergence.append(tmp_convergence)
-
+	# Get charges
 	if get_charges:
+		hold, charges = data, []
 		if charge_type.strip().upper() not in ['MULLIKEN','LOEWDIN']:
 			print("Error - Requested %s charge, but not a valid charge to request.  Choose from MULLIKEN or LOEWDIN." % charge_type.strip().upper())
 			sys.exit()
 		s = charge_type.strip().upper()+' ATOMIC CHARGES'
-		data = open('orca/%s/%s.out' % (input_file,input_file),'r').read()
-		data = data[data.rfind(s):]
-		b = data[:data.find('\n\n')].split('\n')[2:-1]
+
+		hold = hold[hold.rfind(s):]
+		b = hold[:hold.find('\n\n')].split('\n')[2:-1]
 		for a in b:
 			a = a.split()
 			charges.append([a[1],float(a[3])])
 	
+	# Get Simulation Times (note, if not parse_all, you get total simulation time)
+	if get_time:
+		hold, times = data, []
+		s = 'Total SCF time'
+		while hold.find(s) != -1:
+			hold = hold[hold.find(s):]
+			tmp = hold[:hold.find('\n')].split()
+			times.append(float(tmp[3])*3600*24 + float(tmp[5])*3600 + float(tmp[7])*60 + float(tmp[9]))
+			hold = hold[hold.find('\n'):]
+		if not parse_all: times = sum(times)
+
+	if check_convergence:
+		hold, convergence = data, []
+		s = 'Geometry convergence'
+		while hold.find(s) != -1:
+			hold = hold[hold.find(s)+len(s):]
+			tmp = hold[:hold.find('Max(Bonds)')].split('\n')[3:-2]
+			tmp_convergence = []
+			for a in tmp:
+				a = a.split()
+				tmp_convergence.append([' '.join(a[:2]),float(a[2]),float(a[3]), a[4]])
+			convergence.append(tmp_convergence)
+		if not parse_all: convergence = convergence[-1]
+
 	results = []
 	if get_atoms: results.append(atoms)
 	if get_energy: results.append(energies)

@@ -34,17 +34,42 @@ else: u2 = 'Ha'
 
 head = 'Job Name: %s\n' % sys.argv[1]
 head += 'Energy Data Points: %d\n' % len(e)
-Ener = str(units.convert_energy(u, u2, e[-2] - e[-3]))
-head += 'dE 2nd last = %s %s\n' % (Ener,u2)
-Ener = str(units.convert_energy(u, u2, e[-1] - e[-2]))
-head += 'dE last = %s %s\n' % (Ener,u2)
-Ener = str(units.convert_energy(u, u2, e[-1]))
-head += 'Last Energy = %s %s' % (Ener,u2)
+if len(e) > 2:
+        Ener = str(units.convert_energy(u, u2, e[-2] - e[-3]))
+        head += 'dE 2nd last = %s %s\n' % (Ener,u2)
+if len(e) > 1:
+        Ener = str(units.convert_energy(u, u2, e[-1] - e[-2]))
+        head += 'dE last = %s %s\n' % (Ener,u2)
+if len(e) > 0:
+        Ener = str(units.convert_energy(u, u2, e[-1]))
+        head += 'Last Energy = %s %s' % (Ener,u2)
+
 body = ''
-for c in conv[-1]: body += '%s\t%s\t%s\t%s\n' % (c[0],str(c[1]),str(c[2]),str(c[3]))
-body = body[:-1]
-body = spaced_print(body, delim='\t')
-
-s = '\n'+''.join(['-']*len(body.split('\n')[0]))+'\n'
-
-print(s+head+s+body+s)
+tail = ''
+if len(conv) > 0:
+        if all([c[-1] == 'YES' for c in conv[-1]]):
+                tail = 'Job finished in %.2e seconds' % sum(t)
+                length = [len(tmp) for tmp in head.split('\n')]
+                length.append(len(tail))
+                length = max(length)
+                s = '\n'+''.join(['-']*length)+'\n'
+        else:
+                for c in conv[-1]: body += '%s\t%s\t%s\t%s\n' % (c[0],str(c[1]),str(c[2]),str(c[3]))
+                body = body[:-1]
+                body = spaced_print(body, delim='\t')
+                tail = 'Current time is %.2e seconds' % sum(t)
+                length = [len(tmp) for tmp in head.split('\n')]
+                length.append(len(tail))
+                for i in body.split('\n'): length.append(len(i))
+                length = max(length)
+                s = '\n'+''.join(['-']*length)+'\n'
+else:
+        tail = 'Job finished in %.2e seconds' % sum(t)
+        length = [len(tmp) for tmp in head.split('\n')]
+        length.append(len(tail))
+        length = max(length)
+        s = '\n'+''.join(['-']*length)+'\n'
+if body != '':
+        print(s+head+s+body+s+tail+s)
+else:
+        print(s+head+s+tail+s)
