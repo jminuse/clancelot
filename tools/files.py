@@ -109,7 +109,7 @@ def read_xyz(name):
 	frames = []
 	for frame in lines_by_frame:
 		atoms = []
-		for line in frame:
+		for line in frame[2:]:
 			columns = line.split()
 			if len(columns)>=4:
 				x,y,z = [float(s) for s in columns[1:4]]

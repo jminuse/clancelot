@@ -27,7 +27,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         DFT='g09', job=g09.job, read_data=g09.parse_atoms,
         opt='BFGS', scipy_test=False, gtol=1e-5,
         alpha=0.3, beta=0.4, H_reset=True, dt = 0.5, euler=True,
-        force=True, mem=25, blurb=None, previous_neb=None): 
+        force=True, mem=25, blurb=None, initial_guess=None): 
     
     # If using test code, import path so we import correct scipy.optimize.
     if scipy_test or opt=='BFGS2': sys.path.insert(1,'/fs/home/hch54/scipy_mod/scipy/')
@@ -119,17 +119,17 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                     elif DFT=='orca':
                         guess = ' MOREAD\n%%moinp "../%s-%d-%d/%s-%d-%d.orca.gbw"' % (NEB.name,NEB.step-1,i,NEB.name,NEB.step-1,i)
                 else:
-                    if previous_neb:
+                    if initial_guess:
                         if DFT=='g09':
                             guess = ' Guess=Read'
                         elif DFT=='orca':
-                            guess = ' MOREAD\n%%moinp "../%s-%d-%d/%s-%d-%d.orca.gbw"' % (NEB.name,NEB.step-1,i,NEB.name,NEB.step-1,i)
+                            guess = ' MOREAD\n%%moinp "../%s/%s.orca.gbw"' % (initial_guess,initial_guess)
                     else:
                         guess = '' #no previous guess for first step
                 if DFT=='g09':
-                    running_jobs.append( job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+' Force'+guess, state, procs=procs, queue=queue, force=force, previous=('%s-%d-%d'%(NEB.name,NEB.step-1,i)) if NEB.step>0 else (None if not previous_neb else (previous_neb%i)), extra_section=extra_section, neb=[True,'%s-%%d-%%d'%(NEB.name),len(NEB.states),i], mem=mem) )
+                    running_jobs.append( job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+' Force'+guess, state, procs=procs, queue=queue, force=force, previous=('%s-%d-%d'%(NEB.name,NEB.step-1,i)) if NEB.step>0 else initial_guess, extra_section=extra_section, neb=[True,'%s-%%d-%%d'%(NEB.name),len(NEB.states),i], mem=mem) )
                 elif DFT=='orca':
-                    running_jobs.append( job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+guess, state, extra_section=extra_section, grad=True, procs=procs, queue=queue) )
+                	running_jobs.append( job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+guess, state, extra_section=extra_section, grad=True, procs=procs, queue=queue) )
             # Wait for jobs to finish
             for j in running_jobs: j.wait()
 
@@ -167,8 +167,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                             a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
                 elif DFT == 'orca':
                     for a,b in zip(state, new_atoms):
-                        a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
-
+						a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
             # V = potential energy from DFT. energies = V+springs
             V = copy.deepcopy(energies) 
             # Reset convergence check
