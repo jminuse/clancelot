@@ -9,6 +9,7 @@ to_install = {
 'jsub':1,
 'jdel':1,
 'viewg':1,
+'viewo':1,
 'chkg':1,
 'chko':1,
 'chkg_all':1,
@@ -19,7 +20,7 @@ to_install = {
 'file_browser':1, 			# set the file browser not to open a new window per folder
 'merlin':1,
 'sublime_text_3_build_3083':0,
-'prnt':0 # ONLY install if lpstat -p -d returns no available printers
+'prnt':1 # ONLY install if lpstat -p -d returns no available printers
 }
 
 ####################################################################################################################
@@ -82,6 +83,7 @@ for key in to_install: # Make directories for what we want to install
 	if key == 'matplotlib': continue
 	if key == 'anaconda': continue
 	if key == 'sublime_text_3_build_3083': continue
+	if key == 'merlin': continue
 	if key == 'prnt': continue
 	if to_install[key]: os.system('mkdir -p '+INSTALLDIR+key+'/')
 
@@ -299,6 +301,13 @@ if to_install['viewg']:
 	g.write('python '+INSTALLDIR+'tools/view_gaussian.py $@')
 	g.close()
 	os.system('chmod 755 '+INSTALLDIR+'viewg/viewg.sh')
+if to_install['viewo']:
+	f.write("alias viewo='"+INSTALLDIR+"viewo/viewo.sh'\n")
+	f.write('complete -F _orcaAutoTab '+INSTALLDIR+'viewo/viewo.sh\n\n')
+	g = open(INSTALLDIR+'viewo/viewo.sh','w')
+	g.write('python '+INSTALLDIR+'tools/view_orca.py $@')
+	g.close()
+	os.system('chmod 755 '+INSTALLDIR+'viewo/viewo.sh')
 if to_install['chkg']:
 	f.write("alias chkg='"+INSTALLDIR+"chkg/chkg.sh'\n")
 	f.write('complete -F _gaussAutoTab '+INSTALLDIR+'chkg/chkg.sh\n\n')

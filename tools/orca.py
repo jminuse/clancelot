@@ -2,7 +2,7 @@ from merlin import *
 from subprocess import Popen
 
 # A function to run an Orca DFT Simulation
-def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, procs=1, charge_and_multiplicity='0 1', title='', blurb=None, force=False, previous=None, neb=[False,None,None,None], lint=False):
+def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, procs=1, charge_and_multiplicity='0 1', title='', blurb=None, force=False, previous=None, neb=[False,None,None,None], mem=None, lint=False):
 	# Generate the orca input file
 	os.system('mkdir -p orca/%s' % run_name)
 	os.chdir('orca/%s' % run_name)
@@ -11,10 +11,15 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 	if procs > 1:
 		route += ' PAL%d' % procs
 
+	# If desiring .orca.engrad output, tell orca
 	if grad:
 		extra_section = extra_section.strip() + '''\n%method
  RunTyp Gradient
  end'''
+
+ 	# One can specify how much memory they want (in MB) per core
+ 	if mem is not None:
+ 		extra_section = extra_section.strip() + '\n%maxcore ' + str(mem).strip()
 
 	# Get input for orca formatted correctly
 	inp = route.strip()+'\n'+extra_section.strip()+'\n*xyz '+charge_and_multiplicity+'\n'
