@@ -60,7 +60,7 @@ export LD_LIBRARY_PATH=/fs/europa/g_pc/ompi_1_6_5/lib:$LD_LIBRARY_PATH
 		return utils.Job(run_name)
 
 # A function to parse and Orca DFT output file (assumes by default a .out file format)
-def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, charge_type='MULLIKEN', get_time=False, check_convergence=False, parse_all=False):
+def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, charge_type='MULLIKEN', get_time=False, get_bandgap=False, check_convergence=False, parse_all=False):
 	data = open('orca/%s/%s.out' % (input_file,input_file),'r').read()
 
 	# Get all the positions
@@ -113,6 +113,24 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, 
 			hold = hold[hold.find('\n'):]
 		if not parse_all: times = sum(times)
 
+	if get_bandgap:
+		hold, bandgap = data, []
+		s = 'ORBITAL ENERGIES'
+		while hold.find(s) != -1:
+			hold = hold[hold.find(s) + len(s):]
+			tmp = hold[:hold.replace('\n\n','\t\t',1).find('\n\n')].split('\n')[4:]
+			for i,t in enumerate(tmp):
+				t = t.split()
+				if float(t[1]) == 0:
+					if i == 0:
+						print("Error in calculating bandgap. Lowest energy orbital is empty.")
+						sys.exit()
+					bandgap.append(float(t[2]) - float(tp[2]))
+					break
+				tp = t
+			hold = hold[hold.find('\n'):]
+		if not parse_all: bandgap = bandgap[-1]
+
 	if check_convergence:
 		hold, convergence = data, []
 		s = 'Geometry convergence'
@@ -131,8 +149,23 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, 
 	if get_energy: results.append(energies)
 	if get_charges: results.append(charges)
 	if get_time: results.append(times)
+	if get_bandgap: results.append(bandgap)
 	if check_convergence: results.append(convergence)
 	return results
+
+# Simplified calls to parse_atoms
+def atoms(input_file, parse_all=True):
+	return parse_atoms(input_file, get_atoms=True, get_energy=False, get_charges=False, get_time=False, get_bandgap=False, check_convergence=False, parse_all=parse_all)
+def energies(input_file, parse_all=True):
+	return parse_atoms(input_file, get_atoms=False, get_energy=True, get_charges=False, get_time=False, get_bandgap=False, check_convergence=False, parse_all=parse_all)
+def charges(input_file, parse_all=True):
+	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=True, get_time=False, get_bandgap=False, check_convergence=False, parse_all=parse_all)
+def times(input_file, parse_all=True):
+	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=False, get_time=True, get_bandgap=False, check_convergence=False, parse_all=parse_all)
+def bandgap(input_file, parse_all=True):
+	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=False, get_time=False, get_bandgap=True, check_convergence=False, parse_all=parse_all)
+def convergence(input_file, parse_all=True):
+	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=False, get_time=False, get_bandgap=False, check_convergence=True, parse_all=parse_all)
 
 # A function to parse orca.engrad files
 def engrad_read(input_file):
