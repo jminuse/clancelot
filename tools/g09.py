@@ -301,7 +301,31 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, check_convergence=T
 		
 def atoms(input_file, check=False):
 	return parse_atoms(input_file, get_atoms=True, get_energy=False, check_convergence=check, get_time=False, counterpoise=False)
+
+def bandgap(input_file, parse_all=True):
+	if input_file[-4:] != '.log':
+		input_file = 'gaussian/'+input_file+'.log'
+	hold = open(input_file).read()
+
+	bandgap = []
+	s = 'The electronic state is'
+	while hold.find(s) != -1:
+		hold = hold[hold.find(s) + len(s):]
+		tmp = hold[:hold.find('Condensed')].split('\n')[1:-1]
+		for i,t in enumerate(tmp):
+			t = t.split()
+			if t[1] == 'virt.':
+				if i == 0:
+					print("Error in calculating bandgap. Lowest eigenvalue energy is empty.")
+					sys.exit()
+				bandgap.append(float(t[4]) - float(tp[-1]))
+				break
+			tp = t
+		hold = hold[hold.find('\n'):]
+	if not parse_all: bandgap = bandgap[-1]
 	
+	return bandgap
+
 def parse_scan(input_file):
 	contents = open(input_file).read()
 	if 'Normal termination of Gaussian 09' not in contents:
