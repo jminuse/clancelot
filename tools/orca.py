@@ -102,16 +102,17 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, 
 			a = a.split()
 			charges.append([a[1],float(a[3])])
 	
-	# Get Simulation Times (note, if not parse_all, you get total simulation time)
+	# Get Total Simulation Time
 	if get_time:
 		hold, times = data, []
-		s = 'Total SCF time'
-		while hold.find(s) != -1:
-			hold = hold[hold.find(s):]
-			tmp = hold[:hold.find('\n')].split()
-			times.append(float(tmp[3])*3600*24 + float(tmp[5])*3600 + float(tmp[7])*60 + float(tmp[9]))
-			hold = hold[hold.find('\n'):]
-		if not parse_all: times = sum(times)
+		s = 'TOTAL RUN TIME'
+		if hold.rfind(s) != -1:
+			hold = hold[hold.rfind(s):]
+			hold = hold[:hold.find('\n')].split()
+			time = float(hold[3])*3600*24 + float(hold[5])*3600 + float(hold[7])*60 + float(hold[9]) + float(hold[11])/1000.0
+			times.append(time)
+		else:
+			times.append(float('NaN'))
 
 	if get_bandgap:
 		hold, bandgap = data, []

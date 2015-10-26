@@ -1,6 +1,6 @@
 from merlin import *
 import re
-
+from numpy import isnan
 
 def spaced_print(sOut,delim=['\t',' '],buf=4):
         s_len = []
@@ -27,7 +27,7 @@ if len(sys.argv) < 2:
 	sys.exit()
 
 a,e,t,conv = orca.parse_atoms(sys.argv[1],get_atoms=True,get_energy=True,get_charges=False,get_time=True,check_convergence=True,parse_all=True)
-
+t = t[0]
 u = 'Ha'
 if len(sys.argv) > 2: u2 = sys.argv[2]
 else: u2 = 'Ha'
@@ -48,7 +48,7 @@ body = ''
 tail = ''
 if len(conv) > 0:
         if all([c[-1] == 'YES' for c in conv[-1]]):
-                tail = 'Job finished in %.2e seconds' % sum(t)
+                tail = 'Job finished in %.2e seconds' % t
                 length = [len(tmp) for tmp in head.split('\n')]
                 length.append(len(tail))
                 length = max(length)
@@ -57,14 +57,17 @@ if len(conv) > 0:
                 for c in conv[-1]: body += '%s\t%s\t%s\t%s\n' % (c[0],str(c[1]),str(c[2]),str(c[3]))
                 body = body[:-1]
                 body = spaced_print(body, delim='\t')
-                tail = 'Current time is %.2e seconds' % sum(t)
+                if not isnan(t):
+                        tail = 'Job finished in %.2e seconds' % t
+                else:
+                        tail = 'Job still running...'
                 length = [len(tmp) for tmp in head.split('\n')]
                 length.append(len(tail))
                 for i in body.split('\n'): length.append(len(i))
                 length = max(length)
                 s = '\n'+''.join(['-']*length)+'\n'
 else:
-        tail = 'Job finished in %.2e seconds' % sum(t)
+        tail = 'Job finished in %.2e seconds' % t
         length = [len(tmp) for tmp in head.split('\n')]
         length.append(len(tail))
         length = max(length)
