@@ -2,7 +2,7 @@ from merlin import *
 from subprocess import Popen
 
 # A function to run an Orca DFT Simulation
-def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, procs=1, charge_and_multiplicity='0 1', title='', blurb=None, force=False, previous=None, neb=[False,None,None,None], lint=False):
+def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, procs=1, charge_and_multiplicity='0 1', title='', blurb=None, force=False, previous=None, neb=[False,None,None,None], mem=None, lint=False):
 	# Generate the orca input file
 	os.system('mkdir -p orca/%s' % run_name)
 	os.chdir('orca/%s' % run_name)
@@ -11,10 +11,15 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 	if procs > 1:
 		route += ' PAL%d' % procs
 
+	# If desiring .orca.engrad output, tell orca
 	if grad:
 		extra_section = extra_section.strip() + '''\n%method
  RunTyp Gradient
  end'''
+
+ 	# One can specify how much memory they want (in MB) per core
+ 	if mem is not None:
+ 		extra_section = extra_section.strip() + '\n%maxcore ' + str(mem).strip()
 
 	# Get input for orca formatted correctly
 	inp = route.strip()+'\n'+extra_section.strip()+'\n*xyz '+charge_and_multiplicity+'\n'
@@ -41,7 +46,7 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 export PATH=/fs/europa/g_pc/ompi_1_6_5/bin:/fs/europa/g_pc/orca_3_0_3_linux_x86-64:$PATH
 export LD_LIBRARY_PATH=/fs/europa/g_pc/ompi_1_6_5/lib:$LD_LIBRARY_PATH
 
-/fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca %s.orca >> %s.out 2>&1
+/fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca %s.orca > %s.out 2>&1
 ''' % (run_name, procs, queue, os.getcwd()+'/'+run_name, os.getcwd()+'/'+run_name)
 		f = open(run_name+'.nbs', 'w')
 		f.write(NBS)
@@ -57,100 +62,113 @@ export LD_LIBRARY_PATH=/fs/europa/g_pc/ompi_1_6_5/lib:$LD_LIBRARY_PATH
 		return utils.Job(run_name)
 
 # A function to parse and Orca DFT output file (assumes by default a .out file format)
-def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, charge_type='MULLIKEN', get_time=False, check_convergence=False, parse_all=False):
-	# This function returns data as:
-	#	atoms, energy, charges, time, convergence
-	# If parse_all is on, everything is in lists containing all information from the simulation
+def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, charge_type='MULLIKEN', get_time=False, get_bandgap=False, check_convergence=False, parse_all=False):
 	data = open('orca/%s/%s.out' % (input_file,input_file),'r').read()
-	atoms, energies, charges, times, convergence = [], [], [], [], []
-	tmp_atoms, tmp_energy, tmp_time, tmp_convergence, chk_done, incomplete = [], None, None, [], False, False
-	while data.find('CARTESIAN COORDINATES (ANGSTROEM)') != -1:
-		tmp_atoms, tmp_energy, tmp_times, tmp_convergence = [], None, None, []
-		
+
+	# Get all the positions
+	if get_atoms:
+		hold, atoms = data, []
 		s = 'CARTESIAN COORDINATES (ANGSTROEM)'
-		if get_atoms and data.find(s)!=-1:
-			data = data[data.find(s)+len(s):]
-			b = data[:data.find('\n\n')].split('\n')[2:]
-			for a in b:
+		while hold.find(s) != -1:
+			hold = hold[hold.find(s)+len(s):]
+			tmp = hold[:hold.find('\n\n')].split('\n')[2:]
+			tmp_atoms = []
+			for a in tmp:
 				a = a.split()
 				tmp_atoms.append(utils.Atom(a[0],float(a[1]),float(a[2]),float(a[3])))
-			tmp_atoms_hold = tmp_atoms
-		elif get_atoms:
-			tmp_atoms = tmp_atoms_hold
-			incomplete = True
+			atoms.append(tmp_atoms)
+		if not parse_all: atoms = atoms[-1]
 
-		s = 'Total SCF time'
-		if get_time and data.find(s)!=-1:
-			data = data[data.find(s):]
-			b = data[:data.find('\n')].split()
-			data = data[data.find('\n'):]
-			tmp_times = float(b[3])*3600*24 + float(b[5])*3600 + float(b[7])*60 + float(b[9])
-			tmp_times_hold = tmp_times
-		elif get_time:
-			tmp_times = tmp_times_hold
-			incomplete = True
-		
+	# Get all the energies
+	if get_energy:
+		hold, energies = data, []
 		s = 'FINAL SINGLE POINT ENERGY'
-		if get_energy and data.find(s)!=-1:
-			data = data[data.find(s):]
-			b = data[:data.find('\n')].split()[-1]
-			data = data[data.find('\n'):]
-			tmp_energy = float(b)
-			tmp_energy_hold = tmp_energy
-		elif get_energy:
-			tmp_energy = tmp_energy_hold
-			incomplete = True
-		
-		if check_convergence and data.find('Geometry convergence') != -1:
-			s = 'Geometry convergence'
-			data = data[data.find(s)+len(s):]
-			b = data[:data.find('Max(Bonds)')].split('\n')[3:-2]
-			for a in b:
-				a = a.split()
-				tmp_convergence.append([' '.join(a[:2]),float(a[2]),float(a[3]), a[4]=='YES'])
-			tmp_convergence_hold = tmp_convergence
-		elif check_convergence and not chk_done:
-			tmp_convergence = tmp_convergence_hold
-			chk_done = True
-		elif chk_done:
-			print("Error - Could not get the geometry convergence value")
-			sys.exit()
+		while hold.find(s) != -1:
+			hold = hold[hold.find(s):]
+			tmp = hold[:hold.find('\n')].split()[-1]
+			energies.append(float(tmp))
+			hold = hold[hold.find('\n'):]
+		if not parse_all: energies = energies[-1]
 
-		if parse_all:
-			if get_atoms: atoms.append(tmp_atoms)
-			if get_time: times.append(tmp_time)
-			if get_energy: energies.append(tmp_energy)
-			if check_convergence: convergence.append(tmp_convergence)
-		if incomplete:
-			break
-
-	if not parse_all:
-		# Get the gradient for the atoms
-
-		if get_atoms: atoms.append(tmp_atoms)
-		if get_time: times.append(tmp_time)
-		if get_energy: energies.append(tmp_energy)
-		if check_convergence: convergence.append(tmp_convergence)
-
+	# Get charges
 	if get_charges:
+		hold, charges = data, []
 		if charge_type.strip().upper() not in ['MULLIKEN','LOEWDIN']:
 			print("Error - Requested %s charge, but not a valid charge to request.  Choose from MULLIKEN or LOEWDIN." % charge_type.strip().upper())
 			sys.exit()
 		s = charge_type.strip().upper()+' ATOMIC CHARGES'
-		data = open('orca/%s/%s.out' % (input_file,input_file),'r').read()
-		data = data[data.rfind(s):]
-		b = data[:data.find('\n\n')].split('\n')[2:-1]
+
+		hold = hold[hold.rfind(s):]
+		b = hold[:hold.find('\n\n')].split('\n')[2:-1]
 		for a in b:
 			a = a.split()
 			charges.append([a[1],float(a[3])])
 	
+	# Get Total Simulation Time
+	if get_time:
+		hold, times = data, []
+		s = 'TOTAL RUN TIME'
+		if hold.rfind(s) != -1:
+			hold = hold[hold.rfind(s):]
+			hold = hold[:hold.find('\n')].split()
+			time = float(hold[3])*3600*24 + float(hold[5])*3600 + float(hold[7])*60 + float(hold[9]) + float(hold[11])/1000.0
+			times.append(time)
+		else:
+			times.append(float('NaN'))
+
+	if get_bandgap:
+		hold, bandgap = data, []
+		s = 'ORBITAL ENERGIES'
+		while hold.find(s) != -1:
+			hold = hold[hold.find(s) + len(s):]
+			tmp = hold[:hold.replace('\n\n','\t\t',1).find('\n\n')].split('\n')[4:]
+			for i,t in enumerate(tmp):
+				t = t.split()
+				if float(t[1]) == 0:
+					if i == 0:
+						print("Error in calculating bandgap. Lowest energy orbital is empty.")
+						sys.exit()
+					bandgap.append(float(t[2]) - float(tp[2]))
+					break
+				tp = t
+			hold = hold[hold.find('\n'):]
+		if not parse_all: bandgap = bandgap[-1]
+
+	if check_convergence:
+		hold, convergence = data, []
+		s = 'Geometry convergence'
+		while hold.find(s) != -1:
+			hold = hold[hold.find(s)+len(s):]
+			tmp = hold[:hold.find('Max(Bonds)')].split('\n')[3:-2]
+			tmp_convergence = []
+			for a in tmp:
+				a = a.split()
+				tmp_convergence.append([' '.join(a[:2]),float(a[2]),float(a[3]), a[4]])
+			convergence.append(tmp_convergence)
+		if not parse_all: convergence = convergence[-1]
+
 	results = []
 	if get_atoms: results.append(atoms)
 	if get_energy: results.append(energies)
 	if get_charges: results.append(charges)
 	if get_time: results.append(times)
+	if get_bandgap: results.append(bandgap)
 	if check_convergence: results.append(convergence)
 	return results
+
+# Simplified calls to parse_atoms
+def atoms(input_file, parse_all=True):
+	return parse_atoms(input_file, get_atoms=True, get_energy=False, get_charges=False, get_time=False, get_bandgap=False, check_convergence=False, parse_all=parse_all)
+def energies(input_file, parse_all=True):
+	return parse_atoms(input_file, get_atoms=False, get_energy=True, get_charges=False, get_time=False, get_bandgap=False, check_convergence=False, parse_all=parse_all)
+def charges(input_file, parse_all=True):
+	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=True, get_time=False, get_bandgap=False, check_convergence=False, parse_all=parse_all)
+def times(input_file, parse_all=True):
+	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=False, get_time=True, get_bandgap=False, check_convergence=False, parse_all=parse_all)
+def bandgap(input_file, parse_all=True):
+	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=False, get_time=False, get_bandgap=True, check_convergence=False, parse_all=parse_all)
+def convergence(input_file, parse_all=True):
+	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=False, get_time=False, get_bandgap=False, check_convergence=True, parse_all=parse_all)
 
 # A function to parse orca.engrad files
 def engrad_read(input_file):
