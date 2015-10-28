@@ -30,6 +30,8 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 	# Run the simulation
 	if queue is None:
 		process_handle = Popen('/fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca %s.orca > %s.out' % (run_name, run_name), shell=True)
+	elif queue=='debug':
+		print 'Would run', run_name, charge_and_multiplicity
 	else:
 		NBS = '''#!/bin/bash
 ##NBS-name: "%s"
