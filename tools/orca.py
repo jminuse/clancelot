@@ -145,7 +145,7 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, 
 				a = a.split()
 				tmp_convergence.append([' '.join(a[:2]),float(a[2]),float(a[3]), a[4]])
 			convergence.append(tmp_convergence)
-		if not parse_all: convergence = convergence[-1]
+		if convergence != [] and not parse_all: convergence = convergence[-1]
 
 	results = []
 	if get_atoms: results.append(atoms)

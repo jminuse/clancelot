@@ -1,5 +1,5 @@
 import sys,  os, re
-import g09, files
+import g09, orca, files
 from merlin import units
 
 #import math, random,  utils, shutil, copy, cPickle
@@ -26,7 +26,9 @@ OPTIONS:
 -c char,start,stop          : given a character, replaces it from start
                                to stop and runs scang on each.  Graphs
                                are compiled together.
--u                          : given a unit for y axis. By default this
+-dft type                   : given a string describing what to scan. By
+                               default this is 'g09' but can be 'orca'.
+-u units                    : given a unit for y axis. By default this
                                is kcal/mol
 -neb value                  : force neb endpoint on (1) or off (2) default
                               is 0 for don't force anything.
@@ -47,6 +49,8 @@ if len(sys.argv) <3:
 name = sys.argv[1]
 if name.startswith('gaussian/'):
 	name=name[9:]
+if name.startswith('orca/'):
+	name=name[5:]
 
 #Clean up flags to make parsing easier
 arg = []
@@ -67,6 +71,7 @@ comp=None
 compE=[]
 s_units='kcal/mol'
 neb_force=0
+DFT='g09'
 
 #Parse optional flags
 unidentifiable=[]
@@ -122,10 +127,18 @@ if (len(arg)>=3):
 			print " Units = " + arg[-1]
 			s_units=arg[-1]
 			arg=arg[:-2]
-		#Custom y axis units
+		#NEB compile
 		elif arg[-2].startswith('-neb'):
 			print " Neb Force = " + str(arg[-1])
 			neb_force= int(arg[-1])
+			arg=arg[:-2]
+		#Scan over g09 or orca
+		elif arg[-2].startswith('-dft'):
+			print " DFT scan = " + arg[-1]
+			DFT=arg[-1]
+			if DFT not in ['g09','orca']:
+				print("Error - DFT must be 'g09' or 'orca', not %s" % DFT)
+				sys.exit()
 			arg=arg[:-2]
 
 		curr_length=len(arg)
@@ -181,9 +194,16 @@ for loop in loops:
 	for step in range(t_low,t_count+1):
 		tmp_name = name+str(step) if name.find('%')==-1 else name % step # Get step
 		if comp != None: tmp_name = tmp_name.replace(comp[0],str(loop)) # Get loop
-		energy, atoms = g09.parse_atoms(tmp_name, check_convergence=False)
+		if DFT == 'g09':
+			energy, atoms = g09.parse_atoms(tmp_name, check_convergence=False)
+		elif DFT == 'orca':
+			atoms, energy = orca.parse_atoms(tmp_name)
 		files.write_xyz(atoms, f)
-		if comp == None: print step, energy, int(g09.parse_atoms(tmp_name)!=None)
+		if comp == None: 
+			if DFT == 'g09':
+				print step, energy, int(g09.parse_atoms(tmp_name)!=None)
+			elif DFT == 'orca':
+				print step, energy
 		energies.append(energy)
 		if ((comp != None and loop == 0) or (neb_force==1 and loop == loops[0])) and neb_force!=2:
 			if step == t_low: offset_low = energy
