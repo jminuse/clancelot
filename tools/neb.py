@@ -112,7 +112,15 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             
             # Start DFT jobs
             running_jobs = []
+            
             for i,state in enumerate(NEB.states):
+                
+                # Set the extra section to be whatever specified originally
+                extra_section = NEB.extra_section.strip()
+                # If g09, ensure two newlines at end
+                if DFT=='g09':
+                    extra_section += '\n\n'
+                
                 if NEB.step>0:
                     if (i==0 or i==len(NEB.states)-1): # Only use DFT on endpoints on first step, because they don't change
                         continue
@@ -121,7 +129,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                     elif DFT=='orca':
                         guess = ' MOREAD'
                         tmp = '%%moinp "../%s-%d-%d/%s-%d-%d.orca.gbw"' % (NEB.name,NEB.step-1,i,NEB.name,NEB.step-1,i)
-                        extra_section = tmp + NEB.extra_section.strip()
+                        extra_section = tmp + extra_section.strip()
                 else:
                     if initial_guess:
                         if DFT=='g09':
@@ -129,16 +137,15 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                         elif DFT=='orca':
                             guess = ' MOREAD'
                             tmp = '%%moinp "../%s/%s.orca.gbw\n"' % (initial_guess,initial_guess)
-                            extra_section = tmp + NEB.extra_section.strip()
+                            extra_section = tmp + extra_section.strip()
                     else:
                         guess = '' #no previous guess for first step
-                        extra_section =  NEB.extra_section.strip()
+
                 if DFT=='g09':
-                    if extra_section != '':
-                        extra_section = extra_section.strip() + '\n\n'
                     running_jobs.append( g09.job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+' Force'+guess, state, procs=procs, queue=queue, force=force, previous=('%s-%d-%d'%(NEB.name,NEB.step-1,i)) if NEB.step>0 else initial_guess, extra_section=extra_section, neb=[True,'%s-%%d-%%d'%(NEB.name),len(NEB.states),i], mem=mem) )
                 elif DFT=='orca':
                 	running_jobs.append( orca.job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+guess, state, extra_section=extra_section, grad=True, procs=procs, queue=queue) )
+
             # Wait for jobs to finish
             for j in running_jobs: j.wait()
 
