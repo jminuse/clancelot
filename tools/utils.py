@@ -545,7 +545,7 @@ def pretty_xyz(name,R_MAX=1,F_MIN=1,F_MAX=50,PROCRUSTS=False,outName=None,write_
 		if i>0 and i < len(frames) - 1:
 			f_low = frames[:i-1]
 			f_high = frames[i+2:]
-			f_mid = interpolate(frames[i-1],frames[i+2],4)
+			f_mid = interpolate(frames[i-1],frames[i+1],4)
 			frames = f_low + f_mid + f_high
 		elif i == 0:
 			f_high = frames[i+2:]
