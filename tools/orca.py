@@ -62,7 +62,7 @@ export LD_LIBRARY_PATH=/fs/europa/g_pc/ompi_1_6_5/lib:$LD_LIBRARY_PATH
 		return utils.Job(run_name)
 
 # A function to parse and Orca DFT output file (assumes by default a .out file format)
-def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, charge_type='MULLIKEN', get_time=False, get_bandgap=False, check_convergence=False, parse_all=False):
+def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, charge_type='MULLIKEN', get_time=False, get_bandgap=False, check_convergence=False, check_converged=False, parse_all=False):
 	data = open('orca/%s/%s.out' % (input_file,input_file),'r').read()
 
 	# Get all the positions
@@ -151,6 +151,12 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, 
 		else:
 			convergence = None
 
+	if check_converged:
+		hold, converged = data, False
+		s = 'SCF CONVERGED AFTER'
+		if hold.find(s) != -1:
+			converged = True
+
 	results = []
 	if get_atoms: results.append(atoms)
 	if get_energy: results.append(energies)
@@ -158,23 +164,27 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, 
 	if get_time: results.append(times)
 	if get_bandgap: results.append(bandgap)
 	if check_convergence: results.append(convergence)
+	if check_converged: results.append(converged)
+
 	while type(results) == list and len(results) == 1:
 		results = results[0]
 	return results
 
 # Simplified calls to parse_atoms
 def atoms(input_file, parse_all=True):
-	return parse_atoms(input_file, get_atoms=True, get_energy=False, get_charges=False, get_time=False, get_bandgap=False, check_convergence=False, parse_all=parse_all)
+	return parse_atoms(input_file, get_atoms=True, get_energy=False, get_charges=False, get_time=False, get_bandgap=False, check_convergence=False, check_converged=False, parse_all=parse_all)
 def energies(input_file, parse_all=True):
-	return parse_atoms(input_file, get_atoms=False, get_energy=True, get_charges=False, get_time=False, get_bandgap=False, check_convergence=False, parse_all=parse_all)
+	return parse_atoms(input_file, get_atoms=False, get_energy=True, get_charges=False, get_time=False, get_bandgap=False, check_convergence=False, check_converged=False, parse_all=parse_all)
 def charges(input_file, parse_all=True):
-	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=True, get_time=False, get_bandgap=False, check_convergence=False, parse_all=parse_all)
+	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=True, get_time=False, get_bandgap=False, check_convergence=False, check_converged=False, parse_all=parse_all)
 def times(input_file, parse_all=True):
-	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=False, get_time=True, get_bandgap=False, check_convergence=False, parse_all=parse_all)
+	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=False, get_time=True, get_bandgap=False, check_convergence=False, check_converged=False, parse_all=parse_all)
 def bandgap(input_file, parse_all=True):
-	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=False, get_time=False, get_bandgap=True, check_convergence=False, parse_all=parse_all)
+	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=False, get_time=False, get_bandgap=True, check_convergence=False, check_converged=False, parse_all=parse_all)
 def convergence(input_file, parse_all=True):
-	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=False, get_time=False, get_bandgap=False, check_convergence=True, parse_all=parse_all)
+	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=False, get_time=False, get_bandgap=False, check_convergence=True, check_converged=False, parse_all=parse_all)
+def converged(input_file, parse_all=True):
+	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=False, get_time=False, get_bandgap=False, check_convergence=False, check_converged=True, parse_all=parse_all)
 
 # A function to parse orca.engrad files
 def engrad_read(input_file):
@@ -226,9 +236,9 @@ def read(input_file):
 	data.charges_LOEWDIN = parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=True, charge_type='LOEWDIN', get_time=False, get_bandgap=False, check_convergence=False, parse_all=True)
 	data.charges = data.charges_MULLIKEN if data.charges_MULLIKEN is not None else data.charges_LOEWDIN
 	data.convergence = convergence(input_file, parse_all=True)
+	data.converged = converged(input_file, parse_all=True)
 	data.time = times(input_file, parse_all=True)
 	data.bandgap = bandgap(input_file, parse_all=True)
 
-	data.converged = all(c[-1] == 'YES' for c in data.convergence)
 
 	return data

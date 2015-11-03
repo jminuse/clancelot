@@ -60,6 +60,7 @@ class DFT_out():
 		self.charges = None
 		self.charges_MULLIKEN = None
 		self.charges_LOEWDIN = None
+		self.charges_CHELPG = None
 
 def get_bonds(atoms):
 	bonds = []
