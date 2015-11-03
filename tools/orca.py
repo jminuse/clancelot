@@ -230,7 +230,8 @@ def engrad_read(input_file):
 def read(input_file):
 	data = utils.DFT_out(input_file, 'orca')
 
-	data.atoms = atoms(input_file, parse_all=True)
+	data.frames = atoms(input_file, parse_all=True)
+	data.atoms = data.frames[-1]
 	data.energies = energies(input_file, parse_all=True)
 	data.charges_MULLIKEN = parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=True, charge_type='MULLIKEN', get_time=False, get_bandgap=False, check_convergence=False, parse_all=True)
 	data.charges_LOEWDIN = parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=True, charge_type='LOEWDIN', get_time=False, get_bandgap=False, check_convergence=False, parse_all=True)

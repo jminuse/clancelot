@@ -51,6 +51,7 @@ class DFT_out():
 		self.dft = dft.lower()
 
 		# Initialize everything as None
+		self.frames = None
 		self.atoms = None
 		self.energies = None
 		self.convergence = None

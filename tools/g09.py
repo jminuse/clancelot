@@ -560,7 +560,8 @@ print('Binding Energy = '+str(sp_corr + geom_corr)+' '+s_units)'''.replace('$$$$
 def read(input_file):
 	data = utils.DFT_out(input_file, 'g09')
 
-	data.atoms = parse_atoms(input_file, get_atoms=True, get_energy=False, check_convergence=False, get_time=False, counterpoise=False, parse_all=True)[1]
+	data.frames = parse_atoms(input_file, get_atoms=True, get_energy=False, check_convergence=False, get_time=False, counterpoise=False, parse_all=True)[1]
+	data.atoms = data.frames[-1]
 	data.energies = parse_atoms(input_file, get_atoms=False, get_energy=True, check_convergence=False, get_time=False, counterpoise=False, parse_all=True)[0]
 	data.charges_CHELPG = parse_chelpg(input_file)
 	data.charges = data.charges_CHELPG
