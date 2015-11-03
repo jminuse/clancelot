@@ -536,3 +536,14 @@ print('\tDeformation of B = '+str(deform_b)+' '+s_units)
 print('Binding Energy = '+str(sp_corr + geom_corr)+' '+s_units)'''.replace('$$$$$',job_names))
 
 	f.close()
+
+def read(input_file):
+	data = utils.DFT_out(input_file, 'g09')
+
+	data.atoms = parse_atoms(input_file, get_atoms=True, get_energy=False, check_convergence=False, get_time=False, counterpoise=False, parse_all=True)
+	data.energies = parse_atoms(input_file, get_atoms=False, get_energy=True, check_convergence=False, get_time=False, counterpoise=False, parse_all=True)
+	data.convergence = parse_atoms(input_file, get_atoms=False, get_energy=False, check_convergence=True, get_time=False, counterpoise=False, parse_all=True)
+	data.time = parse_atoms(input_file, get_atoms=False, get_energy=False, check_convergence=False, get_time=True, counterpoise=False, parse_all=True)
+	data.bandgap = bandgap(input_file)
+
+	return data

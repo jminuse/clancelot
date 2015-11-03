@@ -98,11 +98,14 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, 
 			sys.exit()
 		s = charge_type.strip().upper()+' ATOMIC CHARGES'
 
-		hold = hold[hold.rfind(s):]
-		b = hold[:hold.find('\n\n')].split('\n')[2:-1]
-		for a in b:
-			a = a.split()
-			charges.append([a[1],float(a[3])])
+		if hold.rfind(s) != -1:
+			hold = hold[hold.rfind(s):]
+			b = hold[:hold.find('\n\n')].split('\n')[2:-1]
+			for a in b:
+				a = a.split()
+				charges.append([a[1].split(':')[0],float(a[-1])])
+		else:
+			charges = None
 	
 	# Get Total Simulation Time
 	if get_time:
@@ -137,7 +140,7 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, 
 	if check_convergence:
 		hold, convergence = data, []
 		s = 'Geometry convergence'
-		while hold.find(s) != -1:
+		if hold.rfind(s) != -1:
 			hold = hold[hold.find(s)+len(s):]
 			tmp = hold[:hold.find('Max(Bonds)')].split('\n')[3:-2]
 			tmp_convergence = []
@@ -145,7 +148,8 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, 
 				a = a.split()
 				tmp_convergence.append([' '.join(a[:2]),float(a[2]),float(a[3]), a[4]])
 			convergence.append(tmp_convergence)
-		if convergence != [] and not parse_all: convergence = convergence[-1]
+		else:
+			convergence = None
 
 	results = []
 	if get_atoms: results.append(atoms)
@@ -154,6 +158,8 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, 
 	if get_time: results.append(times)
 	if get_bandgap: results.append(bandgap)
 	if check_convergence: results.append(convergence)
+	while type(results) == list and len(results) == 1:
+		results = results[0]
 	return results
 
 # Simplified calls to parse_atoms
@@ -210,3 +216,19 @@ def engrad_read(input_file):
 			break
 		
 	return atoms, energy
+
+def read(input_file):
+	data = utils.DFT_out(input_file, 'orca')
+
+	data.atoms = atoms(input_file, parse_all=True)
+	data.energies = energies(input_file, parse_all=True)
+	data.charges_MULLIKEN = parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=True, charge_type='MULLIKEN', get_time=False, get_bandgap=False, check_convergence=False, parse_all=True)
+	data.charges_LOEWDIN = parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=True, charge_type='LOEWDIN', get_time=False, get_bandgap=False, check_convergence=False, parse_all=True)
+	data.charges = data.charges_MULLIKEN if data.charges_MULLIKEN is not None else data.charges_LOEWDIN
+	data.convergence = convergence(input_file, parse_all=True)
+	data.time = times(input_file, parse_all=True)
+	data.bandgap = bandgap(input_file, parse_all=True)
+
+	data.converged = all(c[-1] == 'YES' for c in data.convergence)
+
+	return data
