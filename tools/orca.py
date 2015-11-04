@@ -63,6 +63,10 @@ export LD_LIBRARY_PATH=/fs/europa/g_pc/ompi_1_6_5/lib:$LD_LIBRARY_PATH
 
 # A function to parse and Orca DFT output file (assumes by default a .out file format)
 def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, charge_type='MULLIKEN', get_time=False, get_bandgap=False, check_convergence=False, check_converged=False, parse_all=False):
+	if not os.path.isfile('orca/%s/%s.out' % (input_file,input_file)):
+		print("Error - No output file exists for orca sim %s." % input_file)
+		sys.exit()
+	
 	data = open('orca/%s/%s.out' % (input_file,input_file),'r').read()
 
 	# Get all the positions
