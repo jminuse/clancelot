@@ -44,6 +44,25 @@ class Job(): #a job on the queue
 				time.sleep(60)
 			else: break
 
+# A generic class to hold dft data
+class DFT_out():
+	def __init__(self, name, dft='g09'):
+		self.name = name
+		self.dft = dft.lower()
+
+		# Initialize everything as None
+		self.frames = None
+		self.atoms = None
+		self.energies = None
+		self.convergence = None
+		self.converged = None
+		self.time = None
+		self.bandgap = None
+		self.charges = None
+		self.charges_MULLIKEN = None
+		self.charges_LOEWDIN = None
+		self.charges_CHELPG = None
+
 def get_bonds(atoms):
 	bonds = []
 	for i,a in enumerate(atoms):
@@ -509,7 +528,17 @@ def center_frames(frames,ids,X_TOL=0.1,XY_TOL=0.1,Z_TOL=0.1,THETA_STEP=0.005,TRA
 
 	if chk: frames = frames[0]
 
-def pretty_xyz(name,R_MAX=1,F_MIN=1,F_MAX=50,PROCRUSTS=False,outName=None,write_xyz=False,verbose=False):
+def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTS=False,outName=None,write_xyz=False,verbose=False):
+	#----------
+	# name = Name of xyz file to read in
+	# R_MAX = maximum motion per frame
+	# F_MAX = maximum number of frames allowed
+	# PROCRUSTES = Center frames or not
+	# outName = If you wish to output to file, give a name. Defalt name is 'pretty_xyz'
+	# write_xyz = Write to file. Default False
+	# Verbose = Outputing what pretty_xyz is doing as it goes
+	#----------
+	
 	# Get data as either frames or a file
 	if type(name)==type(''): frames = files.read_xyz(name)
 	elif type(name)==type([]): frames = name
@@ -545,7 +574,7 @@ def pretty_xyz(name,R_MAX=1,F_MIN=1,F_MAX=50,PROCRUSTS=False,outName=None,write_
 		if i>0 and i < len(frames) - 1:
 			f_low = frames[:i-1]
 			f_high = frames[i+2:]
-			f_mid = interpolate(frames[i-1],frames[i+2],4)
+			f_mid = interpolate(frames[i-1],frames[i+1],4)
 			frames = f_low + f_mid + f_high
 		elif i == 0:
 			f_high = frames[i+2:]

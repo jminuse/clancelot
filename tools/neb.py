@@ -35,6 +35,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
 
     DFT = DFT.lower().strip()
 
+    # Contemplating a force addition of NoSymm to route if (1) DFT='g09' and (2) NoSymm not said
+
     # Set which atoms will be affected by virtual springs
     if not spring_atoms: # If not given, select all
         spring_atoms = range(len(states[0]))
@@ -78,10 +80,11 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         name, states, theory, k = None, None, None, None
         error, gradient = None, None
         step = 0
-        def __init__(self, name, states, theory, k=0.1837, fit_rigid=True):
+        def __init__(self, name, states, theory, extra_section='', k=0.1837, fit_rigid=True):
             NEB.name = name
             NEB.states = states
             NEB.theory = theory
+            NEB.extra_section = extra_section
             NEB.k = k
             NEB.prv_RMS = None
             NEB.convergence_criteria = gtol
@@ -109,26 +112,40 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             
             # Start DFT jobs
             running_jobs = []
+            
             for i,state in enumerate(NEB.states):
+                
+                # Set the extra section to be whatever specified originally
+                extra_section = NEB.extra_section.strip()
+                # If g09, ensure two newlines at end
+                if DFT=='g09':
+                    extra_section += '\n\n'
+                
                 if NEB.step>0:
                     if (i==0 or i==len(NEB.states)-1): # Only use DFT on endpoints on first step, because they don't change
                         continue
                     if DFT=='g09':
                         guess = ' Guess=Read'
                     elif DFT=='orca':
-                        guess = ' MOREAD\n%%moinp "../%s-%d-%d/%s-%d-%d.orca.gbw"' % (NEB.name,NEB.step-1,i,NEB.name,NEB.step-1,i)
+                        guess = ' MOREAD'
+                        tmp = '%%moinp "../%s-%d-%d/%s-%d-%d.orca.gbw"' % (NEB.name,NEB.step-1,i,NEB.name,NEB.step-1,i)
+                        extra_section = tmp + extra_section.strip()
                 else:
                     if initial_guess:
                         if DFT=='g09':
                             guess = ' Guess=Read'
                         elif DFT=='orca':
-                            guess = ' MOREAD\n%%moinp "../%s/%s.orca.gbw"' % (initial_guess,initial_guess)
+                            guess = ' MOREAD'
+                            tmp = '%%moinp "../%s/%s.orca.gbw\n"' % (initial_guess,initial_guess)
+                            extra_section = tmp + extra_section.strip()
                     else:
                         guess = '' #no previous guess for first step
+
                 if DFT=='g09':
                     running_jobs.append( g09.job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+' Force'+guess, state, procs=procs, queue=queue, force=force, previous=('%s-%d-%d'%(NEB.name,NEB.step-1,i)) if NEB.step>0 else initial_guess, extra_section=extra_section, neb=[True,'%s-%%d-%%d'%(NEB.name),len(NEB.states),i], mem=mem) )
                 elif DFT=='orca':
                 	running_jobs.append( orca.job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+guess, state, extra_section=extra_section, grad=True, procs=procs, queue=queue) )
+
             # Wait for jobs to finish
             for j in running_jobs: j.wait()
 
@@ -570,7 +587,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
     #######################################################################################################################
     #######################################################################################################################
 
-    n = NEB(name, states, theory, k, fit_rigid)
+    n = NEB(name, states, theory, extra_section, k, fit_rigid)
 
     # Output for user
     if opt == 'BROYDEN_ROOT':

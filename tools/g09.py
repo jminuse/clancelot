@@ -326,6 +326,20 @@ def bandgap(input_file, parse_all=True):
 	
 	return bandgap
 
+def convergence(input_file):
+	s = open('gaussian/'+input_file+'.log').read()
+	s = s[s.rfind("Converged?"):].split('\n')[1:5]
+	convergence = []
+	for c in s:
+		c, tmp = c.split(), []
+		tmp.append(' '.join(c[0:2]))
+		tmp.append(float(c[2]))
+		tmp.append(float(c[3]))
+		tmp.append(c[4])
+		convergence.append(tmp)
+		
+	return convergence
+
 def parse_scan(input_file):
 	contents = open(input_file).read()
 	if 'Normal termination of Gaussian 09' not in contents:
@@ -357,18 +371,24 @@ def parse_scan(input_file):
 	return energy_list, atoms_list
 	
 def parse_chelpg(input_file):
+	if not input_file.startswith('gaussian/'):
+		input_file = 'gaussian/' + input_file + '.log'
 	with open(input_file) as inp:
 		contents = inp.read()
+
 	if 'Normal termination of Gaussian 09' not in contents:
 		return None
 	
-	start = contents.rindex('Fitting point charges to electrostatic potential')
-	end = contents.index('-----------------', start)
-	charges = []
-	for line in contents[start:end].splitlines():
-		columns = line.split()
-		if len(columns)==3:
-			charges.append( float(columns[2]) )
+	if contents.find('Fitting point charges to electrostatic potential') == -1:
+		charges = None
+	else:
+		start = contents.rindex('Fitting point charges to electrostatic potential')
+		end = contents.index('-----------------', start)
+		charges = []
+		for line in contents[start:end].splitlines():
+			columns = line.split()
+			if len(columns)==3:
+				charges.append( float(columns[2]) )
 	return charges
 
 def optimize_pm6(name, examples, param_string, starting_params, queue=None): #optimize a custom PM6 semi-empirical method based on Gaussian examples at a higher level of theory
@@ -536,3 +556,18 @@ print('\tDeformation of B = '+str(deform_b)+' '+s_units)
 print('Binding Energy = '+str(sp_corr + geom_corr)+' '+s_units)'''.replace('$$$$$',job_names))
 
 	f.close()
+
+def read(input_file):
+	data = utils.DFT_out(input_file, 'g09')
+
+	data.frames = parse_atoms(input_file, get_atoms=True, get_energy=False, check_convergence=False, get_time=False, counterpoise=False, parse_all=True)[1]
+	data.atoms = data.frames[-1]
+	data.energies = parse_atoms(input_file, get_atoms=False, get_energy=True, check_convergence=False, get_time=False, counterpoise=False, parse_all=True)[0]
+	data.charges_CHELPG = parse_chelpg(input_file)
+	data.charges = data.charges_CHELPG
+	data.convergence = convergence(input_file)
+	data.converged = parse_atoms(input_file, get_atoms=False, get_energy=True, check_convergence=True, get_time=False, counterpoise=False, parse_all=False) is not None
+	data.time = parse_atoms(input_file, get_atoms=False, get_energy=False, check_convergence=False, get_time=True, counterpoise=False, parse_all=True)[2]
+	data.bandgap = bandgap(input_file)
+
+	return data
