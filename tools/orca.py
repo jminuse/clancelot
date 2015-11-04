@@ -158,9 +158,9 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, 
 
 # Simplified calls to parse_atoms
 def atoms(input_file, parse_all=True):
-	return parse_atoms(input_file, get_atoms=True, get_energy=False, get_charges=False, get_time=False, get_bandgap=False, check_convergence=False, parse_all=parse_all)
+	return parse_atoms(input_file, get_atoms=True, get_energy=False, get_charges=False, get_time=False, get_bandgap=False, check_convergence=False, parse_all=parse_all)[0][-1]
 def energies(input_file, parse_all=True):
-	return parse_atoms(input_file, get_atoms=False, get_energy=True, get_charges=False, get_time=False, get_bandgap=False, check_convergence=False, parse_all=parse_all)
+	return parse_atoms(input_file, get_atoms=False, get_energy=True, get_charges=False, get_time=False, get_bandgap=False, check_convergence=False, parse_all=parse_all)[0]
 def charges(input_file, parse_all=True):
 	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=True, get_time=False, get_bandgap=False, check_convergence=False, parse_all=parse_all)
 def times(input_file, parse_all=True):
