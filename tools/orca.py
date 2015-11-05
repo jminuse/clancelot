@@ -233,6 +233,7 @@ def read(input_file):
 	data.frames = atoms(input_file, parse_all=True)
 	data.atoms = data.frames[-1]
 	data.energies = energies(input_file, parse_all=True)
+	data.energy = data.energies[-1]
 	data.charges_MULLIKEN = parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=True, charge_type='MULLIKEN', get_time=False, get_bandgap=False, check_convergence=False, parse_all=True)
 	data.charges_LOEWDIN = parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=True, charge_type='LOEWDIN', get_time=False, get_bandgap=False, check_convergence=False, parse_all=True)
 	data.charges = data.charges_MULLIKEN if data.charges_MULLIKEN is not None else data.charges_LOEWDIN
