@@ -9,7 +9,8 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 
 	# If running on system with more than one core, tell orca
 	if procs > 1:
-		route += ' PAL%d' % procs
+		#route += ' PAL%d' % procs
+		extra_section = '%pal nprocs '+str(procs)+' end\n' + extra_section.strip()
 
 	# If desiring .orca.engrad output, tell orca
 	if grad:
