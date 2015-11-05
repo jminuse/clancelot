@@ -262,6 +262,7 @@ def read(input_file):
 	if type(data.frames) == list and type(data.frames[0]) != list: data.frames = [data.frames]
 	data.atoms = data.frames[-1] if type(data.frames)==list and type(data.frames[0])==list else data.frames
 	data.energies = energies(input_file, parse_all=True)
+	if type(data.energies) != list: data.energies = [data.energies]
 	data.charges_MULLIKEN = parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=True, charge_type='MULLIKEN', get_time=False, get_bandgap=False, check_convergence=False, parse_all=True)
 	data.charges_LOEWDIN = parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=True, charge_type='LOEWDIN', get_time=False, get_bandgap=False, check_convergence=False, parse_all=True)
 	data.charges = data.charges_MULLIKEN if data.charges_MULLIKEN is not None else data.charges_LOEWDIN
