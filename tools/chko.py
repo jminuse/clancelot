@@ -46,21 +46,24 @@ if len(e) > 0:
 
 body = ''
 tail = ''
-if len(conv) > 0:
-        if all([c[-1] == 'YES' for c in conv[-1]]):
+if conv == None or len(conv) > 0:
+        if conv != None and all([c[-1] == 'YES' for c in conv[-1]]):
                 tail = 'Job finished in %.2e seconds' % t
                 length = [len(tmp) for tmp in head.split('\n')]
                 length.append(len(tail))
                 length = max(length)
                 s = '\n'+''.join(['-']*length)+'\n'
         else:
-                for c in conv[-1]: body += '%s\t%s\t%s\t%s\n' % (c[0],str(c[1]),str(c[2]),str(c[3]))
-                body = body[:-1]
-                body = spaced_print(body, delim='\t')
+		if conv != None:
+                	for c in conv[-1]: body += '%s\t%s\t%s\t%s\n' % (c[0],str(c[1]),str(c[2]),str(c[3]))
+                	body = body[:-1]
+                	body = spaced_print(body, delim='\t')
                 if not isnan(t):
                         tail = 'Job finished in %.2e seconds' % t
-                else:
+                elif sys.argv[1] in log.get_jlist():
                         tail = 'Job still running...'
+		else:
+			tail = 'Job Failed...'
                 length = [len(tmp) for tmp in head.split('\n')]
                 length.append(len(tail))
                 for i in body.split('\n'): length.append(len(i))

@@ -235,14 +235,19 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, check_convergence=T
 		energies = []
 		atom_frames = []
 		start=0
+		orientation = 'Input orientation:'
 		while True:
 			try: #match energy
-				start = contents.index('SCF Done', start)
-				energies.append(float( re.search('SCF Done: +\S+ += +(\S+)', contents[start:]).group(1) ) )
-				input_orientation = contents.find('Input orientation:', start)
+				input_orientation = contents.find(orientation, start)
+				if input_orientation == -1:
+					orientation = 'Standard orientation'
+					print("\nWarning - No available Input Orientation, defaulting to Standard")
+					input_orientation = contents.find(orientation, start)
 				if input_orientation >= 0:
 					start = input_orientation
 				next_coordinates = contents.index('Coordinates (Angstroms)', start)
+				start = contents.index('SCF Done', start)
+				energies.append(float( re.search('SCF Done: +\S+ += +(\S+)', contents[start:]).group(1) ) )
 			except: break
 			start = contents.index('---\n', next_coordinates)+4
 			end = contents.index('\n ---', start)
@@ -330,6 +335,7 @@ def convergence(input_file):
 	s = open('gaussian/'+input_file+'.log').read()
 	s = s[s.rfind("Converged?"):].split('\n')[1:5]
 	convergence = []
+	if s == ['']: return None
 	for c in s:
 		c, tmp = c.split(), []
 		tmp.append(' '.join(c[0:2]))
@@ -561,7 +567,8 @@ def read(input_file):
 	data = utils.DFT_out(input_file, 'g09')
 
 	data.frames = parse_atoms(input_file, get_atoms=True, get_energy=False, check_convergence=False, get_time=False, counterpoise=False, parse_all=True)[1]
-	data.atoms = data.frames[-1]
+	if data.frames == []: data.frames = None
+	data.atoms = data.frames[-1] if type(data.frames)==list and type(data.frames[0])==list else data.frames
 	data.energies = parse_atoms(input_file, get_atoms=False, get_energy=True, check_convergence=False, get_time=False, counterpoise=False, parse_all=True)[0]
 	data.charges_CHELPG = parse_chelpg(input_file)
 	data.charges = data.charges_CHELPG
