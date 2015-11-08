@@ -1,7 +1,6 @@
-import os, sys, math, copy, subprocess, time
-import numpy
-import files
-import constants
+import os, sys
+import math, copy, subprocess, time, numpy, re
+import files, constants
 
 class Struct:
 	def __init__(self, **kwargs):
@@ -595,3 +594,23 @@ def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTS=False,outName=None,write_xyz=Fals
 # A function to format a string's colour 
 def color_set(s,c): return constants.COLOR[c] + str(s) + constants.COLOR['ENDC']
 colour_set = color_set
+
+def spaced_print(sOut,delim=['\t',' '],buf=4):
+	s_len = []
+	if type(sOut) == str: sOut = sOut.split('\n')
+	if type(delim) == list: delim = ''.join([d+'|' for d in delim])[:-1]
+	# Get the longest length in the column
+	for i,s in enumerate(sOut):
+		s = re.split(delim,s)
+		for j,ss in enumerate(s):
+			try: s_len[j] = len(ss) if len(ss)>s_len[j] else s_len[j] # This makes the part of the list for each column the longest length
+			except: s_len.append(len(ss)) # If we are creating a new column this happens
+	for i in range(len(s_len)): s_len[i] += buf # Now we add a buffer to each column
+
+	# Compile string output
+	for i,s in enumerate(sOut):
+		s = re.split(delim,s)
+		for j,ss in enumerate(s): s[j] = ss + ''.join([' ']*(s_len[j]-len(ss)))
+		sOut[i] = ''.join(s)
+
+	return '\n'.join(sOut)

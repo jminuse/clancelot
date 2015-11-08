@@ -8,12 +8,8 @@ to_install = {
 'gcube':1,
 'jsub':1,
 'jdel':1,
-'viewg':1,
-'viewo':1,
-'chkg':1,
-'chko':1,
-'chkg_all':1,
-'scang':1,
+'chkDFT':1,
+'scanDFT':1,
 'junest (formerly juju)':0,
 'anaconda':0, 				# a Python 2.7.9 distribution that installs to ~/anaconda
 'vmd default settings':1,	# improves the default settings of vmd
@@ -68,11 +64,11 @@ fi
 
 os.system('mkdir -p '+INSTALLDIR) # Ensure the install directory is made
 for key in to_install: # Make directories for what we want to install
-	if key == 'chkg_all': continue
+	if key == 'chkDFT': continue
 	if key == 'jdel': continue
 	if key == 'jsub': continue
 	if key == 'vmd': continue
-	if key == 'scang': continue
+	if key == 'scanDFT': continue
 	if key == 'junest (formerly juju)': continue
 	if key == 'python 2.7.10': continue
 	if key == 'numpy': continue
@@ -294,35 +290,8 @@ Popen('/fs/europa/g_pc/vmd-1.9 -e tmp.vmd', shell=True)\n''')
 	os.system('chmod 755 '+INSTALLDIR+'gcube/cube.sh')
 if to_install['jsub']: f.write('complete -F _nbsAutoTab jsub\n\n')
 if to_install['jdel']: f.write('complete -F _jAutoTab jdel\n\n')
-if to_install['viewg']:
-	f.write("alias viewg='"+INSTALLDIR+"viewg/viewg.sh'\n")
-	f.write('complete -F _gaussAutoTab '+INSTALLDIR+'viewg/viewg.sh\n\n')
-	g = open(INSTALLDIR+'viewg/viewg.sh','w')
-	g.write('python '+INSTALLDIR+'tools/view_gaussian.py $@')
-	g.close()
-	os.system('chmod 755 '+INSTALLDIR+'viewg/viewg.sh')
-if to_install['viewo']:
-	f.write("alias viewo='"+INSTALLDIR+"viewo/viewo.sh'\n")
-	f.write('complete -F _orcaAutoTab '+INSTALLDIR+'viewo/viewo.sh\n\n')
-	g = open(INSTALLDIR+'viewo/viewo.sh','w')
-	g.write('python '+INSTALLDIR+'tools/view_orca.py $@')
-	g.close()
-	os.system('chmod 755 '+INSTALLDIR+'viewo/viewo.sh')
-if to_install['chkg']:
-	f.write("alias chkg='"+INSTALLDIR+"chkg/chkg.sh'\n")
-	f.write('complete -F _gaussAutoTab '+INSTALLDIR+'chkg/chkg.sh\n\n')
-	g = open(INSTALLDIR+'chkg/chkg.sh','w')
-	g.write('python '+INSTALLDIR+'tools/chkg.py $@')
-	g.close()
-	os.system('chmod 755 '+INSTALLDIR+'chkg/chkg.sh')
-if to_install['chko']:
-	f.write("alias chko='"+INSTALLDIR+"chko/chko.sh'\n")
-	f.write('complete -F _orcaAutoTab '+INSTALLDIR+'chko/chko.sh\n\n')
-	g = open(INSTALLDIR+'chko/chko.sh','w')
-	g.write('python '+INSTALLDIR+'tools/chko.py $@')
-	g.close()
-	os.system('chmod 755 '+INSTALLDIR+'chko/chko.sh')
-if to_install['chkg_all']: f.write("alias chkg_all='python "+INSTALLDIR+"tools/chkg_all.py'\n")
+if to_install['chkDFT']:
+	f.write("alias chkDFT='"+INSTALLDIR+"tools/chkDFT.py'\n")
 if to_install['merlin']: f.write("alias merlin='python -i "+INSTALLDIR+"tools/merlin.py'\n")
 if to_install['scang']: f.write("\nalias scang='python "+INSTALLDIR+"tools/scan.py'\n")
 if to_install['prnt']: f.write('''alias prnt='function _prnt(){ssh asimov "lpr -P hplj4525-365 -o sides=two-sided-long-edge -o InputSlot=Tray2 $PWD/$1;logout";echo "Printed..."};_prnt'\n''')
