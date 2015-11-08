@@ -2,7 +2,7 @@ import sys,  os, re
 import g09, orca, files, constants
 from merlin import units
 
-dft, u1, u2, scale, step, out_name, comp, neb_force = 'g09', 'Ha', 'Ha', 1.0, 1, 'out', None, None
+dft, u1, u2, scale, step, out_name, comp, neb_force = 'g09', 'Ha', 'kcal/mol', 1.0, 1, 'out', None, None
 title, x_label, y_label, x_range, y_range, x_vals = 'Energy Landscape', 'X-Axis', 'Y-Axis', None, None, None
 
 dft_list = [dft,'orca']
@@ -191,6 +191,7 @@ def plot(yy,start_val,x_label,y_label,title,x_range,y_range):
 	plt.legend()
 	plt.show()
 
+if comp[0] != None: start -= 1
 plot(energies,start,x_label,y_label,title,x_range,y_range)
 
 # Write files
