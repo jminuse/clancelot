@@ -293,7 +293,7 @@ if to_install['jdel']: f.write('complete -F _jAutoTab jdel\n\n')
 if to_install['chkDFT']:
 	f.write("alias chkDFT='"+INSTALLDIR+"tools/chkDFT.py'\n")
 if to_install['merlin']: f.write("alias merlin='python -i "+INSTALLDIR+"tools/merlin.py'\n")
-if to_install['scang']: f.write("\nalias scang='python "+INSTALLDIR+"tools/scan.py'\n")
+if to_install['scanDFT']: f.write("\nalias scanDFT='python "+INSTALLDIR+"tools/scanDFT.py'\n")
 if to_install['prnt']: f.write('''alias prnt='function _prnt(){ssh asimov "lpr -P hplj4525-365 -o sides=two-sided-long-edge -o InputSlot=Tray2 $PWD/$1;logout";echo "Printed..."};_prnt'\n''')
 f.write('''\n###############################################################
 ################## END OF THE CLANCELOT CODE ##################
