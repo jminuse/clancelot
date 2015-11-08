@@ -241,7 +241,7 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, check_convergence=T
 				input_orientation = contents.find(orientation, start)
 				if input_orientation == -1:
 					orientation = 'Standard orientation'
-					print("\nWarning - No available Input Orientation, defaulting to Standard")
+					#print("\nWarning - No available Input Orientation, defaulting to Standard")
 					input_orientation = contents.find(orientation, start)
 				if input_orientation >= 0:
 					start = input_orientation
