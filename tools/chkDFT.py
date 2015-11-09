@@ -30,7 +30,7 @@ chkDFT [Sim_Name] [Options]
 -vmd, -v      :        :  Opens output xyz file in vmd. Flag turns on.
 
 ex. chkDFT water -dft orca -u kT_300
-''' % (dft, ' '.join(["'%s'," for s in dft_list[1:]]) ) )
+''')
 	sys.exit()
 
 # Get simulation name
