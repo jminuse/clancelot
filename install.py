@@ -2,6 +2,7 @@ import os, sys
 from getpass import getuser
 
 # In the following list, please ensure you have chosen what you want to install.  By default everything is selected
+EVERYTHING = False
 to_install = {
 'vmd':1,
 'pysub':1,
@@ -20,6 +21,10 @@ to_install = {
 }
 
 ####################################################################################################################
+if EVERYTHING:
+	for item in to_install:
+		to_install[item]=1
+
 if to_install['file_browser']:
 	os.system('gconftool-2   --type bool --set /apps/nautilus/preferences/always_use_browser true')
 
@@ -359,6 +364,10 @@ if to_install['anaconda']:
 			print('...SKIPPING ANACONDA (RE)INSTALLATION...')
 	else:
 		anaconda_install()
+else:
+	if os.path.exists('/fs/home/'+USERNAME+'/anaconda') and os.path.isdir('/fs/home/'+USERNAME+'/anaconda'):
+		zshrc_check_add('export PATH=~/anaconda/bin:$PATH',ZSHRC,zshrc_string)
+
 
 if to_install['sublime_text_3_build_3083']:
 	if os.path.exists('/fs/home/'+USERNAME+'/lib/sublime_text_3') and os.path.isdir('/fs/home/'+USERNAME+'/lib/sublime_text_3'):
@@ -371,6 +380,10 @@ if to_install['sublime_text_3_build_3083']:
 	else:
 		sublime_install()
 		downloaded_tarball=True
+else:
+	if os.path.exists('/fs/home/'+USERNAME+'/lib/sublime_text_3') and os.path.isdir('/fs/home/'+USERNAME+'/lib/sublime_text_3'):
+		zshrc_check_add("alias sublime='~/lib/sublime_text_3/sublime_text",ZSHRC,zshrc_string)
+		zshrc_check_add("alias subl='~/lib/sublime_text_3/sublime_text",ZSHRC,zshrc_string)
 
 if to_install['junest (formerly juju)']: 
 	if os.path.exists('/fs/home/'+USERNAME+'/juju') and os.path.isdir('/fs/home/'+USERNAME+'/juju'):
@@ -387,6 +400,10 @@ if to_install['junest (formerly juju)']:
 		junest_install()
 		print("\nTo finish installing 'junest' please run:\n'pacman -Syyu pacman-mirrorlist && pacman -S gtk2 avogadro grep make ttf-liberation gedit'\n\n(when prompted for GL version, pick option 2, nvidia)\n\n\n")
 		os.system("zsh -c 'junest -f'")
+else:
+	if os.path.exists('/fs/home/'+USERNAME+'/juju') and os.path.isdir('/fs/home/'+USERNAME+'/juju'):
+		zshrc_check_add("export PATH=~/juju/bin:$PATH",ZSHRC,zshrc_string)
+		zshrc_check_add("alias juju='junest'",ZSHRC,zshrc_string)
 
 if downloaded_tarball:
 	print('Removing previously downloaded tarballs')
