@@ -100,7 +100,7 @@ if data.convergence != None:
 if data.converged:
 	tail = 'Job converged in %.2e seconds' % data.time
 else:
-	tail = 'Job has not converged. Current time is %.2e seconds' % data.time
+	tail = 'Job has not converged.'
 
 length = max([len(tmp) for tmp in head.split('\n')] + [len(tmp) for tmp in body.split('\n')] + [len(tmp) for tmp in tail.split('\n')])
 dash = '\n'+''.join(['-']*length)+'\n'
