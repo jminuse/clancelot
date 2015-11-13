@@ -110,7 +110,7 @@ if body != '':
 else:
         print(dash+head+dash+tail+dash)
 
-if len(data.atoms) > 0:
-	files.write_xyz(data.atoms,out_name[:-4])
+if len(data.frames) > 0:
+	files.write_xyz(data.frames,out_name[:-4])
 	if vmd:
 		os.system('"'+sysconst.vmd_path + '" ' + out_name)
