@@ -21,12 +21,12 @@ import re, shutil, copy
 ##########################################################################
 ##########################################################################
 
-
 def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queue=None,
-        fit_rigid=True, center=True, k=0.1837,
+        verbose=0, fit_rigid=True, center=True, k=0.1837,
         DFT='g09', opt='BFGS', scipy_test=False, gtol=1e-5,
-        alpha=0.3, beta=0.4, H_reset=True, dt = 0.5, euler=True,
-        force=True, mem=25, blurb=None, initial_guess=None): 
+        alpha=0.1, beta=0.6, tau=1E-3, reset=60, H_reset=True,
+        step_min=1E-8, step_max=0.2, bt_max=None, linesearch='backtrack', L2norm=True, bt_eps=1E-3,
+        dt = 0.5, euler=True, force=True, mem=25, blurb=None, initial_guess=None): 
     
     # If using test code, import path so we import correct scipy.optimize.
     if scipy_test or opt=='BFGS2': sys.path.insert(1,'/fs/home/hch54/scipy_mod/scipy/')
@@ -297,7 +297,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         """
         Returns the projection of v1 onto v2
         Parameters:
-            v1, v2: numpy vectors
+            v1, v2: np vectors
         """
         mag2 = np.linalg.norm(v2)
         if mag2 == 0:
@@ -555,7 +555,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             except ZeroDivisionError:
                 rhok = 1000.0
                 print("Divide-by-zero encountered: rhok assumed large")
-            if np.isinf(rhok):  # this is patch for numpy
+            if np.isinf(rhok):  # this is patch for np
                 rhok = 1000.0
                 print("Divide-by-zero encountered: rhok assumed large")
 
@@ -574,6 +574,247 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         if NEB.convergence < NEB.convergence_criteria:
             print("\nConvergence achieved in %d iterations with %lg < %lg\n" % (NEB.step,NEB.convergence,NEB.convergence_criteria))
             sys.exit()
+
+    def bfgs_scipy(f, x0, fprime,
+            alpha=1e-2, beta=0.6, tau=1E-3, H_reset=True, gtol=1E-5,
+            MIN_STEP=1E-8, MAX_STEP=0.2, reset=60, MAX_BACKTRACK=None,
+            maxiter=None, linesearch='backtrack', L2norm=True,
+            BACKTRACK_EPS=1E-3, disp=0, callback=None):
+        import numpy as np
+        from math import fsum
+
+        def vecnorm(x, ord=2):
+            if ord == np.Inf:
+                return np.amax(np.abs(x))
+            elif ord == -np.Inf:
+                return np.amin(np.abs(x))
+            else:
+                return np.sum(np.abs(x)**ord, axis=0)**(1.0 / ord)
+
+        # Func Call Counter
+        fcount = 0
+
+        # Set maxiter if not set
+        if maxiter is None:
+            maxiter = 200 * len(x0)
+
+        # Ensure coordinates are in the correct format
+        x0 = np.asarray(x0).flatten()
+        if x0.ndim == 0:
+            x0.shape = (1,)
+
+        # Initialize inv Hess and Identity matrix
+        I = np.eye(len(x0), dtype=int)
+        Hk = I
+
+        # Get gradient and store your old func_max
+        gfk = fprime(x0)
+        if f is not None:
+            old_fval = f(x0)
+        fcount += 1
+        # Hold coordinates for loop
+        xk = x0
+
+        # Criteria on gradient for continuing simulation
+        if L2norm:
+            def f_gnorm(x): 
+                return np.sqrt(fsum([np.linalg.norm(g)**2 for g in x]))
+            gnorm = f_gnorm(gfk)
+        else:
+            f_gnorm = vecnorm
+            gnorm = f_gnorm(gfk, ord=norm)
+
+        # Hold original values
+        ALPHA_CONST = alpha
+        BETA_CONST = beta
+        RESET_CONST = reset
+
+        # Get function to describe linesearch
+        if linesearch is 'backtrack':
+            if disp > 1:
+                print("Using backtrack method with backtrack epsilon %lg." %
+                    BACKTRACK_EPS)
+
+            def check_backtrack(x,y):
+                return BACKTRACK_EPS
+
+        elif linesearch is 'armijo':
+            if disp > 1:
+                print("Using armijo method with tau %lg." % tau)
+
+            def check_backtrack(pk,gk):
+                return tau*alpha*np.dot(gk,pk)
+
+        else:
+            print("ERROR - Linesearch '%s' is not acceptable. Use 'backtrack'\
+                or 'armijo'")
+            sys.exit()
+
+        backtrack, loop_counter, warnflag = 0, 0, 0
+        while (gnorm > gtol) and (loop_counter < maxiter):
+            if MAX_BACKTRACK is not None and backtrack > MAX_BACKTRACK:
+                warnflag = 2
+                break
+            if disp > 1:
+                print("Step %d, " % loop_counter),
+
+            # Get your step direction
+            pk = -np.dot(Hk, gfk)
+
+            # If we are doing unreasonably small step sizes, quit
+            if abs(max(pk*alpha)) < MIN_STEP:
+                if disp > 1:
+                    print("Error - Step size unreasonable (%lg)" 
+                                % abs(max(pk*alpha))),
+                warnflag = 2
+                break
+
+            # If we have too large of a step size, set to max
+            if max([abs(p*alpha) for p in pk]) > MAX_STEP:
+                if disp > 1:
+                    print("Warning - Setting step to max step size"
+                                % np.linalg.norm(pk*alpha)),
+                for i,p in enumerate(pk):
+                    if abs(p*alpha) > MAX_STEP:
+                        pk[i] = (MAX_STEP / alpha) * copysign(1, p)
+                # As we are changing values manually, this is no longer
+                # the BFGS(Hess) algorithm so reset the Inverse Hessian
+                if H_reset:
+                    Hk = I
+
+            # Hold new parameters
+            xkp1 = xk + alpha * pk
+
+            # Recalculate sk to maintain the secant condition
+            sk = xkp1 - xk
+
+            # Get the new gradient
+            gfkp1 = fprime(xkp1)
+            # Check if max has increased
+            if f is not None:
+                fval = f(xkp1)
+            fcount += 1
+
+            if f is not None and (fval - old_fval) > check_backtrack(gfkp1,pk):
+                # Step taken overstepped the minimum.  Lowering step size
+                if disp > 1:
+                    print("\tResetting System as %lg > %lg!"
+                            % (fval, old_fval))
+                    print("\talpha: %lg" % alpha),
+
+                alpha *= np.float64(beta)
+
+                if disp > 1:
+                    print("-> %lg\n" % alpha)
+
+                # Reset the Inverse Hessian if desired - This is recommended!
+                if H_reset:
+                    Hk = I
+                backtrack += 1
+                reset = RESET_CONST
+                continue
+
+            # This allows for the edge case in which after decreasing alpha, a situation arises
+            # in which larger alphas are acceptable again. Thus, we reset to the original alpha
+            elif reset is not None:
+                reset -= 1
+                if reset < 0 and alpha < ALPHA_CONST:
+                    if disp > 1:
+                        print("\tResetting Alpha, Beta, Reset and Inverse Hessian")
+                    alpha, beta, reset = ALPHA_CONST, BETA_CONST, RESET_CONST
+                    if H_reset:
+                        Hk = I
+                    continue
+                elif reset < 0 and alpha >= ALPHA_CONST:
+                    if disp > 1:
+                        print("\tIncreasing step size: %lg ->" % alpha),
+                    alpha /= beta
+                    if disp > 1:
+                        print("%lg,\t" % alpha),
+            
+            # Store new parameters, as it has passed the check
+            # (fval < old_fval is True)
+            xk = xkp1
+
+            # Store new max value in old_max for future comparison
+            if f is not None:
+                old_fval = fval
+
+            # Get difference in gradients for further calculations
+            yk = gfkp1 - gfk
+            # Store new gradient in old gradient
+            gfk = gfkp1
+
+            # Update the conditional check
+            if L2norm:
+                gnorm = f_gnorm(gfk)
+            else:
+                gnorm = f_gnorm(gfk, ord=norm)
+
+            if disp > 1:
+                print("gnorm %lg, fval %lg" % (gnorm, fval))
+
+            # If callback is desired
+            if callback is not None:
+                callback(xk)
+
+            # Increment the loop counter
+            loop_counter += 1
+
+            if L2norm:
+                gnorm = f_gnorm(gfk)
+            else:
+                gnorm = f_gnorm(gfk, ord=norm)
+
+            if (gnorm <= gtol):
+                break
+
+            try:  # this was handled in numeric, let it remaines for more safety
+                rhok = 1.0 / (np.dot(yk, sk))
+            except ZeroDivisionError:
+                rhok = 1000.0
+                if disp > 1:
+                    print("Divide-by-zero encountered: rhok assumed large")
+            if np.isinf(rhok):  # this is patch for np
+                rhok = 1000.0
+                if disp > 1:
+                    print("Divide-by-zero encountered: rhok assumed large")
+            # Run BFGS Update for the Inverse Hessian
+            A1 = I - sk[:, np.newaxis] * yk[np.newaxis, :] * rhok
+            A2 = I - yk[:, np.newaxis] * sk[np.newaxis, :] * rhok
+            Hk = np.dot(A1, np.dot(Hk, A2)) + \
+                 (rhok * sk[:, np.newaxis] * sk[np.newaxis, :])
+
+        if f is not None:
+            fval = old_fval
+        else:
+            fval = float('NaN')
+
+        if np.isnan(fval):
+            # This can happen if the first call to f returned NaN;
+            # the loop is then never entered.
+            warnflag = 2
+
+        if warnflag == 2:
+            if disp == 1:
+                print("Warning: Loss of precision.")
+                print("         Current function value: %f" % fval)
+                print("         Iterations: %d" % loop_counter)
+                print("         Function evaluations: %d" % fcount)
+
+        elif loop_counter >= maxiter:
+            warnflag = 1
+            if disp == 1:
+                print("Warning: Maximum Iteration was exceeded.")
+                print("         Current function value: %f" % fval)
+                print("         Iterations: %d" % loop_counter)
+                print("         Function evaluations: %d" % fcount)
+        else:
+            if disp == 1:
+                print("Success!")
+                print("         Current function value: %f" % fval)
+                print("         Iterations: %d" % loop_counter)
+                print("         Function evaluations: %d" % fcount)
 
     #######################################################################################################################
     #######################################################################################################################
@@ -600,10 +841,19 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             fprime=NEB.get_gradient, dt = dt, dtmax = 1.0, max_dist = 0.2,
             Nmin = 5, finc = 1.1, fdec = 0.5, astart = 0.1, fa = 0.99, euler=euler)
     elif opt == 'BFGS':
-        bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=float(alpha), beta=float(beta), gtol=gtol, H_reset=H_reset)
+        #bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=float(alpha), beta=float(beta), gtol=gtol, H_reset=H_reset)
+        bfgs_scipy(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient,
+            alpha=float(alpha), beta=float(beta), tau=float(tau), H_reset=H_reset,
+            MIN_STEP=float(step_min), MAX_STEP=float(step_max), reset=reset, MAX_BACKTRACK=bt_max, 
+            linesearch=linesearch, L2norm=L2norm, BACKTRACK_EPS=bt_eps, disp=verbose
+            )
     elif opt == 'BFGS2':
         from scipy.optimize.bfgsh import fmin_bfgs_h
-        fmin_bfgs_h(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=float(alpha), beta=float(beta), gtol=gtol, H_reset=H_reset)
+        fmin_bfgs_h(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient,
+            alpha=float(alpha), beta=float(beta), tau=float(tau), H_reset=H_reset,
+            MIN_STEP=float(step_min), MAX_STEP=float(step_max), reset=reset, MAX_BACKTRACK=bt_max, 
+            linesearch=linesearch, L2norm=L2norm, BACKTRACK_EPS=bt_eps, disp=(verbose>0)
+            )
     elif opt == 'SD':
         steepest_decent(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=alpha)
     else:
