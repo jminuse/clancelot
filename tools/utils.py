@@ -192,9 +192,9 @@ class System():
 			self.dihedrals.append( Dihedral(*[self.atoms[a.index+atom_offset-1] for a in t.atoms], type=t.type) )
 		new_molecule = copy.copy(molecule)
 		new_molecule.atoms = self.atoms[-len(molecule.atoms):]
-		new_molecule.bonds = self.atoms[-len(molecule.bonds):]
-		new_molecule.angles = self.atoms[-len(molecule.angles):]
-		new_molecule.dihedrals = self.atoms[-len(molecule.dihedrals):]
+		new_molecule.bonds = self.bonds[-len(molecule.bonds):]
+		new_molecule.angles = self.angles[-len(molecule.angles):]
+		new_molecule.dihedrals = self.dihedrals[-len(molecule.dihedrals):]
 		self.molecules.append( new_molecule )
 
 def dist_squared(a,b):
@@ -566,3 +566,85 @@ def pretty_xyz(name,R_MAX=1,F_MIN=1,F_MAX=50,PROCRUSTS=False,outName=None,write_
 # A function to format a string's colour 
 def color_set(s,c): return constants.COLOR[c] + str(s) + constants.COLOR['ENDC']
 colour_set = color_set
+
+def opt_opls(molecule, parameter_file='oplsaa.prm', taboo_time=100):
+    elements, atom_types, bond_types, angle_types, dihedral_types = files.read_opls_parameters(parameter_file)
+    atoms, bonds, angles, dihedrals = files.read_cml(molecule, parameter_file=None)
+   
+    bond_types_by_index2 = dict( [ (tuple(t.index2s),t) for t in bond_types ] + [ (tuple(reversed(t.index2s)),t) for t in bond_types ] )
+    angle_types_by_index2 = dict( [ (tuple(t.index2s),t) for t in angle_types ] + [ (tuple(reversed(t.index2s)),t) for t in angle_types ] )
+    dihedral_types_by_index2 = dict( [ (tuple(t.index2s),t) for t in dihedral_types ] + [ (tuple(reversed(t.index2s)),t) for t in dihedral_types ] )
+   
+    for a in atoms:
+        a.possible_types = set()
+        for t in atom_types:
+            if elements_by_atomic_number[t.element] == a.element and t.bond_count==len(a.bonded):
+                a.possible_types.add(t.index2)
+        a.possible_types = list(a.possible_types)
+        #a.possible_types.append(0)
+   
+    def count_conflicts(types):
+        for i,a in enumerate(atoms):
+            a.index2 = types[i]
+        conflicts = 0
+        for b in bonds:
+            index2s = (b.atoms[0].index2, b.atoms[1].index2)
+            if not index2s in bond_types_by_index2:
+                conflicts += 1
+       
+        for a in angles:
+            index2s = (a.atoms[0].index2, a.atoms[1].index2, a.atoms[2].index2)
+            if not index2s in angle_types_by_index2:
+                conflicts += 1
+
+       
+        for d in dihedrals:
+            index2s_0 = (d.atoms[0].index2, d.atoms[1].index2, d.atoms[2].index2, d.atoms[3].index2)
+            index2s_1 = (0,                 d.atoms[1].index2, d.atoms[2].index2, d.atoms[3].index2)
+            index2s_2 = (d.atoms[0].index2, d.atoms[1].index2, d.atoms[2].index2,        0)
+            in0 = index2s_0 in dihedral_types_by_index2
+            in1 = index2s_1 in dihedral_types_by_index2
+            in2 = index2s_2 in dihedral_types_by_index2
+            if not in0 and not in1 and not in2:
+                conflicts += 1
+        return conflicts
+   
+    import random
+    types = [random.choice(a.possible_types) for a in atoms]
+    taboo = [0 for a in atoms]
+    best = count_conflicts(types)
+   
+    step = 0
+    while best > 0:
+        i = random.randint( 0, len(types)-1 )
+        for guess in types:
+            if taboo[i]>0:
+                i = random.randint( 0, len(types)-1 )
+            else:
+                break
+        old_type = types[i]
+        types[i] = random.choice(atoms[i].possible_types)
+       
+        conflicts = count_conflicts(types)
+        if conflicts <= best:
+            best = conflicts
+            taboo[i] = taboo_time
+        else:
+            types[i] = old_type
+   
+        taboo = [t-1 if t>0 else 0 for t in taboo]
+   
+        if step % 10000 == 0:
+            print best, conflicts, types
+        step += 1
+
+        if step>100000:
+        	break
+
+    def types_from_index2(x):
+        return [t for t in atom_types if t.index2==x and t.index<=440]
+
+    for i,tt in enumerate( [ types_from_index2(x) for x in types] ):
+        print i, atoms[i].element
+        for t in tt:
+            print '\t', t.index, t.notes
