@@ -23,10 +23,11 @@ import re, shutil, copy
 
 def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queue=None,
         disp=0, fit_rigid=True, center=True, k=0.1837,
-        DFT='g09', opt='BFGS', gtol=1e-5, maxiter=10000,
+        DFT='g09', opt='BFGS', gtol=1e-5, maxiter=1000,
         alpha=0.1, beta=0.6, tau=1E-3, reset=60, H_reset=True,
+        viscosity=0.1, dtmax=1.0, Nmin=5, finc=1.1, fdec=0.5, astart=0.1, fa=0.99,
         step_min=1E-10, step_max=0.2, bt_max=None, linesearch='backtrack', L2norm=True, bt_eps=1E-3,
-        dt = 0.5, euler=True, force=True, mem=25, blurb=None, initial_guess=None): 
+        dt = 0.1, euler=True, force=True, mem=25, blurb=None, initial_guess=None): 
     
     # If using test code, import path so we import correct scipy.optimize.
     if opt=='BFGS2': sys.path.insert(1,'/fs/home/hch54/scipy_mod/scipy/')
@@ -52,9 +53,17 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         else: tmp = ' with verlet alg.'
         print("\nRunning neb with optimization method %s%s" % (str(opt), tmp))
         print("\tdt = %lg" % dt)
+        if opt == 'QM':
+            print("\tviscosity = %lg, step_max = %lg" % (viscosity,step_max))
+        if opt == 'FIRE':
+            print("\tdtmax = %lg, step_max = %lg" % (dtmax, step_max))
+            print("\tNmin = %lg, finc = %lg, fdec = %lg" % (Nmin, finc, fdec))
+            print("\tastart = %lg, fa = %lg" % (astart, fa))
     elif opt in ['BFGS','BFGS2']:
         print("\nRunning neb with optimization method %s" % str(opt))
-        print("\talpha = %lg, beta = %lg, tau = %lg" % (alpha, beta, tau))
+        print("\talpha = %lg, beta = %lg" % (alpha, beta)),
+        if linesearch == 'armijo': print(", tau = %lg" % tau)
+        else: print("")
         print("\tH_reset = %s, reset = %s, linesearch = %s" % (str(H_reset), str(reset), linesearch))
         print("\tstep_min = %lg, step_max = %lg, L2norm = %s" % (step_min, step_max, str(L2norm)))
         print("\tbt_max = %s, bt_eps = %lg" % (str(bt_max), bt_eps))
@@ -321,19 +330,17 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
     ######################################################################################
     ######################################################################################
 
-    def steepest_decent(f, r, fprime, alpha=0.1): #better, but tends to push error up eventually, especially towards endpoints.
-        print("Running with alpha = %lg" % alpha)
-        for step in range(1000):
+    def steepest_decent(f, r, fprime, alpha=0.1, maxiter=1000): #better, but tends to push error up eventually, especially towards endpoints.
+        for step in range(maxiter+1):
             if NEB.convergence < NEB.convergence_criteria:
                 print("\nConvergence achieved in %d iterations with %lg < %lg\n" % (NEB.step,NEB.convergence,NEB.convergence_criteria))
                 sys.exit()
-            print("%d. Real RMS: %lg," % (NEB.step,NEB.convergence)),
             gradient = -fprime(r)
             r += gradient*alpha
             if center:
                 r = recenter(r)
 
-    def quick_min_optimizer(f, r, nframes, fprime, dt=0.5, max_dist=0.1, euler=False, viscosity=0.1): # dt = fs, max_dist = angstroms, viscosity = 1/fs
+    def quick_min_optimizer(f, r, nframes, fprime, dt=0.1, step_max=0.1, euler=False, viscosity=0.1, maxiter=1000): # dt = fs, step_max = angstroms, viscosity = 1/fs
         v = np.array([0.0 for x in r])
         acc = np.array([0.0 for x in r])
 
@@ -344,12 +351,11 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 masses += [m, m, m]
         masses = np.array(masses)
 
-        for step in range(1000):
+        for step in range(maxiter+1):
             if NEB.convergence < NEB.convergence_criteria:
                 print("\nConvergence achieved in %d iterations with %lg < %lg\n" % (NEB.step,NEB.convergence,NEB.convergence_criteria))
                 sys.exit()
-            print("%d. Real RMS: %lg," % (NEB.step,NEB.convergence)),
-
+            
             forces = -fprime(r) # Get the forces
 
             # Get the parallel velocity if it's in the same direction as the force
@@ -374,8 +380,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                     print 'zeroed velocities in frame %d' % i
                 
                 speed = np.linalg.norm(v[low:high])
-                if speed*dt > max_dist:
-                    max_speed = max_dist/dt
+                if speed*dt > step_max:
+                    max_speed = step_max/dt
                     v[low:high] *= max_speed / speed
                 
             if euler:
@@ -384,15 +390,15 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
 
                 #limit distance moved
                 #for i in range(len(v)):
-                #   if v[i]*dt > max_dist: v[i] = max_dist/dt
-                #   if v[i]*dt <-max_dist: v[i] =-max_dist/dt
+                #   if v[i]*dt > step_max: v[i] = step_max/dt
+                #   if v[i]*dt <-step_max: v[i] =-step_max/dt
 
                 for i in range(1,nframes-1):
                     low = (i-1)*natoms*3
                     high = i*natoms*3
                     speed = np.linalg.norm(v[low:high])
-                    if speed*dt > max_dist:
-                        max_speed = max_dist/dt
+                    if speed*dt > step_max:
+                        max_speed = step_max/dt
                         v[low:high] *= max_speed / speed
 
                 #move atoms
@@ -405,8 +411,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 dx = v*dt + 0.5*acc*dt**2
                 #limit distance moved
                 #for i in range(len(r)):
-                #   if dx[i] > max_dist: dx[i] = max_dist
-                #   if dx[i] <-max_dist: dx[i] =-max_dist
+                #   if dx[i] > step_max: dx[i] = step_max
+                #   if dx[i] <-step_max: dx[i] =-step_max
                 
                 r_new = r + dx
                 v_new = v + (acc + a_new)*0.5 * dt
@@ -417,18 +423,18 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             if center:
                 r = recenter(r)
 
-    def fire_optimizer(f, r, nframes, fprime, dt = 0.05, dtmax = 1.0, max_dist = 0.2, 
+    def fire_optimizer(f, r, nframes, fprime, dt = 0.1, dtmax = 1.0, step_max = 0.2, maxiter=1000, 
                         Nmin = 5, finc = 1.1, fdec = 0.5, astart = 0.1, fa = 0.99, euler = True):
 
         v = np.array([0.0 for x in r])
         Nsteps = 0
         acc = astart
 
-        for step in range(1000):
+        for step in range(maxiter+1):
             if NEB.convergence < NEB.convergence_criteria:
                 print("\nConvergence achieved in %d iterations with %lg < %lg\n" % (NEB.step,NEB.convergence,NEB.convergence_criteria))
                 sys.exit()
-            print("%d. Real RMS: %lg," % (NEB.step,NEB.convergence)),
+
             # Get forces and number of atoms
             forces = -fprime(r)
             natoms = len(v)/(3*(nframes-2))
@@ -453,8 +459,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
 
                 #limit velocities
                 for i in range(len(v)):
-                    if v[i]*dt > max_dist: v[i] = max_dist/dt
-                    if v[i]*dt <-max_dist: v[i] =-max_dist/dt
+                    if v[i]*dt > step_max: v[i] = step_max/dt
+                    if v[i]*dt <-step_max: v[i] =-step_max/dt
 
                 #move atoms
                 r += v * dt
@@ -465,7 +471,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
     def bfgs_optimizer(f, x0, fprime,
             alpha=0.1, beta=0.6, tau=1E-3, H_reset=True, gtol=1E-5,
             MIN_STEP=1E-10, MAX_STEP=0.2, reset=60, MAX_BACKTRACK=None,
-            maxiter=None, linesearch='backtrack', L2norm=True,
+            maxiter=1000, linesearch='backtrack', L2norm=True,
             BACKTRACK_EPS=1E-3, disp=0, callback=None):
         import numpy as np
         from math import (copysign, fsum)
@@ -726,11 +732,11 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         scipy.optimize.broyden1(NEB.get_gradient, np.array(NEB.coords_start), alpha=float(alpha), verbose=(disp != 0))
     elif opt == 'QM':
         quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, 
-            fprime=NEB.get_gradient, dt=dt, max_dist=0.01, euler=euler)
+            fprime=NEB.get_gradient, dt=dt, viscosity=viscosity, step_max=step_max, euler=euler, maxiter=maxiter)
     elif opt == 'FIRE':
         fire_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, 
-            fprime=NEB.get_gradient, dt = dt, dtmax = 1.0, max_dist = 0.2,
-            Nmin = 5, finc = 1.1, fdec = 0.5, astart = 0.1, fa = 0.99, euler=euler)
+            fprime=NEB.get_gradient, dt=dt, dtmax=dtmax, step_max=step_max,
+            Nmin=Nmin, finc=finc, fdec=fdec, astart=astart, fa=fa, euler=euler, maxiter=maxiter)
     elif opt == 'BFGS':
         bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient,
             gtol=float(gtol), maxiter=int(maxiter),
@@ -746,7 +752,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             linesearch=linesearch, L2norm=L2norm, BACKTRACK_EPS=bt_eps, disp=(disp>0)
             )
     elif opt == 'SD':
-        steepest_decent(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=alpha)
+        steepest_decent(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=alpha, maxiter=maxiter)
     else:
         print("\nERROR - %s optimizations method does not exist! Choose from the following:" % str(opt))
         print("\t1. BFGS")
