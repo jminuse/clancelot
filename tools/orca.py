@@ -1,66 +1,12 @@
 from merlin import *
 from subprocess import Popen
 
-# A function to run an Orca DFT Simulation
-def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, procs=1, charge_and_multiplicity='0 1', title='', blurb=None, force=False, previous=None, neb=[False,None,None,None], mem=None, lint=False):
-	# Generate the orca input file
-	os.system('mkdir -p orca/%s' % run_name)
-	os.chdir('orca/%s' % run_name)
-
-	# If running on system with more than one core, tell orca
-	if procs > 1:
-		route += ' PAL%d' % procs
-
-	# If desiring .orca.engrad output, tell orca
-	if grad:
-		extra_section = extra_section.strip() + '''\n%method
- RunTyp Gradient
- end'''
-
- 	# One can specify how much memory they want (in MB) per core
- 	if mem is not None:
- 		extra_section = extra_section.strip() + '\n%maxcore ' + str(mem).strip()
-
-	# Get input for orca formatted correctly
-	inp = route.strip()+'\n'+extra_section.strip()+'\n*xyz '+charge_and_multiplicity+'\n'
-	for a in atoms:
-		inp += '%s %f %f %f\n' % (a.element, a.x, a.y, a.z)
-	inp += '*\n'
-
-	# Write the orca file
-	f = open(run_name+'.orca', 'w')
-	f.write(inp)
-	f.close()
-
-	# Run the simulation
-	if queue is None:
-		process_handle = Popen('/fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca %s.orca > %s.out' % (run_name, run_name), shell=True)
-	else:
-		NBS = '''#!/bin/bash
-##NBS-name: "%s"
-##NBS-nproc: %d
-##NBS-queue: "%s"
-
-export PATH=/fs/europa/g_pc/ompi_1_6_5/bin:/fs/europa/g_pc/orca_3_0_3_linux_x86-64:$PATH
-export LD_LIBRARY_PATH=/fs/europa/g_pc/ompi_1_6_5/lib:$LD_LIBRARY_PATH
-
-/fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca %s.orca > %s.out 2>&1
-''' % (run_name, procs, queue, os.getcwd()+'/'+run_name, os.getcwd()+'/'+run_name)
-		f = open(run_name+'.nbs', 'w')
-		f.write(NBS)
-		f.close()
-		os.system('jsub %s.nbs' % run_name)
-
-	# Return to the appropriate directory
-	os.chdir('../..')
-
-	if queue is None:
-		return process_handle
-	else:
-		return utils.Job(run_name)
-
 # A function to parse and Orca DFT output file (assumes by default a .out file format)
-def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, charge_type='MULLIKEN', get_time=False, get_bandgap=False, check_convergence=False, parse_all=False):
+def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, charge_type='MULLIKEN', get_time=False, get_bandgap=False, check_convergence=False, check_converged=False, parse_all=False):
+	if not os.path.isfile('orca/%s/%s.out' % (input_file,input_file)):
+		print("Error - No output file exists for orca sim %s." % input_file)
+		sys.exit()
+	
 	data = open('orca/%s/%s.out' % (input_file,input_file),'r').read()
 
 	# Get all the positions
@@ -96,11 +42,14 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, 
 			sys.exit()
 		s = charge_type.strip().upper()+' ATOMIC CHARGES'
 
-		hold = hold[hold.rfind(s):]
-		b = hold[:hold.find('\n\n')].split('\n')[2:-1]
-		for a in b:
-			a = a.split()
-			charges.append([a[1],float(a[3])])
+		if hold.rfind(s) != -1:
+			hold = hold[hold.rfind(s):]
+			b = hold[:hold.find('\n\n')].split('\n')[2:-1]
+			for a in b:
+				a = a.split()
+				charges.append([a[1].split(':')[0],float(a[-1])])
+		else:
+			charges = None
 	
 	# Get Total Simulation Time
 	if get_time:
@@ -135,7 +84,7 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, 
 	if check_convergence:
 		hold, convergence = data, []
 		s = 'Geometry convergence'
-		while hold.find(s) != -1:
+		if hold.rfind(s) != -1:
 			hold = hold[hold.find(s)+len(s):]
 			tmp = hold[:hold.find('Max(Bonds)')].split('\n')[3:-2]
 			tmp_convergence = []
@@ -143,7 +92,14 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, 
 				a = a.split()
 				tmp_convergence.append([' '.join(a[:2]),float(a[2]),float(a[3]), a[4]])
 			convergence.append(tmp_convergence)
-		if not parse_all: convergence = convergence[-1]
+		else:
+			convergence = None
+
+	if check_converged:
+		hold, converged = data, False
+		s = 'SCF CONVERGED AFTER'
+		if hold.find(s) != -1:
+			converged = True
 
 	results = []
 	if get_atoms: results.append(atoms)
@@ -152,21 +108,27 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, 
 	if get_time: results.append(times)
 	if get_bandgap: results.append(bandgap)
 	if check_convergence: results.append(convergence)
+	if check_converged: results.append(converged)
+
+	while type(results) == list and len(results) == 1:
+		results = results[0]
 	return results
 
 # Simplified calls to parse_atoms
 def atoms(input_file, parse_all=True):
-	return parse_atoms(input_file, get_atoms=True, get_energy=False, get_charges=False, get_time=False, get_bandgap=False, check_convergence=False, parse_all=parse_all)
+	return parse_atoms(input_file, get_atoms=True, get_energy=False, get_charges=False, get_time=False, get_bandgap=False, check_convergence=False, check_converged=False, parse_all=parse_all)
 def energies(input_file, parse_all=True):
-	return parse_atoms(input_file, get_atoms=False, get_energy=True, get_charges=False, get_time=False, get_bandgap=False, check_convergence=False, parse_all=parse_all)
+	return parse_atoms(input_file, get_atoms=False, get_energy=True, get_charges=False, get_time=False, get_bandgap=False, check_convergence=False, check_converged=False, parse_all=parse_all)
 def charges(input_file, parse_all=True):
-	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=True, get_time=False, get_bandgap=False, check_convergence=False, parse_all=parse_all)
+	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=True, get_time=False, get_bandgap=False, check_convergence=False, check_converged=False, parse_all=parse_all)
 def times(input_file, parse_all=True):
-	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=False, get_time=True, get_bandgap=False, check_convergence=False, parse_all=parse_all)
+	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=False, get_time=True, get_bandgap=False, check_convergence=False, check_converged=False, parse_all=parse_all)
 def bandgap(input_file, parse_all=True):
-	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=False, get_time=False, get_bandgap=True, check_convergence=False, parse_all=parse_all)
+	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=False, get_time=False, get_bandgap=True, check_convergence=False, check_converged=False, parse_all=parse_all)
 def convergence(input_file, parse_all=True):
-	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=False, get_time=False, get_bandgap=False, check_convergence=True, parse_all=parse_all)
+	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=False, get_time=False, get_bandgap=False, check_convergence=True, check_converged=False, parse_all=parse_all)
+def converged(input_file, parse_all=True):
+	return parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=False, get_time=False, get_bandgap=False, check_convergence=False, check_converged=True, parse_all=parse_all)
 
 # A function to parse orca.engrad files
 def engrad_read(input_file):
@@ -208,3 +170,106 @@ def engrad_read(input_file):
 			break
 		
 	return atoms, energy
+
+# A function to run an Orca DFT Simulation
+def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, procs=1, charge_and_multiplicity='0 1', previous=None, mem=None):
+	# Generate the orca input file
+	os.system('mkdir -p orca/%s' % run_name)
+	os.chdir('orca/%s' % run_name)
+
+	# If running on system with more than one core, tell orca
+	if procs > 1:
+		#route += ' PAL%d' % procs
+		extra_section = '%pal nprocs '+str(procs)+' end\n' + extra_section.strip()
+
+	# If no atoms were specified, but previous was, grab lowest energy atoms
+	if previous is not None and atoms == []:
+		pwd = os.getcwd()
+		os.chdir('../../')
+		hold = read(previous)
+		os.chdir(pwd)
+		index = hold.energies.index(min(hold.energies))
+		atoms = hold.frames[index]
+		hold = None
+
+	# If desiring .orca.engrad output, tell orca
+	if grad:
+		extra_section = extra_section.strip() + '''\n%method
+ RunTyp Gradient
+ end'''
+
+ 	# One can specify how much memory they want (in MB) per core
+ 	if mem is not None:
+ 		extra_section = extra_section.strip() + '\n%maxcore ' + str(mem).strip()
+
+ 	# Add moread if previous
+ 	if previous is not None:
+ 		route = route.strip() + ' MORead'
+ 		PATH = '../'+previous+'/'+previous+'.orca.gbw'
+ 		if not os.path.isfile(PATH):
+ 			print("Error - Previous run %s does not have a .gbw file." % previous)
+ 			sys.exit()
+ 		extra_section = extra_section.strip() + '\n%moinp "' + PATH + '"' 
+
+ 	# ---------------------------------------------------------------------------
+ 	# NO MORE CHANGES TO EXTRA_SECTION AFTER THIS!-------------------------------
+ 	# ---------------------------------------------------------------------------
+
+	# Get input for orca formatted correctly
+	inp = route.strip()+'\n'+extra_section.strip()+'\n*xyz '+charge_and_multiplicity+'\n'
+	for a in atoms:
+		inp += '%s %f %f %f\n' % (a.element, a.x, a.y, a.z)
+	inp += '*\n'
+
+	# Write the orca file
+	f = open(run_name+'.orca', 'w')
+	f.write(inp)
+	f.close()
+
+	# Run the simulation
+	if queue is None:
+		process_handle = Popen('/fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca %s.orca > %s.out' % (run_name, run_name), shell=True)
+	elif queue=='debug':
+		print 'Would run', run_name, charge_and_multiplicity
+	else:
+		NBS = '''#!/bin/bash
+##NBS-name: "%s"
+##NBS-nproc: %d
+##NBS-queue: "%s"
+
+export PATH=/fs/europa/g_pc/ompi_1_6_5/bin:/fs/europa/g_pc/orca_3_0_3_linux_x86-64:$PATH
+export LD_LIBRARY_PATH=/fs/europa/g_pc/ompi_1_6_5/lib:$LD_LIBRARY_PATH
+
+/fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca %s.orca > %s.out 2>&1
+''' % (run_name, procs, queue, os.getcwd()+'/'+run_name, os.getcwd()+'/'+run_name)
+		f = open(run_name+'.nbs', 'w')
+		f.write(NBS)
+		f.close()
+		os.system('jsub %s.nbs' % run_name)
+
+	# Return to the appropriate directory
+	os.chdir('../..')
+
+	if queue is None:
+		return process_handle
+	else:
+		return utils.Job(run_name)
+
+def read(input_file):
+	data = utils.DFT_out(input_file, 'orca')
+
+	data.frames = atoms(input_file, parse_all=True)
+	if type(data.frames) == list and type(data.frames[0]) != list: data.frames = [data.frames]
+	data.atoms = data.frames[-1] if type(data.frames)==list and type(data.frames[0])==list else data.frames
+	data.energies = energies(input_file, parse_all=True)
+	if type(data.energies) != list: data.energies = [data.energies]
+	data.charges_MULLIKEN = parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=True, charge_type='MULLIKEN', get_time=False, get_bandgap=False, check_convergence=False, parse_all=True)
+	data.charges_LOEWDIN = parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=True, charge_type='LOEWDIN', get_time=False, get_bandgap=False, check_convergence=False, parse_all=True)
+	data.charges = data.charges_MULLIKEN if data.charges_MULLIKEN is not None else data.charges_LOEWDIN
+	data.convergence = convergence(input_file, parse_all=True)
+	data.converged = converged(input_file, parse_all=True)
+	data.time = times(input_file, parse_all=True)
+	data.bandgap = bandgap(input_file, parse_all=True)
+
+
+	return data
