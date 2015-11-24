@@ -22,14 +22,14 @@ import re, shutil, copy
 ##########################################################################
 
 def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queue=None,
-        verbose=0, fit_rigid=True, center=True, k=0.1837,
-        DFT='g09', opt='BFGS', scipy_test=False, gtol=1e-5,
+        disp=0, fit_rigid=True, center=True, k=0.1837,
+        DFT='g09', opt='BFGS', gtol=1e-5, maxiter=10000,
         alpha=0.1, beta=0.6, tau=1E-3, reset=60, H_reset=True,
-        step_min=1E-8, step_max=0.2, bt_max=None, linesearch='backtrack', L2norm=True, bt_eps=1E-3,
+        step_min=1E-10, step_max=0.2, bt_max=None, linesearch='backtrack', L2norm=True, bt_eps=1E-3,
         dt = 0.5, euler=True, force=True, mem=25, blurb=None, initial_guess=None): 
     
     # If using test code, import path so we import correct scipy.optimize.
-    if scipy_test or opt=='BFGS2': sys.path.insert(1,'/fs/home/hch54/scipy_mod/scipy/')
+    if opt=='BFGS2': sys.path.insert(1,'/fs/home/hch54/scipy_mod/scipy/')
     import scipy.optimize
     import numpy as np
 
@@ -54,7 +54,10 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         print("\tdt = %lg" % dt)
     elif opt in ['BFGS','BFGS2']:
         print("\nRunning neb with optimization method %s" % str(opt))
-        print("\talpha = %lg, beta = %lg, H_reset = %s" % (alpha, beta, str(H_reset)))
+        print("\talpha = %lg, beta = %lg, tau = %lg" % (alpha, beta, tau))
+        print("\tH_reset = %s, reset = %s, linesearch = %s" % (str(H_reset), str(reset), linesearch))
+        print("\tstep_min = %lg, step_max = %lg, L2norm = %s" % (step_min, step_max, str(L2norm)))
+        print("\tbt_max = %s, bt_eps = %lg" % (str(bt_max), bt_eps))
     elif opt == 'SD':
         print("\nRunning neb with optimization method %s" % str(opt))
         print("\talpha = %lg" % alpha)
@@ -240,12 +243,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             # Calculate RMS Force
             RMS_force = (sum([a.fx**2+a.fy**2+a.fz**2 for state in states[1:-1] for a in state])/len([a for state in states[1:-1] for a in state]))**0.5
             NEB.RMS_force = RMS_force
-            
-            # Set error
-            #NEB.error = units.convert_energy('Ha','kcal/mol',max(energies)-energies[0])
-            #NEB.error = 0.5*sum([a.fx**2+a.fy**2+a.fz**2 for state in states[1:-1] for a in state]) # Max(V) # Sum(energies)
-            NEB.error = RMS_force
-            
+                        
             # Print data
             V = V[:1] + [ (e-V[0])/0.001 for e in V[1:] ]
             if NEB.prv_RMS == None or NEB.prv_RMS > RMS_force:
@@ -254,6 +252,12 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 rms = utils.color_set(RMS_force,'RED')
             print NEB.step, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:]), rms
             
+            # Set error
+            #NEB.error = max(V)
+            NEB.error = RMS_force
+            #NEB.error = 0.2*max(V) + 0.8*RMS_force
+            #NEB.error = 0.5*sum([a.fx**2+a.fy**2+a.fz**2 for state in states[1:-1] for a in state]) # Max(V) # Sum(energies)
+
             NEB.prv_RMS = RMS_force
             # Increment step
             NEB.step += 1
@@ -458,130 +462,13 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             if center:
                 r = recenter(r)
 
-    def bfgs_optimizer(f, r, fprime, alpha=0.3, beta=0.7, H_reset=True, gtol=1e-5):
-        # BFGS optimizer adapted from scipy.optimize._minmize_bfgs
-        import numpy as np
-        def vecnorm(x, ord=2):
-            if ord == np.Inf:
-                return np.amax(np.abs(x))
-            elif ord == -np.Inf:
-                return np.amin(np.abs(x))
-            else:
-                return np.sum(np.abs(x)**ord, axis=0)**(1.0 / ord)
-
-        if beta > 1:
-            print("Warning - Unreasonable Beta (must be less than or equal to 1). Setting to 1.\n")
-            beta = 1.0
-
-        # Get x0 as a flat array
-        x0 = np.asarray(r).flatten()
-        if x0.ndim == 0:
-            x0.shape = (1,)
-        
-        maxiter = len(x0) * 200
-
-        g0 = fprime(x0)
-
-        loop_counter,N = 0,len(x0)
-        I = np.eye(N, dtype=int)
-
-        # Initialize inv Hess as Identity matrix
-        Hk = I
-
-        # Store your old energy
-        E_old = f(x0)
-
-        xk = x0
-
-        # Criteria on gradient for continuing simulation
-        norm = np.Inf
-        gnorm = vecnorm(g0, ord=norm)
-        
-        # Main Loop:
-        backtrack_counter = 0
-        while (gnorm > gtol) and (loop_counter < maxiter):
-            if backtrack_counter >= 10: break
-            print("%d. Real RMS: %lg," % (NEB.step,NEB.convergence)),
-            # Get your step direction
-            pk = -np.dot(Hk, g0)
-
-            # If we are doing unreasonably small step sizes, quit
-            if np.linalg.norm(pk*alpha) < 1E-7:
-                print("Error - Step size unreasonable (%lg Angstroms)" % np.linalg.norm(pk*alpha))
-                sys.exit()
-
-            # Hold new position
-            xkp1 = xk + alpha * pk
-
-            # Recalculate sk to maintain the secant condition
-            sk = xkp1 - xk
-
-            # Recenter position
-            if center:
-                xkp1 = recenter(xkp1)
-
-            # Get the new gradient
-            gfkp1 = fprime(xkp1)
-
-            # Check if max energy has increased
-            E_new = f(xkp1)
-            if E_new > E_old:
-                # Step taken overstepped the minimum.  Lowering step size
-                print("Resetting System as %lg > %lg!" % (E_new, E_old))
-                print("\talpha: %lg" % alpha),
-                alpha *= float(beta)
-                print("-> %lg" % alpha)
-                print("\tmag(sk) = %lg" % vecnorm(sk, ord=norm))
-                if 'yk' in locals():
-                    print("\t<yk|sk> = %lg\n" % (np.dot(yk, sk)))
-                # NOTE! Maybe add a scalar for lowering the mag of Hk
-                if H_reset: Hk = I
-                backtrack_counter += 1
-                continue
-            
-            # Store new position, as it has passed the check (E_new < E_old is True)
-            xk = xkp1
-            
-            # Store new energy in old energy for future comparison
-            E_old = E_new
-
-            # Get difference in gradients for further calculations
-            yk = gfkp1 - g0
-            # Store new gradient in old gradient
-            g0 = gfkp1
-
-            try:  # this was handled in numeric, let it remaines for more safety
-                rhok = 1.0 / (np.dot(yk, sk))
-            except ZeroDivisionError:
-                rhok = 1000.0
-                print("Divide-by-zero encountered: rhok assumed large")
-            if np.isinf(rhok):  # this is patch for np
-                rhok = 1000.0
-                print("Divide-by-zero encountered: rhok assumed large")
-
-            # Run BFGS Update for the Inverse Hessian
-            A1 = I - sk[:, np.newaxis] * yk[np.newaxis, :] * rhok
-            A2 = I - yk[:, np.newaxis] * sk[np.newaxis, :] * rhok
-            Hk = np.dot(A1, np.dot(Hk, A2)) + \
-                 (rhok * sk[:, np.newaxis] * sk[np.newaxis, :])
-
-            # Update the conditional check
-            gnorm = vecnorm(g0, ord=norm)
-
-            # Increment the loop counter
-            loop_counter += 1
-
-        if NEB.convergence < NEB.convergence_criteria:
-            print("\nConvergence achieved in %d iterations with %lg < %lg\n" % (NEB.step,NEB.convergence,NEB.convergence_criteria))
-            sys.exit()
-
-    def bfgs_scipy(f, x0, fprime,
-            alpha=1e-2, beta=0.6, tau=1E-3, H_reset=True, gtol=1E-5,
-            MIN_STEP=1E-8, MAX_STEP=0.2, reset=60, MAX_BACKTRACK=None,
+    def bfgs_optimizer(f, x0, fprime,
+            alpha=0.1, beta=0.6, tau=1E-3, H_reset=True, gtol=1E-5,
+            MIN_STEP=1E-10, MAX_STEP=0.2, reset=60, MAX_BACKTRACK=None,
             maxiter=None, linesearch='backtrack', L2norm=True,
             BACKTRACK_EPS=1E-3, disp=0, callback=None):
         import numpy as np
-        from math import fsum
+        from math import (copysign, fsum)
 
         def vecnorm(x, ord=2):
             if ord == np.Inf:
@@ -635,15 +522,15 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 print("Using backtrack method with backtrack epsilon %lg." %
                     BACKTRACK_EPS)
 
-            def check_backtrack(x,y):
-                return BACKTRACK_EPS
+            def check_backtrack(f1,f0,x,y):
+                return (f1-f0)/(abs(f1)+abs(f0)) > BACKTRACK_EPS
 
         elif linesearch is 'armijo':
             if disp > 1:
                 print("Using armijo method with tau %lg." % tau)
 
-            def check_backtrack(pk,gk):
-                return tau*alpha*np.dot(gk,pk)
+            def check_backtrack(f1,f0,pk,gk):
+                return f1-f0 > tau*alpha*np.dot(gk,pk)
 
         else:
             print("ERROR - Linesearch '%s' is not acceptable. Use 'backtrack'\
@@ -685,6 +572,10 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             # Hold new parameters
             xkp1 = xk + alpha * pk
 
+            # Recenter position
+            if center:
+                xkp1 = recenter(xkp1)
+
             # Recalculate sk to maintain the secant condition
             sk = xkp1 - xk
 
@@ -695,7 +586,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 fval = f(xkp1)
             fcount += 1
 
-            if f is not None and (fval - old_fval) > check_backtrack(gfkp1,pk):
+            if f is not None and check_backtrack(fval, old_fval, gfkp1, pk):
                 # Step taken overstepped the minimum.  Lowering step size
                 if disp > 1:
                     print("\tResetting System as %lg > %lg!"
@@ -832,7 +723,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
 
     # Output for user
     if opt == 'BROYDEN_ROOT':
-        scipy.optimize.broyden1(NEB.get_gradient, np.array(NEB.coords_start), alpha=float(alpha), verbose=True)
+        scipy.optimize.broyden1(NEB.get_gradient, np.array(NEB.coords_start), alpha=float(alpha), verbose=(disp != 0))
     elif opt == 'QM':
         quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, 
             fprime=NEB.get_gradient, dt=dt, max_dist=0.01, euler=euler)
@@ -841,18 +732,18 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             fprime=NEB.get_gradient, dt = dt, dtmax = 1.0, max_dist = 0.2,
             Nmin = 5, finc = 1.1, fdec = 0.5, astart = 0.1, fa = 0.99, euler=euler)
     elif opt == 'BFGS':
-        #bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=float(alpha), beta=float(beta), gtol=gtol, H_reset=H_reset)
-        bfgs_scipy(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient,
+        bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient,
+            gtol=float(gtol), maxiter=int(maxiter),
             alpha=float(alpha), beta=float(beta), tau=float(tau), H_reset=H_reset,
             MIN_STEP=float(step_min), MAX_STEP=float(step_max), reset=reset, MAX_BACKTRACK=bt_max, 
-            linesearch=linesearch, L2norm=L2norm, BACKTRACK_EPS=bt_eps, disp=verbose
+            linesearch=linesearch, L2norm=L2norm, BACKTRACK_EPS=bt_eps, disp=disp
             )
     elif opt == 'BFGS2':
         from scipy.optimize.bfgsh import fmin_bfgs_h
         fmin_bfgs_h(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient,
             alpha=float(alpha), beta=float(beta), tau=float(tau), H_reset=H_reset,
             MIN_STEP=float(step_min), MAX_STEP=float(step_max), reset=reset, MAX_BACKTRACK=bt_max, 
-            linesearch=linesearch, L2norm=L2norm, BACKTRACK_EPS=bt_eps, disp=(verbose>0)
+            linesearch=linesearch, L2norm=L2norm, BACKTRACK_EPS=bt_eps, disp=(disp>0)
             )
     elif opt == 'SD':
         steepest_decent(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=alpha)
