@@ -4,7 +4,7 @@ from merlin import units
 
 dft, u1, u2, scale, step, out_name, comp, neb_force = 'g09', 'Ha', 'kcal/mol', 1.0, 1, 'out', None, None
 title, x_label, y_label, x_range, y_range, x_vals = 'Energy Landscape', 'X-Axis', 'Y-Axis', None, None, None
-
+p_vals = False
 dft_list = [dft,'orca']
 
 help = '''
@@ -43,6 +43,7 @@ scanDFT [Sim_Name%%d] START STOP [Options]
 -xrange       :            :  Set the x-axis range
 -yrange       :            :  Set the y-axis range
 -xvals        :            :  Set a custom label for x-axis (comma separated).
+-print, -p    :            :  Print out the values that are plotted. Default off
 
 ex: scanDFT water_ 1 10
 ex: scanDFT water_%d 1 10
@@ -111,6 +112,8 @@ if '-xvals' in sys.argv:
 	x_vals = sys.argv[sys.argv.index('-xvals') + 1].split(',')
 	x_vals = [float(x) for x in x_vals]
 
+if [s for s in ['-p','-print'] if s in sys.argv]:
+	p_vals = True
 
 # BEGIN MAKING ENERGY LANDSCAPE
 if dft == 'g09':
@@ -196,3 +199,8 @@ plot(energies,start,x_label,y_label,title,x_range,y_range)
 
 # Write files
 files.write_xyz(frames,out_name[:-4])
+
+# Print out values if desired
+if p_vals:
+	for y in energies:
+		print(str(y))
