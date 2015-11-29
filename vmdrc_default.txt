@@ -2,7 +2,7 @@
 # http://www.life.umd.edu/biology/sukharevlab/download/vmd_scripts/vmd.rc
 
 mol default style VDW
-mol modstyle 0 0 VDW
+mol modstyle 0 0 VDW 1.0 100.0
 display rendermode GLSL
 display depthcue off
 animate pause
