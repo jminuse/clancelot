@@ -38,6 +38,14 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
 
     # Contemplating a force addition of NoSymm to route if (1) DFT='g09' and (2) NoSymm not said
 
+    # Try seeing if neb was run for <= 2 frames
+    if type(states) == list and type(states[0]) != list:
+        print("Error - Only one frame in NEB calculation. Did you mean to run an optimization instead?")
+        sys.exit()
+    elif type(states) == type(states[0]) and len(states) <= 2:
+        print("Error - NEB requires at least 3 frames to run. You have entered only %d frames." % len(states))
+        sys.exit()   
+
     # Set which atoms will be affected by virtual springs
     if not spring_atoms: # If not given, select all
         spring_atoms = range(len(states[0]))

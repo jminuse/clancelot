@@ -110,7 +110,13 @@ if body != '':
 else:
         print(dash+head+dash+tail+dash)
 
-if len(data.frames) > 0:
-	files.write_xyz(data.frames,out_name[:-4])
-	if vmd:
-		os.system('"'+sysconst.vmd_path + '" ' + out_name)
+try:
+	if len(data.frames) > 0:
+		files.write_xyz(data.frames,out_name[:-4])
+		if vmd:
+			os.system('"'+sysconst.vmd_path + '" ' + out_name)
+except TypeError:
+	print("No atomic coordinates available yet...")
+except:
+	print("An unexpected error has occurred.")
+	sys.exit()
