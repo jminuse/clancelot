@@ -2,18 +2,15 @@ import os, sys
 from getpass import getuser
 
 # In the following list, please ensure you have chosen what you want to install.  By default everything is selected
+EVERYTHING = False
 to_install = {
 'vmd':1,
 'pysub':1,
 'gcube':1,
 'jsub':1,
 'jdel':1,
-'viewg':1,
-'viewo':1,
-'chkg':1,
-'chko':1,
-'chkg_all':1,
-'scang':1,
+'chkDFT':1,
+'scanDFT':1,
 'junest (formerly juju)':0,
 'anaconda':0, 				# a Python 2.7.9 distribution that installs to ~/anaconda
 'vmd default settings':1,	# improves the default settings of vmd
@@ -24,6 +21,10 @@ to_install = {
 }
 
 ####################################################################################################################
+if EVERYTHING:
+	for item in to_install:
+		to_install[item]=1
+
 if to_install['file_browser']:
 	os.system('gconftool-2   --type bool --set /apps/nautilus/preferences/always_use_browser true')
 
@@ -68,11 +69,11 @@ fi
 
 os.system('mkdir -p '+INSTALLDIR) # Ensure the install directory is made
 for key in to_install: # Make directories for what we want to install
-	if key == 'chkg_all': continue
+	if key == 'chkDFT': continue
 	if key == 'jdel': continue
 	if key == 'jsub': continue
 	if key == 'vmd': continue
-	if key == 'scang': continue
+	if key == 'scanDFT': continue
 	if key == 'junest (formerly juju)': continue
 	if key == 'python 2.7.10': continue
 	if key == 'numpy': continue
@@ -294,37 +295,14 @@ Popen('/fs/europa/g_pc/vmd-1.9 -e tmp.vmd', shell=True)\n''')
 	os.system('chmod 755 '+INSTALLDIR+'gcube/cube.sh')
 if to_install['jsub']: f.write('complete -F _nbsAutoTab jsub\n\n')
 if to_install['jdel']: f.write('complete -F _jAutoTab jdel\n\n')
-if to_install['viewg']:
-	f.write("alias viewg='"+INSTALLDIR+"viewg/viewg.sh'\n")
-	f.write('complete -F _gaussAutoTab '+INSTALLDIR+'viewg/viewg.sh\n\n')
-	g = open(INSTALLDIR+'viewg/viewg.sh','w')
-	g.write('python '+INSTALLDIR+'tools/view_gaussian.py $@')
-	g.close()
-	os.system('chmod 755 '+INSTALLDIR+'viewg/viewg.sh')
-if to_install['viewo']:
-	f.write("alias viewo='"+INSTALLDIR+"viewo/viewo.sh'\n")
-	f.write('complete -F _orcaAutoTab '+INSTALLDIR+'viewo/viewo.sh\n\n')
-	g = open(INSTALLDIR+'viewo/viewo.sh','w')
-	g.write('python '+INSTALLDIR+'tools/view_orca.py $@')
-	g.close()
-	os.system('chmod 755 '+INSTALLDIR+'viewo/viewo.sh')
-if to_install['chkg']:
-	f.write("alias chkg='"+INSTALLDIR+"chkg/chkg.sh'\n")
-	f.write('complete -F _gaussAutoTab '+INSTALLDIR+'chkg/chkg.sh\n\n')
-	g = open(INSTALLDIR+'chkg/chkg.sh','w')
-	g.write('python '+INSTALLDIR+'tools/chkg.py $@')
-	g.close()
-	os.system('chmod 755 '+INSTALLDIR+'chkg/chkg.sh')
-if to_install['chko']:
-	f.write("alias chko='"+INSTALLDIR+"chko/chko.sh'\n")
-	f.write('complete -F _orcaAutoTab '+INSTALLDIR+'chko/chko.sh\n\n')
-	g = open(INSTALLDIR+'chko/chko.sh','w')
-	g.write('python '+INSTALLDIR+'tools/chko.py $@')
-	g.close()
-	os.system('chmod 755 '+INSTALLDIR+'chko/chko.sh')
-if to_install['chkg_all']: f.write("alias chkg_all='python "+INSTALLDIR+"tools/chkg_all.py'\n")
+if to_install['chkDFT']:
+	f.write("alias chkDFT='python "+INSTALLDIR+"tools/chkDFT.py'\n")
+	f.write('''alias viewg='function _viewg(){chkDFT $1 -dft g09 -v};_viewg'
+alias viewo='function _viewo(){chkDFT $1 -dft orca -v};_viewo'
+alias chkg='function _chkg(){chkDFT $1 -dft g09};_chkg'
+alias chko='function _chko(){chkDFT $1 -dft orca};_chko'\n''')
 if to_install['merlin']: f.write("alias merlin='python -i "+INSTALLDIR+"tools/merlin.py'\n")
-if to_install['scang']: f.write("\nalias scang='python "+INSTALLDIR+"tools/scan.py'\n")
+if to_install['scanDFT']: f.write("\nalias scanDFT='python "+INSTALLDIR+"tools/scanDFT.py'\n")
 if to_install['prnt']: f.write('''alias prnt='function _prnt(){ssh asimov "lpr -P hplj4525-365 -o sides=two-sided-long-edge -o InputSlot=Tray2 $PWD/$1;logout";echo "Printed..."};_prnt'\n''')
 f.write('''\n###############################################################
 ################## END OF THE CLANCELOT CODE ##################
@@ -390,6 +368,10 @@ if to_install['anaconda']:
 			print('...SKIPPING ANACONDA (RE)INSTALLATION...')
 	else:
 		anaconda_install()
+else:
+	if os.path.exists('/fs/home/'+USERNAME+'/anaconda') and os.path.isdir('/fs/home/'+USERNAME+'/anaconda'):
+		zshrc_check_add('export PATH=~/anaconda/bin:$PATH',ZSHRC,zshrc_string)
+
 
 if to_install['sublime_text_3_build_3083']:
 	if os.path.exists('/fs/home/'+USERNAME+'/lib/sublime_text_3') and os.path.isdir('/fs/home/'+USERNAME+'/lib/sublime_text_3'):
@@ -402,6 +384,10 @@ if to_install['sublime_text_3_build_3083']:
 	else:
 		sublime_install()
 		downloaded_tarball=True
+else:
+	if os.path.exists('/fs/home/'+USERNAME+'/lib/sublime_text_3') and os.path.isdir('/fs/home/'+USERNAME+'/lib/sublime_text_3'):
+		zshrc_check_add("alias sublime='~/lib/sublime_text_3/sublime_text",ZSHRC,zshrc_string)
+		zshrc_check_add("alias subl='~/lib/sublime_text_3/sublime_text",ZSHRC,zshrc_string)
 
 if to_install['junest (formerly juju)']: 
 	if os.path.exists('/fs/home/'+USERNAME+'/juju') and os.path.isdir('/fs/home/'+USERNAME+'/juju'):
@@ -418,6 +404,10 @@ if to_install['junest (formerly juju)']:
 		junest_install()
 		print("\nTo finish installing 'junest' please run:\n'pacman -Syyu pacman-mirrorlist && pacman -S gtk2 avogadro grep make ttf-liberation gedit'\n\n(when prompted for GL version, pick option 2, nvidia)\n\n\n")
 		os.system("zsh -c 'junest -f'")
+else:
+	if os.path.exists('/fs/home/'+USERNAME+'/juju') and os.path.isdir('/fs/home/'+USERNAME+'/juju'):
+		zshrc_check_add("export PATH=~/juju/bin:$PATH",ZSHRC,zshrc_string)
+		zshrc_check_add("alias juju='junest'",ZSHRC,zshrc_string)
 
 if downloaded_tarball:
 	print('Removing previously downloaded tarballs')

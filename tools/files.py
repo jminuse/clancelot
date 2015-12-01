@@ -21,17 +21,19 @@ def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, check_charg
 		atoms.append(a)
 	
 	bonds = []
-	for bond in root[1]:
-		a, b = [int(n[1:]) for n in bond.attrib['atomRefs2'].split()]
-		bonds.append( utils.Bond(atoms[a-1],atoms[b-1]) )
-		atoms[a-1].bonded.append( atoms[b-1] )
-		atoms[b-1].bonded.append( atoms[a-1] )
-	
-	angles, dihedrals = utils.get_angles_and_dihedrals(atoms)
+	if len(root)>1:
+		for bond in root[1]:
+			a, b = [int(n[1:]) for n in bond.attrib['atomRefs2'].split()]
+			bonds.append( utils.Bond(atoms[a-1],atoms[b-1]) )
+			atoms[a-1].bonded.append( atoms[b-1] )
+			atoms[b-1].bonded.append( atoms[a-1] )
+		angles, dihedrals = utils.get_angles_and_dihedrals(atoms)
+	else:
+		angles, dihedrals = [],[]
 	
 	if parameter_file:
 		elements, atom_types, bond_types, angle_types, dihedral_types = read_opls_parameters(parameter_file)
-	
+		
 		#add extra parameters, if any
 		for index2s,params in extra_parameters.items():
 			if type(index2s)==int: continue #skip these
@@ -41,7 +43,7 @@ def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, check_charg
 				angle_types.append( utils.Struct(index2s=index2s, e=params[0], angle=params[1]) )
 			elif len(index2s)==4:
 				dihedral_types.append( utils.Struct(index2s=index2s, e=tuple(params)) )
-	
+		
 		#set atom types
 		for a in atoms: 
 			for t in atom_types:
@@ -50,19 +52,19 @@ def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, check_charg
 			for t in extra_parameters:
 				if t==a.type_index:
 					a.type = extra_parameters[t]
-	
+		
 		#check charges
 		if check_charges:
 			net_charge = sum([x.type.charge for x in atoms])
 			if abs(net_charge)>0.01: raise Exception('Non-neutral molecule, charge = %f: %s' % (net_charge, name))
-	
+		
 		#set bond, angle, and dihedral types from parameter file
 		for x in bonds+angles+dihedrals: 
 			index2s = tuple([a.type.index2 for a in x.atoms])
 			try:
 				x.type = [t for t in bond_types+angle_types+dihedral_types if t.index2s==index2s or t.index2s==tuple(reversed(index2s))][0]
 			except: pass
-	
+
 		#check consistency
 		for x in bonds+angles+dihedrals: 
 			if not x.type:
