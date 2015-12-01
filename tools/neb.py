@@ -302,7 +302,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             NEB.gradient = None #set to None so it will recalculate next time
             return np.array(gradient)
 
-    def recenter(r):
+    def recenter(r, H=None, G=None):
         # Prevent rotation or translation
         coord_count = 0
         st = NEB.states
@@ -310,14 +310,54 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             for a in s:
                 a.x, a.y, a.z = r[coord_count], r[coord_count+1], r[coord_count+2]
                 coord_count += 3
-        utils.procrustes(st) #translate and rotate each frame to fit its neighbor
+
+        # Translate and rotate each frame to fit its neighbor
+        # Note, procrustes will change st[-1] which is fine as we need this for spring
+        # force calculations
+        A = utils.procrustes(st) 
+
         coord_count = 0
         for s in st[1:-1]:
             for a in s:
                 r[coord_count:coord_count+3] = [a.x, a.y, a.z]
                 coord_count += 3
 
-        return r
+        if H is None:
+            return r
+        else:
+            from scipy.linalg import block_diag
+            return r, np.dot(H,block_diag(*A[0:-len(st[0])])), np.dot(G,block_diag(*A[0:-len(st[0])]))
+
+    def full_center(r, B, H):
+        from scipy.linalg import block_diag
+        # Prevent rotation or translation
+        coord_count = 0
+        st = NEB.states
+        for s in st[1:-1]:
+            for a in s:
+                a.x, a.y, a.z = r[coord_count], r[coord_count+1], r[coord_count+2]
+                coord_count += 3
+
+        # Translate and rotate each frame to fit its neighbor
+        # Note, procrustes will change st[-1] which is fine as we need this for spring
+        # force calculations
+        A = utils.procrustes(st)
+
+        coord_count = 0
+        for s in st[1:-1]:
+            for a in s:
+                r[coord_count:coord_count+3] = [a.x, a.y, a.z]
+                coord_count += 3
+
+        C = []
+        R = block_diag(*A[0:-len(st[0])])
+        for b in B:
+            C.append(np.dot(b,R))
+
+        # Note, to transform the Hessian matrix, it's not like a normal vector (as above)
+        H = R.T*H*R
+
+        return r, C, H
 
     def vproj(v1, v2):
         """
@@ -529,18 +569,17 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         x0 = np.asarray(x0).flatten()
         if x0.ndim == 0:
             x0.shape = (1,)
+        xk = x0
 
         # Initialize inv Hess and Identity matrix
-        I = np.eye(len(x0), dtype=int)
+        I = np.eye(len(xk), dtype=int)
         Hk = I
 
         # Get gradient and store your old func_max
-        gfk = fprime(x0)
+        gfk = fprime(xk)
         if f is not None:
-            old_fval = f(x0)
+            old_fval = f(xk)
         fcount += 1
-        # Hold coordinates for loop
-        xk = x0
 
         # Hold original values
         ALPHA_CONST = alpha
@@ -586,15 +625,13 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             # Hold new parameters
             xkp1 = xk + alpha * pk
 
-            # Recenter position
-            if center:
-                xkp1 = recenter(xkp1)
-
-            # Recalculate sk to maintain the secant condition
-            sk = xkp1 - xk
-
             # Get the new gradient
             gfkp1 = fprime(xkp1)
+
+            if center:
+                xkp1, C, Hk = full_center(xkp1, [gfkp1, gfk, xk], Hk)
+                gfkp1, gfk, xk = C
+
             # Check if max has increased
             if f is not None:
                 fval = f(xkp1)
@@ -637,31 +674,16 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                     if disp > 1:
                         print("%lg,\t" % alpha),
             
-            # Store new parameters, as it has passed the check
-            # (fval < old_fval is True)
-            xk = xkp1
 
+            # Recalculate sk to maintain the secant condition
+            sk = xkp1 - xk
+            
             # Store new max value in old_max for future comparison
             if f is not None:
                 old_fval = fval
 
             # Get difference in gradients for further calculations
             yk = gfkp1 - gfk
-            # Store new gradient in old gradient
-            gfk = gfkp1
-
-            if disp > 1:
-                print("fval %lg" % (fval))
-
-            # If callback is desired
-            if callback is not None:
-                callback(xk)
-
-            # Increment the loop counter
-            loop_counter += 1
-
-            if (NEB.RMS_force <= gtol):
-                break
 
             try:  # this was handled in numeric, let it remaines for more safety
                 rhok = 1.0 / (np.dot(yk, sk))
@@ -673,12 +695,33 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 rhok = 1000.0
                 if disp > 1:
                     print("Divide-by-zero encountered: rhok assumed large")
+
+
             # Run BFGS Update for the Inverse Hessian
             A1 = I - sk[:, np.newaxis] * yk[np.newaxis, :] * rhok
             A2 = I - yk[:, np.newaxis] * sk[np.newaxis, :] * rhok
             Hk = np.dot(A1, np.dot(Hk, A2)) + \
                  (rhok * sk[:, np.newaxis] * sk[np.newaxis, :])
 
+            if disp > 1:
+                print("fval %lg" % (fval))
+
+            # Store new parameters, as it has passed the check
+            # (fval < old_fval is True)
+            xk = xkp1
+            # Store new gradient in old gradient
+            gfk = gfkp1
+
+            # If callback is desired
+            if callback is not None:
+                callback(xk)
+
+            # Increment the loop counter
+            loop_counter += 1
+
+            if (NEB.RMS_force <= gtol):
+                break
+            
         if f is not None:
             fval = old_fval
         else:
