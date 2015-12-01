@@ -351,6 +351,7 @@ def orthogonal_procrustes(A, ref_matrix, reflection=False):
 	return R,scale
 
 # Procrustes works by geting an orthogonal frame to map frames[1:] to be as similar to frames[0] as possible
+# This implements the orthagonal procrustes with translation and no reflection (Partial Procrustes)
 def procrustes(frames, count_atoms=None):
 	if not count_atoms: count_atoms = range(len(frames[0]))
 	for s in frames:

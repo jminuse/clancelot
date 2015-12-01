@@ -22,7 +22,7 @@ import re, shutil, copy
 ##########################################################################
 
 def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queue=None,
-        disp=0, fit_rigid=True, center=False, k=0.1837,
+        disp=0, k=0.1837,
         DFT='g09', opt='BFGS', gtol=1e-3, maxiter=1000,
         alpha=0.1, beta=0.6, tau=1E-3, reset=20, H_reset=True,
         viscosity=0.1, dtmax=1.0, Nmin=5, finc=1.1, fdec=0.5, astart=0.1, fa=0.99,
@@ -104,7 +104,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         name, states, theory, k = None, None, None, None
         error, gradient = None, None
         step = 0
-        def __init__(self, name, states, theory, extra_section='', k=0.1837, fit_rigid=True):
+        def __init__(self, name, states, theory, extra_section='', k=0.1837):
             NEB.name = name
             NEB.states = states
             NEB.theory = theory
@@ -116,8 +116,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             NEB.nframes = len(states)
             NEB.RMS_force = float('inf')
 
-            if fit_rigid: 
-                utils.procrustes(NEB.states) # Fit rigid before relaxing
+            utils.procrustes(NEB.states) # Fit rigid before relaxing
             
             # Load initial coordinates into flat array for optimizer
             NEB.coords_start = []
@@ -302,7 +301,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             NEB.gradient = None #set to None so it will recalculate next time
             return np.array(gradient)
 
-    def recenter(r, H=None, G=None):
+    def fit_rigid(r, B=None, H=None):
+        from scipy.linalg import block_diag
         # Prevent rotation or translation
         coord_count = 0
         st = NEB.states
@@ -322,42 +322,23 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 r[coord_count:coord_count+3] = [a.x, a.y, a.z]
                 coord_count += 3
 
-        if H is None:
-            return r
-        else:
-            from scipy.linalg import block_diag
-            return r, np.dot(H,block_diag(*A[0:-len(st[0])])), np.dot(G,block_diag(*A[0:-len(st[0])]))
-
-    def full_center(r, B, H):
-        from scipy.linalg import block_diag
-        # Prevent rotation or translation
-        coord_count = 0
-        st = NEB.states
-        for s in st[1:-1]:
-            for a in s:
-                a.x, a.y, a.z = r[coord_count], r[coord_count+1], r[coord_count+2]
-                coord_count += 3
-
-        # Translate and rotate each frame to fit its neighbor
-        # Note, procrustes will change st[-1] which is fine as we need this for spring
-        # force calculations
-        A = utils.procrustes(st)
-
-        coord_count = 0
-        for s in st[1:-1]:
-            for a in s:
-                r[coord_count:coord_count+3] = [a.x, a.y, a.z]
-                coord_count += 3
-
         C = []
         R = block_diag(*A[0:-len(st[0])])
-        for b in B:
-            C.append(np.dot(b,R))
+        if B is not None:
+            for b in B:
+                C.append(np.dot(b,R))
+        if H is not None:
+            # Note, to transform the Hessian matrix, it's not like a normal vector (as above)
+            H = R.T*H*R
 
-        # Note, to transform the Hessian matrix, it's not like a normal vector (as above)
-        H = R.T*H*R
-
-        return r, C, H
+        if B is None and H is None:
+            return r
+        elif B is not None and H is None:
+            return r, C
+        elif H is not None and B is None:
+            return r, H
+        else:
+            return r, C, H
 
     def vproj(v1, v2):
         """
@@ -391,8 +372,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 sys.exit()
             gradient = -fprime(r)
             r += gradient*alpha
-            if center:
-                r = recenter(r)
+            r = fit_rigid(r)
             step += 1
 
     def quick_min_optimizer(f, r, nframes, fprime, dt=0.1, step_max=0.1, euler=False, viscosity=0.1, maxiter=1000, gtol=1E-3): # dt = fs, step_max = angstroms, viscosity = 1/fs
@@ -476,8 +456,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 v = v_new
                 acc = a_new
             
-            if center:
-                r = recenter(r)
+            r = fit_rigid(r)
 
             step += 1
 
@@ -524,8 +503,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 #move atoms
                 r += v * dt
 
-            if center:
-                r = recenter(r)
+            r = fit_rigid(r)
 
             step += 1
 
@@ -628,9 +606,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             # Get the new gradient
             gfkp1 = fprime(xkp1)
 
-            if center:
-                xkp1, C, Hk = full_center(xkp1, [gfkp1, gfk, xk], Hk)
-                gfkp1, gfk, xk = C
+            xkp1, C, Hk = fit_rigid(xkp1, [gfkp1, gfk, xk], Hk)
+            gfkp1, gfk, xk = C
 
             # Check if max has increased
             if f is not None:
@@ -765,7 +742,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
     #######################################################################################################################
     #######################################################################################################################
 
-    n = NEB(name, states, theory, extra_section, k, fit_rigid)
+    n = NEB(name, states, theory, extra_section, k)
 
     # Output for user
     if opt == 'BROYDEN_ROOT':
