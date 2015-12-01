@@ -595,3 +595,182 @@ def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTS=False,outName=None,write_xyz=Fals
 # A function to format a string's colour 
 def color_set(s,c): return constants.COLOR[c] + str(s) + constants.COLOR['ENDC']
 colour_set = color_set
+
+def opls_options(molecule, parameter_file='oplsaa.prm'):
+	elements, atom_types, bond_types, angle_types, dihedral_types = files.read_opls_parameters(parameter_file)
+
+	elements_by_structure_indices = dict( [ (t.index2, elements_by_atomic_number[t.element] ) for t in atom_types ] )
+	elements_by_structure_indices[0] = 'X'
+
+	def add_to_list(dic,key,value):
+		if key in dic:
+			dic[key].append(value)
+		else:
+			dic[key] = [value]
+
+	dihedral_types_by_element={}
+	for d in dihedral_types:
+		structure_indices = d.index2s
+		elements = [ elements_by_structure_indices[i] for i in structure_indices]
+		add_to_list(dihedral_types_by_element, tuple(elements), d)
+		add_to_list(dihedral_types_by_element, tuple(reversed(elements)), d)
+
+	atoms, bonds, angles, dihedrals = files.read_cml(molecule, parameter_file=None)
+
+	for a in atoms:
+		a.index2_options = []
+
+	for d in dihedrals:
+		elements = tuple([ a.element for a in d.atoms ])
+		options = dihedral_types_by_element[elements]
+		options_by_i = [ [],[],[],[] ]
+			
+		
+		if elements in dihedral_types_by_element:
+			print elements
+			for a in d.atoms:
+				a.index2_options.append( set() )
+			for t in dihedral_types_by_element[elements]:
+				#print '\t', t.index2s
+				for i in range(4):
+					d.atoms[i].index2_options[-1].add( t.index2s[i] )
+		else:
+			print 'Error: dihedral', elements, 'does not exist in OPLS file', parameter_file
+
+	for a in atoms:
+		print a.element
+		for option in a.index2_options:
+			print '\t', option
+		
+		options = a.index2_options[0]
+		
+		for i in xrange(1,len(a.index2_options)):
+			options = options.intersection( a.index2_options[i] )
+
+		print '\t\t', options
+
+	
+def opt_opls(molecule, parameter_file='oplsaa.prm', taboo_time=100):
+	elements, atom_types, bond_types, angle_types, dihedral_types = files.read_opls_parameters(parameter_file)
+	atoms, bonds, angles, dihedrals = files.read_cml(molecule, parameter_file=None)
+	
+	bond_types_by_index2 = dict( [ (tuple(t.index2s),t) for t in bond_types ] + [ (tuple(reversed(t.index2s)),t) for t in bond_types ] )
+	angle_types_by_index2 = dict( [ (tuple(t.index2s),t) for t in angle_types ] + [ (tuple(reversed(t.index2s)),t) for t in angle_types ] )
+	dihedral_types_by_index2 = dict( [ (tuple(t.index2s),t) for t in dihedral_types ] + [ (tuple(reversed(t.index2s)),t) for t in dihedral_types ] )
+	
+	charges_by_index = dict( [ (t.index,t.charge) for t in atom_types ] )
+	
+	for a in atoms:
+		a.possible_types = set()
+		for t in atom_types:
+			if elements_by_atomic_number[t.element] == a.element and t.bond_count==len(a.bonded):
+				a.possible_types.add(t.index2)
+		a.possible_types = list(a.possible_types)
+		#a.possible_types.append(0)
+	
+	def count_conflicts(types):
+		for i,a in enumerate(atoms):
+			a.index2 = types[i]
+		conflicts = 0
+		for b in bonds:
+			index2s = (b.atoms[0].index2, b.atoms[1].index2)
+			if not index2s in bond_types_by_index2:
+				conflicts += 1
+		
+		for a in angles:
+			index2s = (a.atoms[0].index2, a.atoms[1].index2, a.atoms[2].index2)
+			if not index2s in angle_types_by_index2:
+				conflicts += 1
+		
+		for d in dihedrals: 
+			index2s_0 = (d.atoms[0].index2, d.atoms[1].index2, d.atoms[2].index2, d.atoms[3].index2)
+			index2s_1 = (0,                 d.atoms[1].index2, d.atoms[2].index2, d.atoms[3].index2)
+			index2s_2 = (d.atoms[0].index2, d.atoms[1].index2, d.atoms[2].index2,        0)
+			in0 = index2s_0 in dihedral_types_by_index2
+			in1 = index2s_1 in dihedral_types_by_index2
+			in2 = index2s_2 in dihedral_types_by_index2
+			if not in0 and not in1 and not in2:
+				conflicts += 1
+		return conflicts
+	
+	import random
+	types = [random.choice(a.possible_types) for a in atoms]
+	taboo = [0 for a in atoms]
+	best = count_conflicts(types)
+	
+	step = 0
+	for step in range(100000):
+		i = random.randint( 0, len(types)-1 )
+		for guess in types:
+			if taboo[i]>0:
+				i = random.randint( 0, len(types)-1 )
+			else:
+				break
+		old_type = types[i]
+		types[i] = random.choice(atoms[i].possible_types)
+		
+		conflicts = count_conflicts(types)
+		if conflicts <= best:
+			best = conflicts
+			taboo[i] = taboo_time
+		else:
+			types[i] = old_type
+	
+		taboo = [t-1 if t>0 else 0 for t in taboo]
+	
+		if step % 10000 == 0:
+			print best, conflicts, types
+		step += 1
+
+	def types_from_index2(x):
+		return [t for t in atom_types if t.index2==x and t.index<=440]
+
+	for i,tt in enumerate( [ types_from_index2(x) for x in types] ):
+		#print i, atoms[i].element
+		atoms[i].index_options = [t.index for t in tt]
+		#for t in tt:
+		#	print '\t', t.index, t.notes
+	
+	
+	
+	
+	
+	def net_charge(types):
+		charge = 0.0
+		for t in types:
+			charge += charges_by_index[t]
+		return charge
+	
+	types = [random.choice(a.index_options) for a in atoms]
+	taboo = [0 for a in atoms]
+	best = net_charge(types)
+	
+	for step in range(100000):
+		i = random.randint( 0, len(types)-1 )
+		for guess in types:
+			if taboo[i]>0:
+				i = random.randint( 0, len(types)-1 )
+			else:
+				break
+		old_type = types[i]
+		types[i] = random.choice(atoms[i].index_options)
+		
+		charge = net_charge(types)
+		if abs(charge) <= abs(best):
+			best = charge
+			taboo[i] = taboo_time
+		else:
+			types[i] = old_type
+	
+		taboo = [t-1 if t>0 else 0 for t in taboo]
+	
+		if step % 10000 == 0:
+			print best, charge, types
+		step += 1
+
+	for t in types:
+		for t2 in atom_types:
+			if t2.index==t:
+				print t2.element, t2.notes
+
+
