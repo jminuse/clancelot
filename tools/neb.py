@@ -24,7 +24,7 @@ import re, shutil, copy
 def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queue=None,
         disp=0, k=0.1837,
         DFT='g09', opt='BFGS', gtol=1e-3, maxiter=1000,
-        alpha=0.1, beta=0.7, tau=1E-3, reset=20, H_reset=True,
+        alpha=0.05, beta=0.7, tau=1E-3, reset=20, H_reset=True,
         viscosity=0.1, dtmax=1.0, Nmin=5, finc=1.1, fdec=0.5, astart=0.1, fa=0.99,
         step_min=1E-8, step_max=0.2, bt_max=None, linesearch='backtrack', L2norm=True, bt_eps=1E-3,
         dt = 0.1, euler=True, force=True, mem=25, blurb=None, initial_guess=None): 
@@ -372,7 +372,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
     ######################################################################################
     ######################################################################################
 
-    def steepest_decent(f, r, fprime, alpha=0.1, maxiter=1000, gtol=1E-3): #better, but tends to push error up eventually, especially towards endpoints.
+    def steepest_decent(f, r, fprime, alpha=0.05, maxiter=1000, gtol=1E-3): #better, but tends to push error up eventually, especially towards endpoints.
         step = 0
         while (NEB.RMS_force > gtol) and (step < maxiter):
             if NEB.convergence < NEB.convergence_criteria:
@@ -516,7 +516,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             step += 1
 
     def bfgs_optimizer(f, x0, fprime,
-            alpha=0.1, beta=0.7, H_reset=True, 
+            alpha=0.05, beta=0.7, H_reset=True, 
             gtol=1E-3, maxiter=1000,
             MAX_STEP=0.2,
             disp=0, callback=None):
@@ -528,6 +528,10 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         reset=20
         MIN_STEP=1E-8
         BACKTRACK_EPS=1E-3
+
+        # If given a very bad initial guess, it's better to do steepest descent for some iterations first so as to not make
+        # a bad inverse hessian and then shoot off into dangerous territory
+        ANNEAL=3
 
         if disp > 2:
             print("\nValues in bfgs_optimize code:")
@@ -710,6 +714,10 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
 
             if (NEB.RMS_force <= gtol):
                 break
+
+            if ANNEAL > 0:
+                Hk = I
+                ANNEAL -= 1
             
         if f is not None:
             fval = old_fval

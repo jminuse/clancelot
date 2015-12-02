@@ -149,7 +149,11 @@ g09 <<END > '''+run_name+'''.log
 		process_handle = Popen('/bin/csh %s.inp' % run_name, shell=True)
 	pyPath = '../'+sys.argv[0]
 	if not os.path.isfile(pyPath): pyPath = '../'+sys.argv[0][sys.argv[0].rfind('/')+1:] # This is if sys.argv[0] is a full path
-	if not err: shutil.copyfile(pyPath, run_name+'.py')
+	try:
+		if not err: shutil.copyfile(pyPath, run_name+'.py')
+	# If submitted a python script to the queue, this fails. I don't care about storing the .py so ignore.
+	except IOError:
+		pass
 	os.chdir('..')
 
 	log.put_gaussian(run_name,route,extra_section=extra_section,blurb=blurb,eRec=eRec,force=force,neb=neb) # Places info in log if simulation is run

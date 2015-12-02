@@ -110,8 +110,8 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, get_charges=False, 
 	if check_convergence: results.append(convergence)
 	if check_converged: results.append(converged)
 
-	#while type(results) == list and len(results) == 1:
-	#	results = results[0]
+	while type(results) == list and len(results) == 1:
+		results = results[0]
 	return results
 
 # Simplified calls to parse_atoms
