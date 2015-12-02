@@ -24,7 +24,7 @@ import re, shutil, copy
 def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queue=None,
         disp=0, k=0.1837,
         DFT='g09', opt='BFGS', gtol=1e-3, maxiter=1000,
-        alpha=0.1, beta=0.6, tau=1E-3, reset=20, H_reset=True,
+        alpha=0.05, beta=0.6, tau=1E-3, reset=20, H_reset=False,
         viscosity=0.1, dtmax=1.0, Nmin=5, finc=1.1, fdec=0.5, astart=0.1, fa=0.99,
         step_min=1E-8, step_max=0.2, bt_max=None, linesearch='backtrack', L2norm=True, bt_eps=1E-3,
         dt = 0.1, euler=True, force=True, mem=25, blurb=None, initial_guess=None): 
@@ -187,6 +187,10 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                     if not result:
                         raise Exception('parse_atoms failed')
                     new_energy, new_atoms = result
+
+                    # Note, currently this doesnt work because forces aren't read in?
+                    #result = g09.read('%s-%d-%d' % (NEB.name, step_to_use, i))
+                    #new_energy, new_atoms = result.energies[-1], result.atoms
                 elif DFT=='orca':
                     new_atoms, new_energy = orca.engrad_read('%s-%d-%d' % (NEB.name, step_to_use, i))
 
@@ -204,10 +208,16 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                     if i!=0 and i!=len(NEB.states)-1:
                         check_atom_coords(state,new_atoms)
                         for a,b in zip(state, new_atoms):
-                            a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
+                            a.fx = units.convert('Ha/Bohr','Ha/Ang',b.fx)
+                            a.fy = units.convert('Ha/Bohr','Ha/Ang',b.fy)
+                            a.fz = units.convert('Ha/Bohr','Ha/Ang',b.fz)
+
                 elif DFT == 'orca':
                     for a,b in zip(state, new_atoms):
-						a.fx = b.fx; a.fy = b.fy; a.fz = b.fz
+                        a.fx = units.convert('Ha/Bohr','Ha/Ang',b.fx)
+                        a.fy = units.convert('Ha/Bohr','Ha/Ang',b.fy)
+                        a.fz = units.convert('Ha/Bohr','Ha/Ang',b.fz)
+
             # V = potential energy from DFT. energies = V+springs
             V = copy.deepcopy(energies) 
             # Reset convergence check
@@ -241,9 +251,10 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                         # Find spring forces parallel to tangent
                         F_spring_parallel = NEB.k*( utils.dist(c,b) - utils.dist(b,a) ) * tangent
                         
-                        energies[i] += 627.5 * 0.5*NEB.k*( utils.dist_squared(c,b) + utils.dist_squared(b,a) )
+                        E_Hartree = 0.5*NEB.k*( utils.dist_squared(c,b) + utils.dist_squared(b,a) )
+                        energies[i] += units.convert_energy('Ha','kcal/mol', E_Hartree)
                     
-                        # Find DFT forces perpendicular to tangent
+                        # Find DFT forces perpendicular to tangent. Units of Ha/Ang
                         real_force = np.array( [b.fx,b.fz,b.fz] )
                         F_real_perpendicular = real_force - np.dot(real_force, tangent)*tangent
                     
@@ -364,7 +375,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
     ######################################################################################
     ######################################################################################
 
-    def steepest_decent(f, r, fprime, alpha=0.1, maxiter=1000, gtol=1E-3): #better, but tends to push error up eventually, especially towards endpoints.
+    def steepest_decent(f, r, fprime, alpha=0.05, maxiter=1000, gtol=1E-3): #better, but tends to push error up eventually, especially towards endpoints.
         step = 0
         while (NEB.RMS_force > gtol) and (step < maxiter):
             if NEB.convergence < NEB.convergence_criteria:
@@ -508,7 +519,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             step += 1
 
     def bfgs_optimizer(f, x0, fprime,
-            alpha=0.1, beta=0.6, H_reset=True, 
+            alpha=0.05, beta=0.6, H_reset=False, reset=20,
             gtol=1E-3, maxiter=1000,
             MAX_STEP=0.2,
             disp=0, callback=None):
@@ -517,7 +528,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
 
         # These are values deemed good for DFT NEB and removed from parameter space for simplification
         MAX_BACKTRACK=None
-        reset=20
+        #reset=20
         MIN_STEP=1E-8
         BACKTRACK_EPS=1E-3
 
@@ -626,7 +637,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 if disp > 1:
                     print("-> %lg\n" % alpha)
 
-                # Reset the Inverse Hessian if desired - This is recommended!
+                # Reset the Inverse Hessian if desired - This is no longer recommended!
                 if H_reset:
                     Hk = I
                 backtrack += 1
@@ -757,7 +768,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
     elif opt == 'BFGS':
         bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient,
             gtol=float(gtol), maxiter=int(maxiter),
-            alpha=float(alpha), beta=float(beta), H_reset=H_reset,
+            alpha=float(alpha), beta=float(beta), H_reset=H_reset, reset=reset,
             MAX_STEP=float(step_max), disp=disp
             )
     elif opt == 'BFGS2':
