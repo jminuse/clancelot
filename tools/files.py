@@ -220,7 +220,7 @@ Masses
 	f.close()
 
 
-def packmol(system, molecules, molecule_ratio, density): #density in g/mL
+def packmol(system, molecules, molecule_ratio, density, seed=1): #density in g/mL
 	try:
 		os.mkdir('packmol')
 	except: pass
@@ -231,6 +231,7 @@ def packmol(system, molecules, molecule_ratio, density): #density in g/mL
 	tolerance 2.0
 	filetype xyz
 	output out.xyz
+	seed '''+str(seed)+'''
 	''')
 	density *= 0.6022 # convert density to amu/angstrom^3. 1 g/mL = 0.6022 amu/angstrom^3
 	average_molecular_weight = sum([a.type.mass*molecule_ratio[i] for i in range(len(molecules)) for a in molecules[i].atoms]) / sum(molecule_ratio)
