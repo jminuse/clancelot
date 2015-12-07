@@ -1,5 +1,6 @@
 from merlin import *
 from subprocess import Popen
+from copy import deepcopy
 
 def read(input_file):
 	# Check file exists, and open
@@ -106,6 +107,7 @@ def read(input_file):
 	data.energy = energy
 	data.charges_MULLIKEN = charges_MULLIKEN
 	data.charges_LOEWDIN = charges_LOEWDIN
+	data.charges = deepcopy(charges_MULLIKEN)
 	data.convergence = convergence
 	data.converged = converged
 	data.time = time
