@@ -303,10 +303,10 @@ if to_install['chkDFT']:
 	f.write('''alias viewg='function _viewg(){chkDFT $1 -dft g09 -v $@};_viewg'
 alias viewo='function _viewo(){chkDFT $1 -dft orca -v $@};_viewo'
 alias chkg='function _chkg(){chkDFT $1 -dft g09 $@};_chkg'
-alias ggedit='function _ggedit(){gedit orca/$1/$1.log $@};_ggedit'
+alias ggedit='function _ggedit(){gedit orca/$1/$1.log};_ggedit'
 alias gtail='function _gtail(){tail orca/$1/$1.log $@};_gtail'
 alias chko='function _chko(){chkDFT $1 -dft orca $@};_chko'
-alias ogedit='function _ogedit(){gedit orca/$1/$1.out $@};_ogedit'
+alias ogedit='function _ogedit(){gedit orca/$1/$1.out};_ogedit'
 alias otail='function _otail(){tail orca/$1/$1.out $@};_otail'\n''')
 if to_install['merlin']: f.write("alias merlin='python -i "+INSTALLDIR+"tools/merlin.py'\n")
 if to_install['scanDFT']: f.write("\nalias scanDFT='python "+INSTALLDIR+"tools/scanDFT.py'\n")

@@ -2,10 +2,13 @@ import os, sys
 import subprocess
 import g09, orca
 import units, utils, sysconst, constants, files
+from getpass import getuser
+
+USERNAME = getuser()
 
 # One can easily change defaults here (if they do, probably change the
 # help text below accordingly).
-dft, u1, u2, scale, out_name, vmd = 'g09', 'Ha', 'Ha', 1.0, 'out', False
+dft, u1, u2, scale, out_name, vmd, me = 'g09', 'Ha', 'Ha', 1.0, 'out', False, False
 dft_list = [dft,'orca']
 
 if '-h' in sys.argv or '-help' in sys.argv:
@@ -28,6 +31,7 @@ chkDFT [Sim_Name] [Options]
                           not run. Default output name is 'out.xyz' but user
                           can choose their own using this command. 
 -vmd, -v      :        :  Opens output xyz file in vmd. Flag turns on.
+-me           :        :  Forces the .xyz file to be saved to ~/out.xyz
 
 ex. chkDFT water -dft orca -u kT_300
 ''')
@@ -59,7 +63,11 @@ if len(out_name) < 5 or out_name[-4:] != '.xyz': out_name += '.xyz'
 # Get VMD display status
 if '-vmd' in sys.argv or '-v' in sys.argv:
 	vmd = True
-	
+# Check if me is forced
+if '-me' in sys.argv:
+	me = True
+
+
 # Read in data
 if dft == 'g09':
 	try:
@@ -112,9 +120,14 @@ else:
 
 try:
 	if len(data.frames) > 0:
-		files.write_xyz(data.frames,out_name[:-4])
+		if me:
+			me = '/fs/home/%s/' % USERNAME
+		else:
+			me = ''
+
+		files.write_xyz(data.frames,me + out_name[:-4])
 		if vmd:
-			os.system('"'+sysconst.vmd_path + '" ' + out_name)
+			os.system('"'+sysconst.vmd_path + '" ' + me + out_name)
 except TypeError:
 	print("No atomic coordinates available yet...")
 except:
