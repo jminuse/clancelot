@@ -2,7 +2,7 @@ import os, sys
 from getpass import getuser
 
 # In the following list, please ensure you have chosen what you want to install.  By default everything is selected
-EVERYTHING = False
+INSTALL_EVERYTHING=False
 to_install = {
 'vmd':1,
 'pysub':1,
@@ -21,9 +21,9 @@ to_install = {
 }
 
 ####################################################################################################################
-if EVERYTHING:
-	for item in to_install:
-		to_install[item]=1
+if INSTALL_EVERYTHING:
+	for x in to_install:
+		to_install[x] = 1
 
 if to_install['file_browser']:
 	os.system('gconftool-2   --type bool --set /apps/nautilus/preferences/always_use_browser true')
