@@ -1,6 +1,7 @@
 from merlin import *
 from subprocess import Popen
 from copy import deepcopy
+from shutil import copyfile
 
 def read(input_file):
 	# Check file exists, and open
@@ -232,6 +233,15 @@ export LD_LIBRARY_PATH=/fs/europa/g_pc/ompi_1_6_5/lib:$LD_LIBRARY_PATH
 		f.write(NBS)
 		f.close()
 		os.system('jsub %s.nbs' % run_name)
+
+	# Copy run script
+	fname = sys.argv[0]
+	if '/' in fname: fname = fname.split('/')[-1]
+	try:
+		copyfile('../../%s' % fname,fname)
+	except IOError:
+		# Submitted a job oddly enough that sys.argv[0] is not the original python file name, so don't do this
+		pass
 
 	# Return to the appropriate directory
 	os.chdir('../..')

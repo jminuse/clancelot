@@ -219,6 +219,9 @@ s_hold = \'\'\'#!/bin/bash
 ##NBS-queue: "batch"
 
 rm ^^^^^^^$$$$$$.log
+
+source /fs/home/'''+USERNAME+'''/.zshrc
+
 /fs/home/'''+USERNAME+'''/anaconda/bin/python2.7 -u ^^^^^^^$$$$$$.py >> ^^^^^^^$$$$$$.log 2>&1
 \'\'\'
 for i,s in enumerate(sys.argv):
