@@ -21,7 +21,11 @@ def read(input_file):
 			a = a.split()
 			tmp_atoms.append(utils.Atom(a[0],float(a[1]),float(a[2]),float(a[3])))
 		frames.append(tmp_atoms)
-	atoms = frames[-1]
+
+	if len(frames) > 0:
+		atoms = frames[-1]
+	else:
+		atoms = None
 
 	# Get all the energies
 	hold, energies = data, []
@@ -31,7 +35,11 @@ def read(input_file):
 		tmp = hold[:hold.find('\n')].split()[-1]
 		energies.append(float(tmp))
 		hold = hold[hold.find('\n'):]
-	energy = energies[-1]
+	
+	if len(energies) > 0:
+		energy = energies[-1]
+	else:
+		energy = None
 
 	# Get charges
 	hold, charges_MULLIKEN = data, []
@@ -81,7 +89,11 @@ def read(input_file):
 				break
 			tp = t
 		hold = hold[hold.find('\n'):]
-	bandgap = bandgaps[-1]
+	
+	if len(bandgaps) > 0:
+		bandgap = bandgaps[-1]
+	else:
+		bandgap = None
 
 	hold, convergence = data, []
 	s = 'Geometry convergence'
