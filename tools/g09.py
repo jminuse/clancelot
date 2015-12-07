@@ -149,7 +149,11 @@ g09 <<END > '''+run_name+'''.log
 		process_handle = Popen('/bin/csh %s.inp' % run_name, shell=True)
 	pyPath = '../'+sys.argv[0]
 	if not os.path.isfile(pyPath): pyPath = '../'+sys.argv[0][sys.argv[0].rfind('/')+1:] # This is if sys.argv[0] is a full path
-	if not err: shutil.copyfile(pyPath, run_name+'.py')
+	try:
+		if not err: shutil.copyfile(pyPath, run_name+'.py')
+	# If submitted a python script to the queue, this fails. I don't care about storing the .py so ignore.
+	except IOError:
+		pass
 	os.chdir('..')
 
 	log.put_gaussian(run_name,route,extra_section=extra_section,blurb=blurb,eRec=eRec,force=force,neb=neb) # Places info in log if simulation is run
@@ -235,14 +239,19 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, check_convergence=T
 		energies = []
 		atom_frames = []
 		start=0
+		orientation = 'Input orientation:'
 		while True:
 			try: #match energy
-				start = contents.index('SCF Done', start)
-				energies.append(float( re.search('SCF Done: +\S+ += +(\S+)', contents[start:]).group(1) ) )
-				input_orientation = contents.find('Input orientation:', start)
+				input_orientation = contents.find(orientation, start)
+				if input_orientation == -1:
+					orientation = 'Standard orientation'
+					#print("\nWarning - No available Input Orientation, defaulting to Standard")
+					input_orientation = contents.find(orientation, start)
 				if input_orientation >= 0:
 					start = input_orientation
 				next_coordinates = contents.index('Coordinates (Angstroms)', start)
+				start = contents.index('SCF Done', start)
+				energies.append(float( re.search('SCF Done: +\S+ += +(\S+)', contents[start:]).group(1) ) )
 			except: break
 			start = contents.index('---\n', next_coordinates)+4
 			end = contents.index('\n ---', start)
@@ -326,6 +335,21 @@ def bandgap(input_file, parse_all=True):
 	
 	return bandgap
 
+def convergence(input_file):
+	s = open('gaussian/'+input_file+'.log').read()
+	s = s[s.rfind("Converged?"):].split('\n')[1:5]
+	convergence = []
+	if s == ['']: return None
+	for c in s:
+		c, tmp = c.split(), []
+		tmp.append(' '.join(c[0:2]))
+		tmp.append(float(c[2]))
+		tmp.append(float(c[3]))
+		tmp.append(c[4])
+		convergence.append(tmp)
+		
+	return convergence
+
 def parse_scan(input_file):
 	contents = open(input_file).read()
 	if 'Normal termination of Gaussian 09' not in contents:
@@ -357,18 +381,24 @@ def parse_scan(input_file):
 	return energy_list, atoms_list
 	
 def parse_chelpg(input_file):
+	if not input_file.startswith('gaussian/'):
+		input_file = 'gaussian/' + input_file + '.log'
 	with open(input_file) as inp:
 		contents = inp.read()
+
 	if 'Normal termination of Gaussian 09' not in contents:
 		return None
 	
-	start = contents.rindex('Fitting point charges to electrostatic potential')
-	end = contents.index('-----------------', start)
-	charges = []
-	for line in contents[start:end].splitlines():
-		columns = line.split()
-		if len(columns)==3:
-			charges.append( float(columns[2]) )
+	if contents.find('Fitting point charges to electrostatic potential') == -1:
+		charges = None
+	else:
+		start = contents.rindex('Fitting point charges to electrostatic potential')
+		end = contents.index('-----------------', start)
+		charges = []
+		for line in contents[start:end].splitlines():
+			columns = line.split()
+			if len(columns)==3:
+				charges.append( float(columns[2]) )
 	return charges
 
 def optimize_pm6(name, examples, param_string, starting_params, queue=None): #optimize a custom PM6 semi-empirical method based on Gaussian examples at a higher level of theory
@@ -536,3 +566,19 @@ print('\tDeformation of B = '+str(deform_b)+' '+s_units)
 print('Binding Energy = '+str(sp_corr + geom_corr)+' '+s_units)'''.replace('$$$$$',job_names))
 
 	f.close()
+
+def read(input_file):
+	data = utils.DFT_out(input_file, 'g09')
+
+	data.frames = parse_atoms(input_file, get_atoms=True, get_energy=False, check_convergence=False, get_time=False, counterpoise=False, parse_all=True)[1]
+	if data.frames == []: data.frames = None
+	data.atoms = data.frames[-1] if type(data.frames)==list and type(data.frames[0])==list else data.frames
+	data.energies = parse_atoms(input_file, get_atoms=False, get_energy=True, check_convergence=False, get_time=False, counterpoise=False, parse_all=True)[0]
+	data.charges_CHELPG = parse_chelpg(input_file)
+	data.charges = data.charges_CHELPG
+	data.convergence = convergence(input_file)
+	data.converged = parse_atoms(input_file, get_atoms=False, get_energy=True, check_convergence=True, get_time=False, counterpoise=False, parse_all=False) is not None
+	data.time = parse_atoms(input_file, get_atoms=False, get_energy=False, check_convergence=False, get_time=True, counterpoise=False, parse_all=True)[2]
+	data.bandgap = bandgap(input_file)
+
+	return data

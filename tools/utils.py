@@ -1,7 +1,6 @@
-import os, sys, math, copy, subprocess, time
-import numpy
-import files
-import constants
+import os, sys
+import math, copy, subprocess, time, numpy, re
+import files, constants
 
 class Struct:
 	def __init__(self, **kwargs):
@@ -43,6 +42,25 @@ class Job(): #a job on the queue
 			if (' '+self.name+' ') in jlist:
 				time.sleep(60)
 			else: break
+
+# A generic class to hold dft data
+class DFT_out():
+	def __init__(self, name, dft='g09'):
+		self.name = name
+		self.dft = dft.lower()
+
+		# Initialize everything as None
+		self.frames = None
+		self.atoms = None
+		self.energies = None
+		self.convergence = None
+		self.converged = None
+		self.time = None
+		self.bandgap = None
+		self.charges = None
+		self.charges_MULLIKEN = None
+		self.charges_LOEWDIN = None
+		self.charges_CHELPG = None
 
 def get_bonds(atoms):
 	bonds = []
@@ -192,9 +210,9 @@ class System():
 			self.dihedrals.append( Dihedral(*[self.atoms[a.index+atom_offset-1] for a in t.atoms], type=t.type) )
 		new_molecule = copy.copy(molecule)
 		new_molecule.atoms = self.atoms[-len(molecule.atoms):]
-		new_molecule.bonds = self.atoms[-len(molecule.bonds):]
-		new_molecule.angles = self.atoms[-len(molecule.angles):]
-		new_molecule.dihedrals = self.atoms[-len(molecule.dihedrals):]
+		new_molecule.bonds = self.bonds[-len(molecule.bonds):]
+		new_molecule.angles = self.angles[-len(molecule.angles):]
+		new_molecule.dihedrals = self.dihedrals[-len(molecule.dihedrals):]
 		self.molecules.append( new_molecule )
 
 def dist_squared(a,b):
@@ -333,6 +351,7 @@ def orthogonal_procrustes(A, ref_matrix, reflection=False):
 	return R,scale
 
 # Procrustes works by geting an orthogonal frame to map frames[1:] to be as similar to frames[0] as possible
+# This implements the orthagonal procrustes with translation and no reflection (Partial Procrustes)
 def procrustes(frames, count_atoms=None):
 	if not count_atoms: count_atoms = range(len(frames[0]))
 	for s in frames:
@@ -346,6 +365,9 @@ def procrustes(frames, count_atoms=None):
 	# rotate all frames to be as similar to their neighbors as possible
 	from scipy.linalg import det
 	from numpy import dot
+
+	full_rotation = []
+
 	for i in range(1,len(frames)): #rotate all frames to optimal alignment
 		# only count spring-held atoms for finding alignment
 		# orthogonal_procrustes maps count_atoms_1 onto count_atoms_2
@@ -353,12 +375,16 @@ def procrustes(frames, count_atoms=None):
 		count_atoms_2 = [(a.x,a.y,a.z) for j,a in enumerate(frames[i-1]) if j in count_atoms]
 		rotation = orthogonal_procrustes(count_atoms_1,count_atoms_2)[0]
 
+
 		if det(rotation) < 0:
 			raise Exception('Procrustes returned reflection matrix')
 		# rotate all atoms into alignment
 		for a in frames[i]:
 			a.x,a.y,a.z = dot((a.x,a.y,a.z), rotation)
 			if hasattr(a,'fx'): a.fx,a.fy,a.fz = dot((a.x,a.y,a.z), rotation)
+			full_rotation.append(rotation)
+
+	return full_rotation
 
 def interpolate(atoms1, atoms2, N): #interpolate N steps between two sets of coordinates
 	frames = [[] for i in range(N)]
@@ -509,7 +535,17 @@ def center_frames(frames,ids,X_TOL=0.1,XY_TOL=0.1,Z_TOL=0.1,THETA_STEP=0.005,TRA
 
 	if chk: frames = frames[0]
 
-def pretty_xyz(name,R_MAX=1,F_MIN=1,F_MAX=50,PROCRUSTS=False,outName=None,write_xyz=False,verbose=False):
+def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTS=False,outName=None,write_xyz=False,verbose=False):
+	#----------
+	# name = Name of xyz file to read in
+	# R_MAX = maximum motion per frame
+	# F_MAX = maximum number of frames allowed
+	# PROCRUSTES = Center frames or not
+	# outName = If you wish to output to file, give a name. Defalt name is 'pretty_xyz'
+	# write_xyz = Write to file. Default False
+	# Verbose = Outputing what pretty_xyz is doing as it goes
+	#----------
+	
 	# Get data as either frames or a file
 	if type(name)==type(''): frames = files.read_xyz(name)
 	elif type(name)==type([]): frames = name
@@ -545,7 +581,7 @@ def pretty_xyz(name,R_MAX=1,F_MIN=1,F_MAX=50,PROCRUSTS=False,outName=None,write_
 		if i>0 and i < len(frames) - 1:
 			f_low = frames[:i-1]
 			f_high = frames[i+2:]
-			f_mid = interpolate(frames[i-1],frames[i+2],4)
+			f_mid = interpolate(frames[i-1],frames[i+1],4)
 			frames = f_low + f_mid + f_high
 		elif i == 0:
 			f_high = frames[i+2:]
@@ -566,3 +602,201 @@ def pretty_xyz(name,R_MAX=1,F_MIN=1,F_MAX=50,PROCRUSTS=False,outName=None,write_
 # A function to format a string's colour 
 def color_set(s,c): return constants.COLOR[c] + str(s) + constants.COLOR['ENDC']
 colour_set = color_set
+
+def opls_options(molecule, parameter_file='oplsaa.prm'):
+	elements, atom_types, bond_types, angle_types, dihedral_types = files.read_opls_parameters(parameter_file)
+
+	elements_by_structure_indices = dict( [ (t.index2, elements_by_atomic_number[t.element] ) for t in atom_types ] )
+	elements_by_structure_indices[0] = 'X'
+
+	def add_to_list(dic,key,value):
+		if key in dic:
+			dic[key].append(value)
+		else:
+			dic[key] = [value]
+
+	dihedral_types_by_element={}
+	for d in dihedral_types:
+		structure_indices = d.index2s
+		elements = [ elements_by_structure_indices[i] for i in structure_indices]
+		add_to_list(dihedral_types_by_element, tuple(elements), d)
+		add_to_list(dihedral_types_by_element, tuple(reversed(elements)), d)
+
+	atoms, bonds, angles, dihedrals = files.read_cml(molecule, parameter_file=None)
+
+	for a in atoms:
+		a.index2_options = []
+
+	for d in dihedrals:
+		elements = tuple([ a.element for a in d.atoms ])
+		options = dihedral_types_by_element[elements]
+		options_by_i = [ [],[],[],[] ]
+			
+		
+		if elements in dihedral_types_by_element:
+			print elements
+			for a in d.atoms:
+				a.index2_options.append( set() )
+			for t in dihedral_types_by_element[elements]:
+				#print '\t', t.index2s
+				for i in range(4):
+					d.atoms[i].index2_options[-1].add( t.index2s[i] )
+		else:
+			print 'Error: dihedral', elements, 'does not exist in OPLS file', parameter_file
+
+	for a in atoms:
+		print a.element
+		for option in a.index2_options:
+			print '\t', option
+		
+		options = a.index2_options[0]
+		
+		for i in xrange(1,len(a.index2_options)):
+			options = options.intersection( a.index2_options[i] )
+
+		print '\t\t', options
+
+	
+def opt_opls(molecule, parameter_file='oplsaa.prm', taboo_time=100):
+	elements, atom_types, bond_types, angle_types, dihedral_types = files.read_opls_parameters(parameter_file)
+	atoms, bonds, angles, dihedrals = files.read_cml(molecule, parameter_file=None)
+	
+	bond_types_by_index2 = dict( [ (tuple(t.index2s),t) for t in bond_types ] + [ (tuple(reversed(t.index2s)),t) for t in bond_types ] )
+	angle_types_by_index2 = dict( [ (tuple(t.index2s),t) for t in angle_types ] + [ (tuple(reversed(t.index2s)),t) for t in angle_types ] )
+	dihedral_types_by_index2 = dict( [ (tuple(t.index2s),t) for t in dihedral_types ] + [ (tuple(reversed(t.index2s)),t) for t in dihedral_types ] )
+	
+	charges_by_index = dict( [ (t.index,t.charge) for t in atom_types ] )
+	
+	for a in atoms:
+		a.possible_types = set()
+		for t in atom_types:
+			if elements_by_atomic_number[t.element] == a.element and t.bond_count==len(a.bonded):
+				a.possible_types.add(t.index2)
+		a.possible_types = list(a.possible_types)
+		#a.possible_types.append(0)
+	
+	def count_conflicts(types):
+		for i,a in enumerate(atoms):
+			a.index2 = types[i]
+		conflicts = 0
+		for b in bonds:
+			index2s = (b.atoms[0].index2, b.atoms[1].index2)
+			if not index2s in bond_types_by_index2:
+				conflicts += 1
+		
+		for a in angles:
+			index2s = (a.atoms[0].index2, a.atoms[1].index2, a.atoms[2].index2)
+			if not index2s in angle_types_by_index2:
+				conflicts += 1
+		
+		for d in dihedrals: 
+			index2s_0 = (d.atoms[0].index2, d.atoms[1].index2, d.atoms[2].index2, d.atoms[3].index2)
+			index2s_1 = (0,                 d.atoms[1].index2, d.atoms[2].index2, d.atoms[3].index2)
+			index2s_2 = (d.atoms[0].index2, d.atoms[1].index2, d.atoms[2].index2,        0)
+			in0 = index2s_0 in dihedral_types_by_index2
+			in1 = index2s_1 in dihedral_types_by_index2
+			in2 = index2s_2 in dihedral_types_by_index2
+			if not in0 and not in1 and not in2:
+				conflicts += 1
+		return conflicts
+	
+	import random
+	types = [random.choice(a.possible_types) for a in atoms]
+	taboo = [0 for a in atoms]
+	best = count_conflicts(types)
+	
+	step = 0
+	for step in range(100000):
+		i = random.randint( 0, len(types)-1 )
+		for guess in types:
+			if taboo[i]>0:
+				i = random.randint( 0, len(types)-1 )
+			else:
+				break
+		old_type = types[i]
+		types[i] = random.choice(atoms[i].possible_types)
+		
+		conflicts = count_conflicts(types)
+		if conflicts <= best:
+			best = conflicts
+			taboo[i] = taboo_time
+		else:
+			types[i] = old_type
+	
+		taboo = [t-1 if t>0 else 0 for t in taboo]
+	
+		if step % 10000 == 0:
+			print best, conflicts, types
+		step += 1
+
+	def types_from_index2(x):
+		return [t for t in atom_types if t.index2==x and t.index<=440]
+
+	for i,tt in enumerate( [ types_from_index2(x) for x in types] ):
+		#print i, atoms[i].element
+		atoms[i].index_options = [t.index for t in tt]
+		#for t in tt:
+		#	print '\t', t.index, t.notes
+	
+	
+	
+	
+	
+	def net_charge(types):
+		charge = 0.0
+		for t in types:
+			charge += charges_by_index[t]
+		return charge
+	
+	types = [random.choice(a.index_options) for a in atoms]
+	taboo = [0 for a in atoms]
+	best = net_charge(types)
+	
+	for step in range(100000):
+		i = random.randint( 0, len(types)-1 )
+		for guess in types:
+			if taboo[i]>0:
+				i = random.randint( 0, len(types)-1 )
+			else:
+				break
+		old_type = types[i]
+		types[i] = random.choice(atoms[i].index_options)
+		
+		charge = net_charge(types)
+		if abs(charge) <= abs(best):
+			best = charge
+			taboo[i] = taboo_time
+		else:
+			types[i] = old_type
+	
+		taboo = [t-1 if t>0 else 0 for t in taboo]
+	
+		if step % 10000 == 0:
+			print best, charge, types
+		step += 1
+
+	for t in types:
+		for t2 in atom_types:
+			if t2.index==t:
+				print t2.element, t2.notes
+
+def spaced_print(sOut,delim=['\t',' '],buf=4):
+	s_len = []
+	if type(sOut) == str: sOut = sOut.split('\n')
+	if type(delim) == list: delim = ''.join([d+'|' for d in delim])[:-1]
+	# Get the longest length in the column
+	for i,s in enumerate(sOut):
+		s = re.split(delim,s)
+		for j,ss in enumerate(s):
+			try: s_len[j] = len(ss) if len(ss)>s_len[j] else s_len[j] # This makes the part of the list for each column the longest length
+			except: s_len.append(len(ss)) # If we are creating a new column this happens
+	for i in range(len(s_len)): s_len[i] += buf # Now we add a buffer to each column
+
+	# Compile string output
+	for i,s in enumerate(sOut):
+		s = re.split(delim,s)
+		for j,ss in enumerate(s): s[j] = ss + ''.join([' ']*(s_len[j]-len(ss)))
+		sOut[i] = ''.join(s)
+
+	return '\n'.join(sOut)
+
