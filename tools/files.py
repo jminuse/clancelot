@@ -226,7 +226,7 @@ def packmol(system, molecules, molecule_ratio, density, seed=1): #density in g/m
 	except: pass
 	os.chdir('packmol')
 	
-	f = open('pack.inp', 'w')
+	f = open(system.name+'.packmol', 'w')
 	f.write('''
 	tolerance 2.0
 	filetype xyz
@@ -252,8 +252,8 @@ def packmol(system, molecules, molecule_ratio, density, seed=1): #density in g/m
 	end structure
 	''' % ((i,molecule_counts[i])+system.box_size) )
 	f.close()
-	os.system('/fs/home/jms875/build/packmol/packmol < pack.inp')
-	atoms = read_xyz('out.xyz')
+	os.system('/fs/home/jms875/build/packmol/packmol -o '+system.name+'.packed.xyz < '+system.name+'.packmol')
+	atoms = read_xyz(system.name+'.packed.xyz')
 	os.chdir('..')
 
 	#now have a list of atoms with element = H0 for molecule 0, H1 for molecule 1, etc
