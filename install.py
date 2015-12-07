@@ -304,10 +304,10 @@ if to_install['chkDFT']:
 alias viewo='function _viewo(){chkDFT $1 -dft orca -v $@};_viewo'
 alias chkg='function _chkg(){chkDFT $1 -dft g09 $@};_chkg'
 alias ggedit='function _ggedit(){gedit orca/$1/$1.log};_ggedit'
-alias gtail='function _gtail(){tail orca/$1/$1.log $@};_gtail'
+alias gtail='function _gtail(){tail orca/$1/$1.log $2 $3};_gtail'
 alias chko='function _chko(){chkDFT $1 -dft orca $@};_chko'
 alias ogedit='function _ogedit(){gedit orca/$1/$1.out};_ogedit'
-alias otail='function _otail(){tail orca/$1/$1.out $@};_otail'\n''')
+alias otail='function _otail(){tail orca/$1/$1.out $2 $3};_otail'\n''')
 if to_install['merlin']: f.write("alias merlin='python -i "+INSTALLDIR+"tools/merlin.py'\n")
 if to_install['scanDFT']: f.write("\nalias scanDFT='python "+INSTALLDIR+"tools/scanDFT.py'\n")
 if to_install['prnt']: f.write('''alias prnt='function _prnt(){ssh asimov "lpr -P hplj4525-365 -o sides=two-sided-long-edge -o InputSlot=Tray2 $PWD/$1;logout";echo "Printed..."};_prnt'\n''')
