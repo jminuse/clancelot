@@ -258,18 +258,20 @@ export LD_LIBRARY_PATH=/fs/europa/g_pc/ompi_1_6_5/lib:$LD_LIBRARY_PATH
 def read(input_file):
 	data = utils.DFT_out(input_file, 'orca')
 
-	data.frames = atoms(input_file, parse_all=True)
-	if type(data.frames) == list and type(data.frames[0]) != list: data.frames = [data.frames]
-	data.atoms = data.frames[-1] if type(data.frames)==list and type(data.frames[0])==list else data.frames
+	data.frames = atoms(input_file, parse_all=True)[0]
+	#if type(data.frames) == list and type(data.frames[0]) != list: data.frames = [data.frames]
+	#data.atoms = data.frames[-1] if type(data.frames)==list and type(data.frames[0])==list else data.frames
+	data.atoms = data.frames[-1]
+	
 	data.energies = energies(input_file, parse_all=True)
 	if type(data.energies) != list: data.energies = [data.energies]
 	data.charges_MULLIKEN = parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=True, charge_type='MULLIKEN', get_time=False, get_bandgap=False, check_convergence=False, parse_all=True)
 	data.charges_LOEWDIN = parse_atoms(input_file, get_atoms=False, get_energy=False, get_charges=True, charge_type='LOEWDIN', get_time=False, get_bandgap=False, check_convergence=False, parse_all=True)
-	data.charges = data.charges_MULLIKEN if data.charges_MULLIKEN is not None else data.charges_LOEWDIN
+	data.charges = data.charges_LOEWDIN if data.charges_LOEWDIN is not None else data.charges_MULLIKEN
 	data.convergence = convergence(input_file, parse_all=True)
 	data.converged = converged(input_file, parse_all=True)
 	data.time = times(input_file, parse_all=True)
 	data.bandgap = bandgap(input_file, parse_all=True)
 
-
 	return data
+
