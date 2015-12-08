@@ -603,6 +603,14 @@ def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTS=False,outName=None,write_xyz=Fals
 def color_set(s,c): return constants.COLOR[c] + str(s) + constants.COLOR['ENDC']
 colour_set = color_set
 
+def strip_color(s):
+	for c in constants.COLOUR:
+		col = constants.COLOUR[c]
+		while col in s:
+			s = s.replace(col,'')
+	return s
+strip_colour = strip_color
+
 def opls_options(molecule, parameter_file='oplsaa.prm'):
 	elements, atom_types, bond_types, angle_types, dihedral_types = files.read_opls_parameters(parameter_file)
 

@@ -98,8 +98,8 @@ def read(input_file):
 	hold, convergence = data, []
 	s = 'Geometry convergence'
 	if hold.rfind(s) != -1:
-		hold = hold[hold.find(s)+len(s):]
-		tmp = hold[:hold.find('Max(Bonds)')].split('\n')[3:-2]
+		hold = hold[hold.rfind(s)+len(s):]
+		tmp = hold[:hold.rfind('Max(Bonds)')].split('\n')[3:-2]
 		convergence = []
 		for a in tmp:
 			a = a.split()
