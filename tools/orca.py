@@ -10,6 +10,20 @@ def read(input_file):
 		sys.exit()
 	data = open('orca/%s/%s.out' % (input_file,input_file),'r').read()
 
+	# Get the route line
+	hold, route = data, None
+	s = 'INPUT FILE'
+	if hold.find(s) != -1:
+		hold = hold[hold.find(s):]
+		hold = hold[:hold.find('END OF INPUT')].split('\n')
+		for h in hold:
+			if '1>' in h:
+				route = h
+				break
+		if route is not None:
+			route = route.split()
+			route = ' '.join(route[2:])
+
 	# Get all the positions
 	hold, frames = data, []
 	s = 'CARTESIAN COORDINATES (ANGSTROEM)'
@@ -108,12 +122,20 @@ def read(input_file):
 		convergence = None
 
 	hold, converged = data, False
-	s = 'SCF CONVERGED AFTER'
+	s1, s2 = 'SCF CONVERGED AFTER', 'OPTIMIZATION RUN DONE'
+	if 'opt' in route: s = s2
+	else: s = s1
 	if hold.find(s) != -1:
 		converged = True
 
+	hold, finished = data, False
+	s = 'ORCA TERMINATED NORMALLY'
+	if hold.find(s) != -1:
+		finished = True
+
 	data = utils.DFT_out(input_file, 'orca')
 
+	data.route = route
 	data.frames = frames
 	data.atoms = atoms
 	data.energies = energies
@@ -126,6 +148,7 @@ def read(input_file):
 	data.time = time
 	data.bandgaps = bandgaps
 	data.bandgap = bandgap
+	data.finished = finished
 
 	return data
 

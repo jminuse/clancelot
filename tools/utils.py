@@ -53,14 +53,16 @@ class DFT_out():
 		self.frames = None
 		self.atoms = None
 		self.energies = None
+		self.energy = None
+		self.charges_MULLIKEN = None
+		self.charges_LOEWDIN = None
+		self.charges = None
 		self.convergence = None
 		self.converged = None
 		self.time = None
+		self.bandgaps = None
 		self.bandgap = None
-		self.charges = None
-		self.charges_MULLIKEN = None
-		self.charges_LOEWDIN = None
-		self.charges_CHELPG = None
+		self.finished = None
 
 def get_bonds(atoms):
 	bonds = []
