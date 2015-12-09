@@ -123,7 +123,7 @@ def read(input_file):
 
 	hold, converged = data, False
 	s1, s2 = 'SCF CONVERGED AFTER', 'OPTIMIZATION RUN DONE'
-	if 'opt' in route: s = s2
+	if 'opt' in route.lower(): s = s2
 	else: s = s1
 	if hold.find(s) != -1:
 		converged = True
