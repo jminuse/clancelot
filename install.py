@@ -202,7 +202,7 @@ f.close
 f = open(ZSH_CLANCELOT,'a')
 f.write('\n\n')
 
-if to_install['vmd']: f.write("alias vmd='/fs/europa/g_pc/vmd-1.9'\n\n")
+if to_install['vmd']: f.write("alias vmd='/fs/europa/g_pc/vmd/bin/vmd'\n\n")
 if to_install['pysub']:
 	f.write("alias pysub='"+INSTALLDIR+"pysub/pysub.sh'\n")
 	f.write('complete -F _pyAutoTab '+INSTALLDIR+'pysub/pysub.sh\n\n')
