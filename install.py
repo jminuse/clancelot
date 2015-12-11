@@ -2,7 +2,7 @@ import os, sys
 from getpass import getuser
 
 # In the following list, please ensure you have chosen what you want to install.  By default everything is selected
-EVERYTHING = False
+INSTALL_EVERYTHING=False
 to_install = {
 'vmd':1,
 'pysub':1,
@@ -13,7 +13,7 @@ to_install = {
 'scanDFT':1,
 'junest (formerly juju)':0,
 'anaconda':0, 				# a Python 2.7.9 distribution that installs to ~/anaconda
-'vmd default settings':1,	# improves the default settings of vmd
+'vmd default settings':0,	# improves the default settings of vmd
 'file_browser':1, 			# set the file browser not to open a new window per folder
 'merlin':1,
 'sublime_text_3_build_3083':0,
@@ -21,9 +21,9 @@ to_install = {
 }
 
 ####################################################################################################################
-if EVERYTHING:
-	for item in to_install:
-		to_install[item]=1
+if INSTALL_EVERYTHING:
+	for x in to_install:
+		to_install[x] = 1
 
 if to_install['file_browser']:
 	os.system('gconftool-2   --type bool --set /apps/nautilus/preferences/always_use_browser true')
@@ -202,7 +202,7 @@ f.close
 f = open(ZSH_CLANCELOT,'a')
 f.write('\n\n')
 
-if to_install['vmd']: f.write("alias vmd='/fs/europa/g_pc/vmd-1.9'\n\n")
+if to_install['vmd']: f.write("alias vmd='/fs/europa/g_pc/vmd/bin/vmd'\n\n")
 if to_install['pysub']:
 	f.write("alias pysub='"+INSTALLDIR+"pysub/pysub.sh'\n")
 	f.write('complete -F _pyAutoTab '+INSTALLDIR+'pysub/pysub.sh\n\n')
@@ -303,11 +303,11 @@ if to_install['chkDFT']:
 	f.write('''alias viewg='function _viewg(){chkDFT $1 -dft g09 -v $@};_viewg'
 alias viewo='function _viewo(){chkDFT $1 -dft orca -v $@};_viewo'
 alias chkg='function _chkg(){chkDFT $1 -dft g09 $@};_chkg'
-alias ggedit='function _ggedit(){gedit orca/$1/$1.log $@};_ggedit'
-alias gtail='function _gtail(){tail orca/$1/$1.log $@};_gtail'
+alias ggedit='function _ggedit(){gedit orca/$1/$1.log};_ggedit'
+alias gtail='function _gtail(){tail orca/$1/$1.log $2 $3};_gtail'
 alias chko='function _chko(){chkDFT $1 -dft orca $@};_chko'
-alias ogedit='function _ogedit(){gedit orca/$1/$1.out $@};_ogedit'
-alias otail='function _otail(){tail orca/$1/$1.out $@};_otail'\n''')
+alias ogedit='function _ogedit(){gedit orca/$1/$1.out};_ogedit'
+alias otail='function _otail(){tail orca/$1/$1.out $2 $3};_otail'\n''')
 if to_install['merlin']: f.write("alias merlin='python -i "+INSTALLDIR+"tools/merlin.py'\n")
 if to_install['scanDFT']: f.write("\nalias scanDFT='python "+INSTALLDIR+"tools/scanDFT.py'\n")
 if to_install['prnt']: f.write('''alias prnt='function _prnt(){ssh asimov "lpr -P hplj4525-365 -o sides=two-sided-long-edge -o InputSlot=Tray2 $PWD/$1;logout";echo "Printed..."};_prnt'\n''')

@@ -10,6 +10,20 @@ def read(input_file):
 		sys.exit()
 	data = open('orca/%s/%s.out' % (input_file,input_file),'r').read()
 
+	# Get the route line
+	hold, route = data, None
+	s = 'INPUT FILE'
+	if hold.find(s) != -1:
+		hold = hold[hold.find(s):]
+		hold = hold[:hold.find('END OF INPUT')].split('\n')
+		for h in hold:
+			if '1>' in h:
+				route = h
+				break
+		if route is not None:
+			route = route.split()
+			route = ' '.join(route[2:])
+
 	# Get all the positions
 	hold, frames = data, []
 	s = 'CARTESIAN COORDINATES (ANGSTROEM)'
@@ -21,7 +35,11 @@ def read(input_file):
 			a = a.split()
 			tmp_atoms.append(utils.Atom(a[0],float(a[1]),float(a[2]),float(a[3])))
 		frames.append(tmp_atoms)
-	atoms = frames[-1]
+
+	if len(frames) > 0:
+		atoms = frames[-1]
+	else:
+		atoms = None
 
 	# Get all the energies
 	hold, energies = data, []
@@ -31,7 +49,11 @@ def read(input_file):
 		tmp = hold[:hold.find('\n')].split()[-1]
 		energies.append(float(tmp))
 		hold = hold[hold.find('\n'):]
-	energy = energies[-1]
+	
+	if len(energies) > 0:
+		energy = energies[-1]
+	else:
+		energy = None
 
 	# Get charges
 	hold, charges_MULLIKEN = data, []
@@ -81,13 +103,17 @@ def read(input_file):
 				break
 			tp = t
 		hold = hold[hold.find('\n'):]
-	bandgap = bandgaps[-1]
+	
+	if len(bandgaps) > 0:
+		bandgap = bandgaps[-1]
+	else:
+		bandgap = None
 
 	hold, convergence = data, []
 	s = 'Geometry convergence'
 	if hold.rfind(s) != -1:
-		hold = hold[hold.find(s)+len(s):]
-		tmp = hold[:hold.find('Max(Bonds)')].split('\n')[3:-2]
+		hold = hold[hold.rfind(s)+len(s):]
+		tmp = hold[:hold.rfind('Max(Bonds)')].split('\n')[3:-2]
 		convergence = []
 		for a in tmp:
 			a = a.split()
@@ -96,12 +122,20 @@ def read(input_file):
 		convergence = None
 
 	hold, converged = data, False
-	s = 'SCF CONVERGED AFTER'
+	s1, s2 = 'SCF CONVERGED AFTER', 'OPTIMIZATION RUN DONE'
+	if 'opt' in route.lower(): s = s2
+	else: s = s1
 	if hold.find(s) != -1:
 		converged = True
 
+	hold, finished = data, False
+	s = 'ORCA TERMINATED NORMALLY'
+	if hold.find(s) != -1:
+		finished = True
+
 	data = utils.DFT_out(input_file, 'orca')
 
+	data.route = route
 	data.frames = frames
 	data.atoms = atoms
 	data.energies = energies
@@ -114,6 +148,7 @@ def read(input_file):
 	data.time = time
 	data.bandgaps = bandgaps
 	data.bandgap = bandgap
+	data.finished = finished
 
 	return data
 

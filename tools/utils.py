@@ -53,14 +53,16 @@ class DFT_out():
 		self.frames = None
 		self.atoms = None
 		self.energies = None
+		self.energy = None
+		self.charges_MULLIKEN = None
+		self.charges_LOEWDIN = None
+		self.charges = None
 		self.convergence = None
 		self.converged = None
 		self.time = None
+		self.bandgaps = None
 		self.bandgap = None
-		self.charges = None
-		self.charges_MULLIKEN = None
-		self.charges_LOEWDIN = None
-		self.charges_CHELPG = None
+		self.finished = None
 
 def get_bonds(atoms):
 	bonds = []
@@ -545,6 +547,8 @@ def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTS=False,outName=None,write_xyz=Fals
 	# write_xyz = Write to file. Default False
 	# Verbose = Outputing what pretty_xyz is doing as it goes
 	#----------
+
+	from copy import deepcopy
 	
 	# Get data as either frames or a file
 	if type(name)==type(''): frames = files.read_xyz(name)
@@ -553,10 +557,9 @@ def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTS=False,outName=None,write_xyz=Fals
 		print "Error - Invalid name input.  Should be either the name of an xyz file or a list.", sys.exc_info()[0]
 		exit()
 
-	if PROCRUSTS: procrustes(frames)
-
 	# Loop till we're below R_MAX
 	while 1:
+		if PROCRUSTS: procrustes(frames)
 		# Check if we're done
 		r2 = max(motion_per_frame(frames))
 		if r2 < R_MAX: break
@@ -578,19 +581,21 @@ def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTS=False,outName=None,write_xyz=Fals
 				index, maxVal = i, t
 		i = index
 		# Now, split the list, interpolate, and regenerate
-		if i>0 and i < len(frames) - 1:
-			f_low = frames[:i-1]
-			f_high = frames[i+2:]
-			f_mid = interpolate(frames[i-1],frames[i+1],4)
+		if i > 0 and i < len(frames) - 1:
+			f_low = deepcopy(frames[:i])
+			f_high = deepcopy(frames[i+1:])
+			f_mid = interpolate(frames[i-1],frames[i+1],3)
 			frames = f_low + f_mid + f_high
 		elif i == 0:
-			f_high = frames[i+2:]
-			f_mid = interpolate(frames[i],frames[i+1],4)
-			frames = f_mid + f_high
+			f_low = deepcopy(frames[i])
+			f_mid = interpolate(frames[i],frames[i+1],3)
+			f_high = deepcopy(frames[i+1:])
+			frames = [f_low] + f_mid + f_high
 		else:
-			f_low = frames[:i-1]
-			f_mid = interpolate(frames[i-1],frames[i],4)
-			frames = f_low + f_mid
+			f_low = deepcopy(frames[:i])
+			f_mid = interpolate(frames[i-1],frames[i],3)
+			f_high = deepcopy(frames[i])
+			frames = f_low + f_mid + [f_high]
 
 		if verbose: print "\tInterpolated %d,%d ... %lg" % (index-1,index+1,max(motion_per_frame(frames)))
 
@@ -602,6 +607,14 @@ def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTS=False,outName=None,write_xyz=Fals
 # A function to format a string's colour 
 def color_set(s,c): return constants.COLOR[c] + str(s) + constants.COLOR['ENDC']
 colour_set = color_set
+
+def strip_color(s):
+	for c in constants.COLOUR:
+		col = constants.COLOUR[c]
+		while col in s:
+			s = s.replace(col,'')
+	return s
+strip_colour = strip_color
 
 def opls_options(molecule, parameter_file='oplsaa.prm'):
 	elements, atom_types, bond_types, angle_types, dihedral_types = files.read_opls_parameters(parameter_file)
