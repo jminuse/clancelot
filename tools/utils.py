@@ -559,27 +559,24 @@ def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTS=False,outName=None,write_xyz=Fals
 
 	# Loop till we're below R_MAX
 	while 1:
+		# Find largest motion_per_frame
 		if PROCRUSTS: procrustes(frames)
+		tmp = motion_per_frame(frames)
+		i = tmp.index(max(tmp))
+
 		# Check if we're done
-		r2 = max(motion_per_frame(frames))
+		r2 = max(tmp)
 		if r2 < R_MAX: break
 
 		if len(frames) > F_MAX:
 			print "-------------------------------------------------------"
-			print motion_per_frame(frames)
+			print tmp
 			print "-------------------------------------------------------"
 			print "\n\nError - Could not lower motion below %lg in %d frames." % (R_MAX,F_MAX), sys.exc_info()[0]
 			exit()
 		else:
 			if verbose: print "Currently Frames = %d\tr2 = %lg" % (len(frames),r2)
 
-		# If not, find largest motion_per_frame
-		index, maxVal = 0, 0
-		tmp = motion_per_frame(frames)
-		for i,t in enumerate(tmp):
-			if t > maxVal:
-				index, maxVal = i, t
-		i = index
 		# Now, split the list, interpolate, and regenerate
 		if i > 0 and i < len(frames) - 1:
 			f_low = deepcopy(frames[:i])

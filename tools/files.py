@@ -124,7 +124,7 @@ def read_xyz(name):
 	else:
 		return frames
 
-def write_xyz(frames, name_or_file=None):
+def write_xyz(frames, name_or_file=None, ID='Atoms'):
 	if not name_or_file:
 		name_or_file = 'out' #default filename is out.xyz
 	
@@ -138,7 +138,7 @@ def write_xyz(frames, name_or_file=None):
 		frames = [frames] #we want to write a list of frames, so make it one
 	
 	for atoms in frames:
-		f.write(str(len(atoms))+'\nAtoms\n')
+		f.write(str(len(atoms))+'\n'+ID+'\n')
 		for a in atoms:
 			f.write('%s %f %f %f\n' % (a.element, a.x, a.y, a.z) )
 		
