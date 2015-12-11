@@ -168,10 +168,10 @@ class Molecule():
 		if type(atoms_or_filename_or_all)==type('string'):
 			self.filename = atoms_or_filename_or_all
 			atoms, bonds, angles, dihedrals = files.read_cml(self.filename, parameter_file=parameter_file, extra_parameters=extra_parameters, check_charges=check_charges)
-		elif not bonds:
+		elif bonds:
 			atoms, bonds, angles, dihedrals = atoms_or_filename_or_all
 		else:
-			atoms = atoms_or_filename_or_all
+			atoms, bonds, angles, dihedrals = atoms_or_filename_or_all, [], [], []
 		self.atoms = atoms
 		self.bonds = bonds
 		self.angles = angles
