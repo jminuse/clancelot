@@ -186,7 +186,7 @@ def write_lammps_data(system, pair_coeffs_included=False):
 	dihedral_types = dict( [(t.type,True) for t in dihedrals] ).keys()
 	system.atom_types, system.bond_types, system.angle_types, system.dihedral_types = atom_types, bond_types, angle_types, dihedral_types
 	# sort atom types by mass, largest masses first
-	atom_types.sort(key=lambda t:-t.mass) 
+	atom_types.sort(key=lambda t:-t.mass + (-1e6 if hasattr(t,'reax') else 0) )
 	# get type numbers to identify types to LAMMPS
 	for i,t in enumerate(atom_types): t.lammps_type = i+1
 	for i,t in enumerate(bond_types): t.lammps_type = i+1
@@ -230,7 +230,7 @@ def packmol(system, molecules, molecule_ratio, density, seed=1): #density in g/m
 	f.write('''
 	tolerance 2.0
 	filetype xyz
-	output out.xyz
+	output '''+system.name+'''.packed.xyz
 	seed '''+str(seed)+'''
 	''')
 	density *= 0.6022 # convert density to amu/angstrom^3. 1 g/mL = 0.6022 amu/angstrom^3
@@ -252,7 +252,7 @@ def packmol(system, molecules, molecule_ratio, density, seed=1): #density in g/m
 	end structure
 	''' % ((i,molecule_counts[i])+system.box_size) )
 	f.close()
-	os.system('/fs/home/jms875/build/packmol/packmol -o '+system.name+'.packed.xyz < '+system.name+'.packmol')
+	os.system('/fs/home/jms875/build/packmol/packmol < '+system.name+'.packmol')
 	atoms = read_xyz(system.name+'.packed.xyz')
 	os.chdir('..')
 
