@@ -604,9 +604,21 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 if disp > 1:
                     print("Warning - Setting step to max step size"
                                 % np.linalg.norm(pk*alpha)),
-                for i,p in enumerate(pk):
-                    if abs(p*alpha) > MAX_STEP:
-                        pk[i] = (MAX_STEP / alpha) * copysign(1, p)
+
+                # Loop through atoms
+                i = 0
+                while i < len(pk):
+                    # Get the distance the atom will move
+                    a,b,c = pk[i]*alpha,pk[i+1]*alpha,pk[i+2]*alpha
+                    chk = float((a**2+b**2+c**2)**0.5)
+
+                    # If d = sqrt(a^2+b^2+c^2) > MAX_STEP, scale by MAX_STEP/d
+                    if chk > MAX_STEP:
+                        pk[i] *= (MAX_STEP / chk)
+                        pk[i+1] *= (MAX_STEP / chk)
+                        pk[i+2] *= (MAX_STEP / chk)
+                    i += 3
+
                 # As we are changing values manually, this is no longer
                 # the BFGS(Hess) algorithm so reset the Inverse Hessian
                 if H_reset:
