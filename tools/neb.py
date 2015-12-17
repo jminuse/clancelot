@@ -283,8 +283,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             NEB.prv_RMS = min(RMS_force, NEB.prv_RMS)
 
             # Set error
-            #NEB.error = max(V)
-            NEB.error = RMS_force
+            NEB.error = max(V)
+            #NEB.error = RMS_force
             #NEB.error = 0.2*max(V) + 0.8*RMS_force
             #NEB.error = 0.5*sum([a.fx**2+a.fy**2+a.fz**2 for state in states[1:-1] for a in state]) # Max(V) # Sum(energies)
 
@@ -590,6 +590,19 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
 
             # Get your step direction
             pk = -np.dot(Hk, gfk)
+            # Renorm to remove the effect of Hk not being unit
+            i = 0
+            while i < len(pk):
+                # Get the distance the atom will move
+                a,b,c = pk[i],pk[i+1],pk[i+2]
+                chk = float((a**2+b**2+c**2)**0.5)
+                a,b,c = gfk[i],gfk[i+1],gfk[i+2]
+                scale = float((a**2+b**2+c**2)**0.5)
+                
+                pk[i] *= (scale / chk)
+                pk[i+1] *= (scale / chk)
+                pk[i+2] *= (scale / chk)
+                i += 3
 
             # If we are doing unreasonably small step sizes, quit
             if abs(max(pk*alpha)) < MIN_STEP:
