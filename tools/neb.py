@@ -22,12 +22,12 @@ import re, shutil, copy
 ##########################################################################
 
 def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queue=None,
-        disp=0, k=0.1837,
-        DFT='g09', opt='BFGS', gtol=1e-3, maxiter=1000,
-        alpha=0.05, beta=0.5, tau=1E-3, reset=20, H_reset=True,
+        disp=0, k=0.1837, frigid=True,
+        DFT='orca', opt='BFGS', gtol=1e-3, maxiter=100,
+        alpha=0.1, beta=0.5, tau=1E-3, reset=10, H_reset=True,
         viscosity=0.1, dtmax=1.0, Nmin=5, finc=1.1, fdec=0.5, astart=0.1, fa=0.99,
-        step_min=1E-8, step_max=0.2, bt_max=None, linesearch='backtrack', L2norm=True, bt_eps=1E-3,
-        dt = 0.1, euler=True, force=True, mem=25, blurb=None, initial_guess=None): 
+        step_min=1E-8, step_max=0.2, bt_max=None, linesearch='armijo', L2norm=True, bt_eps=1E-3,
+        dt = 0.3, euler=True, force=True, mem=25, blurb=None, initial_guess=None): 
     
     # If using test code, import path so we import correct scipy.optimize.
     if opt=='BFGS2': sys.path.insert(1,'/fs/home/hch54/scipy_mod/scipy/')
@@ -73,8 +73,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         if linesearch == 'armijo' and opt == 'BFGS2': print(", tau = %lg" % tau)
         else: print("")
         print("\tH_reset = %s" % str(H_reset)),
-        if opt == 'BFGS2': print(", reset = %s, linesearch = %s" % (str(reset), linesearch))
-        else: print("")
+        print(", reset = %s, linesearch = %s" % (str(reset), linesearch))
         print("\tstep_max = %lg" % step_max),
         if opt == 'BFGS2': print(", step_min = %lg, L2norm = %s" % (step_min, str(L2norm)))
         else: print("")
@@ -268,7 +267,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                     NEB.gradient += [-a.fx, -a.fy, -a.fz] # Gradient of NEB.error
 
             # Calculate RMS Force
-            RMS_force = (sum([a.fx**2+a.fy**2+a.fz**2 for state in states[1:-1] for a in state])/len([a for state in states[1:-1] for a in state]))**0.5
+            force_mags = [(a.fx**2+a.fy**2+a.fz**2)**0.5 for state in states[1:-1] for a in state]
+            RMS_force = (sum([f**2 for f in force_mags])/float(len(force_mags)))**0.5
             NEB.RMS_force = RMS_force
                         
             # Print data
@@ -285,7 +285,9 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             # Set error
             #NEB.error = max(V)
             NEB.error = RMS_force
+            #NEB.error = max(force_mags)
             #NEB.error = 0.2*max(V) + 0.8*RMS_force
+
             #NEB.error = 0.5*sum([a.fx**2+a.fy**2+a.fz**2 for state in states[1:-1] for a in state]) # Max(V) # Sum(energies)
 
             # Increment step
@@ -516,16 +518,14 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             step += 1
 
     def bfgs_optimizer(f, x0, fprime,
-            alpha=0.05, beta=0.7, H_reset=True, 
-            gtol=1E-3, maxiter=1000,
-            MAX_STEP=0.2,
+            alpha=0.1, beta=0.5, tau=1E-4, H_reset=True, linesearch='armijo',
+            gtol=1E-3, maxiter=1000, reset=reset,
+            MAX_STEP=0.2, frigid=True,
             disp=0, callback=None):
         import numpy as np
-        from math import (copysign, fsum)
 
         # These are values deemed good for DFT NEB and removed from parameter space for simplification
         MAX_BACKTRACK=None
-        reset=20
         MIN_STEP=1E-8
         BACKTRACK_EPS=1E-3
 
@@ -538,8 +538,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             print("\talpha = %lg, beta = %lg, H_reset = %s" % (alpha, beta, str(H_reset)))
             print("\tgtol = %lg, maxiter = %d, MAX_STEP = %lg" % (gtol, maxiter, MAX_STEP))
             print("\t-------------------")
-            print("\tMAX_BACKTRACK = %s, reset = %s, MIN_STEP = %lg, BACKTRACK_EPS = %lg\n" % (str(MAX_BACKTRACK), str(reset), MIN_STEP, BACKTRACK_EPS))
-
+            print("\tMAX_BACKTRACK = %s, reset = %s, MIN_STEP = %lg, BACKTRACK_EPS = %lg" % (str(MAX_BACKTRACK), str(reset), MIN_STEP, BACKTRACK_EPS))
+            print("\tfrigid = %s\n" % str(frigid))
         def vecnorm(x, ord=2):
             if ord == np.Inf:
                 return np.amax(np.abs(x))
@@ -559,7 +559,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         x0 = np.asarray(x0).flatten()
         if x0.ndim == 0:
             x0.shape = (1,)
-        xk = x0
+        xk = fit_rigid(x0)
 
         # Initialize inv Hess and Identity matrix
         I = np.eye(len(xk), dtype=int)
@@ -577,19 +577,40 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         RESET_CONST = reset
 
         # Get function to describe linesearch
-        def check_backtrack(f1,f0):
-            return (f1-f0)/(abs(f1)+abs(f0)) > BACKTRACK_EPS
+        if linesearch is 'armijo':
+            if disp > 1: print("armijo linesearch "),
+            def check_backtrack(f1,f0,gk,pk,tau,alpha):
+                return f1-f0 > tau*alpha*np.dot(gk,pk)
+        else:
+            if disp > 1: print("default linesearch "),
+            def check_backtrack(f1,f0,pk,gk,tau,alpha):
+                return (f1-f0)/(abs(f1)+abs(f0)) > BACKTRACK_EPS
 
         backtrack, loop_counter, warnflag = 0, 0, 0
         while (NEB.RMS_force > gtol) and (fcount < maxiter):
             if MAX_BACKTRACK is not None and backtrack > MAX_BACKTRACK:
                 warnflag = 2
                 break
+
             if disp > 1:
+                print("Trace of Hk = %lg" % float(np.matrix.trace(Hk)))
                 print("Step %d, " % loop_counter),
 
             # Get your step direction
             pk = -np.dot(Hk, gfk)
+            # Renorm to remove the effect of Hk not being unit
+            i = 0
+            while i < len(pk):
+                # Get the distance the atom will move
+                a,b,c = pk[i],pk[i+1],pk[i+2]
+                chk = float((a**2+b**2+c**2)**0.5)
+                a,b,c = gfk[i],gfk[i+1],gfk[i+2]
+                scale = float((a**2+b**2+c**2)**0.5)
+                
+                pk[i] *= (scale / chk)
+                pk[i+1] *= (scale / chk)
+                pk[i+2] *= (scale / chk)
+                i += 3
 
             # If we are doing unreasonably small step sizes, quit
             if abs(max(pk*alpha)) < MIN_STEP:
@@ -600,26 +621,35 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 break
 
             # If we have too large of a step size, set to max
-            if max([abs(p*alpha) for p in pk]) > MAX_STEP:
+            # Loop through atoms
+            i, max_step_flag = 0, False
+            while i < len(pk):
+                # Get the distance the atom will move
+                a,b,c = pk[i]*alpha,pk[i+1]*alpha,pk[i+2]*alpha
+                chk = float((a**2+b**2+c**2)**0.5)
+
+                # If d = sqrt(a^2+b^2+c^2) > MAX_STEP, scale by MAX_STEP/d
+                if chk > MAX_STEP:
+                    max_step_flag = True
+                    pk[i] *= (MAX_STEP / chk)
+                    pk[i+1] *= (MAX_STEP / chk)
+                    pk[i+2] *= (MAX_STEP / chk)
+                i += 3
+
+            # As we are changing values manually, this is no longer
+            # the BFGS(Hess) algorithm so reset the Inverse Hessian
+            if max_step_flag:
                 if disp > 1:
-                    print("Warning - Setting step to max step size"
-                                % np.linalg.norm(pk*alpha)),
-                for i,p in enumerate(pk):
-                    if abs(p*alpha) > MAX_STEP:
-                        pk[i] = (MAX_STEP / alpha) * copysign(1, p)
-                # As we are changing values manually, this is no longer
-                # the BFGS(Hess) algorithm so reset the Inverse Hessian
+                    print("Warning - Setting step to max step size"),
                 if H_reset:
                     Hk = I
 
             # Hold new parameters
             xkp1 = xk + alpha * pk
 
-            xkp1, C, Hk_tmp = fit_rigid(xkp1, [gfk, xk], Hk)
-            gfk_tmp, xk_tmp = C
-
-            #xkp1, C, Hk = fit_rigid(xkp1, [gfk, xk], Hk)
-            #gfk, xk = C
+            if frigid:
+                xkp1, C, Hk_tmp = fit_rigid(xkp1, [gfk, xk], Hk)
+                gfk_tmp, xk_tmp = C
 
             # Get the new gradient
             gfkp1 = fprime(xkp1)
@@ -629,7 +659,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 fval = f(xkp1)
             fcount += 1
 
-            if f is not None and check_backtrack(fval, old_fval):
+            if f is not None and check_backtrack(fval, old_fval, gfkp1, pk, tau, alpha):
                 # Step taken overstepped the minimum.  Lowering step size
                 if disp > 1:
                     print("\tResetting System as %lg > %lg!"
@@ -666,7 +696,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                     if disp > 1:
                         print("%lg,\t" % alpha),
             
-            gfk, xk, Hk = gfk_tmp, xk_tmp, Hk_tmp
+            if frigid:
+                gfk, xk, Hk = gfk_tmp, xk_tmp, Hk_tmp
 
             # Recalculate sk to maintain the secant condition
             sk = xkp1 - xk
@@ -776,8 +807,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             Nmin=Nmin, finc=finc, fdec=fdec, astart=astart, fa=fa, euler=euler, maxiter=maxiter, gtol=gtol)
     elif opt == 'BFGS':
         bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient,
-            gtol=float(gtol), maxiter=int(maxiter),
-            alpha=float(alpha), beta=float(beta), H_reset=H_reset,
+            gtol=float(gtol), maxiter=int(maxiter), frigid=frigid, linesearch=linesearch,
+            alpha=float(alpha), beta=float(beta), tau=float(tau), H_reset=H_reset, reset=reset,
             MAX_STEP=float(step_max), disp=disp
             )
     elif opt == 'BFGS2':
