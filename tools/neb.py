@@ -26,7 +26,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         DFT='orca', opt='BFGS', gtol=1e-3, maxiter=100,
         alpha=0.1, beta=0.5, tau=1E-3, reset=10, H_reset=True,
         viscosity=0.1, dtmax=1.0, Nmin=5, finc=1.1, fdec=0.5, astart=0.1, fa=0.99,
-        step_min=1E-8, step_max=0.2, bt_max=None, linesearch='armijo', L2norm=True, bt_eps=1E-3,
+        step_min=1E-8, step_max=0.2, bt_max=None, linesearch='backtrack', L2norm=True, bt_eps=1E-3,
         dt = 0.3, euler=True, force=True, mem=25, blurb=None, initial_guess=None): 
     
     # If using test code, import path so we import correct scipy.optimize.

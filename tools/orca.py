@@ -198,7 +198,7 @@ def engrad_read(input_file, force='Ha/Bohr', pos='Bohr'):
 	return atoms, energy
 
 # A function to run an Orca DFT Simulation
-def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, procs=1, charge_and_multiplicity='0 1', previous=None, mem=None):
+def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, procs=1, charge_and_multiplicity='0 1', previous=None, mem=40):
 	if len(run_name) > 31 and queue is not None:
 		print("Error - Simulation Name too long for NBS system. Max character length is 31.")
 		print("Quitting orca job.")
