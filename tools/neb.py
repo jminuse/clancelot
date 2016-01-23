@@ -337,8 +337,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 C.append(np.dot(b,R))
         if H is not None:
             # Note, to transform the Hessian matrix, it's not like a normal vector (as above)
-            H = R.T*H*R
-            #H = R*H*R.T
+            #H = R.T*H*R
+            H = R*H*R.T
 
         if B is None and H is None:
             return r
