@@ -187,7 +187,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                         raise Exception('parse_atoms failed')
                     new_energy, new_atoms = result
                 elif DFT=='orca':
-                    new_atoms, new_energy = orca.engrad_read('%s-%d-%d' % (NEB.name, step_to_use, i))
+                    new_atoms, new_energy = orca.engrad_read('%s-%d-%d' % (NEB.name, step_to_use, i),force='Ha/Ang',pos='Ang')
 
                 energies.append(new_energy)
 
@@ -209,9 +209,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
 
                 elif DFT == 'orca':
                     for a,b in zip(state, new_atoms):
-                        a.fx = units.convert('Ha/Bohr','Ha/Ang',b.fx)
-                        a.fy = units.convert('Ha/Bohr','Ha/Ang',b.fy)
-                        a.fz = units.convert('Ha/Bohr','Ha/Ang',b.fz)
+                        a.fx,a.fy,a.fz = b.fx,b.fy,b.fz
             # V = potential energy from DFT. energies = V+springs
             V = copy.deepcopy(energies) 
             # Reset convergence check
@@ -249,11 +247,11 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                         energies[i] += units.convert_energy('Ha','kcal/mol', E_hartree)
                     
                         # Find DFT forces perpendicular to tangent
-                        real_force = np.array( [b.fx,b.fz,b.fz] )
+                        real_force = np.array( [b.fx,b.fy,b.fz] )
                         F_real_perpendicular = real_force - np.dot(real_force, tangent)*tangent
                     
                         # Sum convergence check
-                        NEB.convergence += b.fx**2 + b.fz**2 + b.fz**2
+                        NEB.convergence += b.fx**2 + b.fy**2 + b.fz**2
                         
                         # Set NEB forces
                         b.fx, b.fy, b.fz = F_spring_parallel + F_real_perpendicular
@@ -340,6 +338,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         if H is not None:
             # Note, to transform the Hessian matrix, it's not like a normal vector (as above)
             H = R.T*H*R
+            #H = R*H*R.T
 
         if B is None and H is None:
             return r
@@ -380,8 +379,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             if NEB.convergence < NEB.convergence_criteria:
                 print("\nConvergence achieved in %d iterations with %lg < %lg\n" % (NEB.step,NEB.convergence,NEB.convergence_criteria))
                 sys.exit()
-            gradient = -fprime(r)
-            r += gradient*alpha
+            forces = -fprime(r)
+            r += forces*alpha
             r = fit_rigid(r)
             step += 1
 
@@ -671,7 +670,9 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 if disp > 1:
                     print("-> %lg\n" % alpha)
 
-                # Reset the Inverse Hessian if desired - This is recommended!
+                # Reset the Inverse Hessian if desired.
+                # It is still up for debate if this is to be recommended or not.  As the 
+                # inverse hessian corects itself, it might not be important to do this.
                 if H_reset:
                     Hk = I
                 backtrack += 1
@@ -682,13 +683,18 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             # in which larger alphas are acceptable again. Thus, we reset to the original alpha
             elif reset is not None:
                 reset -= 1
+                # If we want to reset and alpha has been decreased before, set to initial vals
                 if reset < 0 and alpha < ALPHA_CONST:
                     if disp > 1:
                         print("\tResetting Alpha, Beta, Reset and Inverse Hessian")
                     alpha, beta, reset = ALPHA_CONST, BETA_CONST, RESET_CONST
+                    # Once again, debatable if we want this here.  When reseting step sizes we
+                    # might have a better H inverse than the Identity would be.
                     if H_reset:
                         Hk = I
                     continue
+                # If we want to reset and we've never decreased before, we can take larger steps
+                # We increase step sizes by a factor of 1/beta
                 elif reset < 0 and alpha >= ALPHA_CONST:
                     if disp > 1:
                         print("\tIncreasing step size: %lg ->" % alpha),
@@ -696,6 +702,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                     if disp > 1:
                         print("%lg,\t" % alpha),
             
+            # If the step was good, we want to store the rotated values
             if frigid:
                 gfk, xk, Hk = gfk_tmp, xk_tmp, Hk_tmp
 
