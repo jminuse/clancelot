@@ -256,16 +256,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                         # Set NEB forces
                         b.fx, b.fy, b.fz = F_spring_parallel + F_real_perpendicular
             
-            
-            #calculate center of geometry
-            for state in NEB.states[1:-1]:
-            	cog = np.zeros(3)
-                for a in state:
-                	cog += (a.x, a.y, a.z)
-            	#print cog
-            
-            
-            #calculate translation-free gradient
+            #remove net translation forces from the gradient
             for state in NEB.states[1:-1]:
             	net_force = np.zeros(3)
                 for a in state:
@@ -274,28 +265,6 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 	a.fx -= net_force[0] / len(state)
                 	a.fy -= net_force[1] / len(state)
                 	a.fz -= net_force[2] / len(state)
-            #calculate rotation-free gradient
-            for state in NEB.states[1:-1]:
-            	net_torque = np.zeros(3)
-                for a in state:
-                	torque = np.cross( (a.x, a.y, a.z), (a.fx, a.fy, a.fz) )
-                	net_torque += torque
-                
-                #net_torque /= len(state)
-                
-            	#for a in state:
-            	#	force = np.cross( (a.x, a.y, a.z), net_torque )
-                #	a.fx += force[0]
-                #	a.fy += force[1]
-                #	a.fz += force[2]
-            
-            	#print net_torque,
-            
-            	net_torque = np.zeros(3)
-                for a in state:
-                	torque = np.cross( (a.x, a.y, a.z), (a.fx, a.fy, a.fz) )
-                	net_torque += torque
-                #print net_torque
             
             # Get the RMF real force
             NEB.convergence = NEB.convergence**0.5
