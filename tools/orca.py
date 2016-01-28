@@ -75,6 +75,8 @@ def read(input_file):
 		for a in b:
 			a = a.split()
 			charges_LOEWDIN.append([a[1].split(':')[0],float(a[-1])])
+		for a, charge in zip(atoms, charges_LOEWDIN):
+			a.charge = charge[1]
 	else:
 		charges_LOEWDIN = None
 
@@ -123,7 +125,7 @@ def read(input_file):
 
 	hold, converged = data, False
 	s1, s2 = 'SCF CONVERGED AFTER', 'OPTIMIZATION RUN DONE'
-	if 'opt' in route: s = s2
+	if 'opt' in route.lower(): s = s2
 	else: s = s1
 	if hold.find(s) != -1:
 		converged = True
