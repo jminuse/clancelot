@@ -2,6 +2,8 @@ import constants
 from constants import ENERGY, DISTANCE, PERIODIC_TABLE
 
 def convert_energy(e0, e1, e_val):
+	#print("Converting %lg %s to " % (e_val,e0)),
+
 	if e_val == 0: return 0
 	if e0 == e1: return e_val
 	if len(e0) > 2 and e0[0:2] == 'kT':
@@ -10,12 +12,20 @@ def convert_energy(e0, e1, e_val):
 		val = e_val * ENERGY[e0] # This many joules
 	if len(e1) > 2 and e1[0:2] == 'kT':
 		return val/(constants.K_b * float(e1[3:]))
+
+	#print("%lg %s.\n" % (val/ENERGY[e1],e1))
+
 	return val/ENERGY[e1] # This many of unit e1
 
 def convert_dist(d0, d1, d_val):
+	#print("Converting %lg %s to " % (d_val,d0)),
+
 	if d_val == 0: return 0
 	if d0 == d1: return d_val
 	val = d_val * DISTANCE[d0] # This many joules
+
+	#print("%lg %s.\n" % (val/DISTANCE[d1],d1))
+
 	return val/DISTANCE[d1] # This many of unit e1
 
 def elem_i2s(elem_int):
@@ -41,6 +51,8 @@ def elem_weight(elem):
 	return -1
 
 def convert(old,new,val):
+	#print("Converting %lg %s to " % (val,old)),
+
 	if val == 0: return 0
 	
 	a,b = old.split('/')
@@ -53,5 +65,7 @@ def convert(old,new,val):
 
 	if b in ENERGY: new_val = convert_energy(b,b2,new_val)
 	else: new_val = convert_dist(b,b2,new_val)
+
+	#print("%lg %s.\n" % (1./new_val, new))
 
 	return 1./new_val

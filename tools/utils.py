@@ -170,10 +170,10 @@ class Molecule():
 		if type(atoms_or_filename_or_all)==type('string'):
 			self.filename = atoms_or_filename_or_all
 			atoms, bonds, angles, dihedrals = files.read_cml(self.filename, parameter_file=parameter_file, extra_parameters=extra_parameters, check_charges=check_charges)
-		elif not bonds:
+		elif bonds:
 			atoms, bonds, angles, dihedrals = atoms_or_filename_or_all
 		else:
-			atoms = atoms_or_filename_or_all
+			atoms, bonds, angles, dihedrals = atoms_or_filename_or_all, [], [], []
 		self.atoms = atoms
 		self.bonds = bonds
 		self.angles = angles
@@ -547,6 +547,8 @@ def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTS=False,outName=None,write_xyz=Fals
 	# write_xyz = Write to file. Default False
 	# Verbose = Outputing what pretty_xyz is doing as it goes
 	#----------
+
+	from copy import deepcopy
 	
 	# Get data as either frames or a file
 	if type(name)==type(''): frames = files.read_xyz(name)
@@ -555,44 +557,42 @@ def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTS=False,outName=None,write_xyz=Fals
 		print "Error - Invalid name input.  Should be either the name of an xyz file or a list.", sys.exc_info()[0]
 		exit()
 
-	if PROCRUSTS: procrustes(frames)
-
 	# Loop till we're below R_MAX
 	while 1:
+		# Find largest motion_per_frame
+		if PROCRUSTS: procrustes(frames)
+		tmp = motion_per_frame(frames)
+		i = tmp.index(max(tmp))
+
 		# Check if we're done
-		r2 = max(motion_per_frame(frames))
+		r2 = max(tmp)
 		if r2 < R_MAX: break
 
 		if len(frames) > F_MAX:
 			print "-------------------------------------------------------"
-			print motion_per_frame(frames)
+			print tmp
 			print "-------------------------------------------------------"
 			print "\n\nError - Could not lower motion below %lg in %d frames." % (R_MAX,F_MAX), sys.exc_info()[0]
 			exit()
 		else:
 			if verbose: print "Currently Frames = %d\tr2 = %lg" % (len(frames),r2)
 
-		# If not, find largest motion_per_frame
-		index, maxVal = 0, 0
-		tmp = motion_per_frame(frames)
-		for i,t in enumerate(tmp):
-			if t > maxVal:
-				index, maxVal = i, t
-		i = index
 		# Now, split the list, interpolate, and regenerate
-		if i>0 and i < len(frames) - 1:
-			f_low = frames[:i-1]
-			f_high = frames[i+2:]
-			f_mid = interpolate(frames[i-1],frames[i+1],4)
+		if i > 0 and i < len(frames) - 1:
+			f_low = deepcopy(frames[:i])
+			f_high = deepcopy(frames[i+1:])
+			f_mid = interpolate(frames[i-1],frames[i+1],3)
 			frames = f_low + f_mid + f_high
 		elif i == 0:
-			f_high = frames[i+2:]
-			f_mid = interpolate(frames[i],frames[i+1],4)
-			frames = f_mid + f_high
+			f_low = deepcopy(frames[i])
+			f_mid = interpolate(frames[i],frames[i+1],3)
+			f_high = deepcopy(frames[i+1:])
+			frames = [f_low] + f_mid + f_high
 		else:
-			f_low = frames[:i-1]
-			f_mid = interpolate(frames[i-1],frames[i],4)
-			frames = f_low + f_mid
+			f_low = deepcopy(frames[:i])
+			f_mid = interpolate(frames[i-1],frames[i],3)
+			f_high = deepcopy(frames[i])
+			frames = f_low + f_mid + [f_high]
 
 		if verbose: print "\tInterpolated %d,%d ... %lg" % (index-1,index+1,max(motion_per_frame(frames)))
 

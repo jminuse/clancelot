@@ -202,7 +202,7 @@ f.close
 f = open(ZSH_CLANCELOT,'a')
 f.write('\n\n')
 
-if to_install['vmd']: f.write("alias vmd='/fs/europa/g_pc/vmd-1.9'\n\n")
+if to_install['vmd']: f.write("alias vmd='/fs/europa/g_pc/vmd/bin/vmd'\n\n")
 if to_install['pysub']:
 	f.write("alias pysub='"+INSTALLDIR+"pysub/pysub.sh'\n")
 	f.write('complete -F _pyAutoTab '+INSTALLDIR+'pysub/pysub.sh\n\n')
@@ -304,10 +304,14 @@ if to_install['chkDFT']:
 alias viewo='function _viewo(){chkDFT $1 -dft orca -v $@};_viewo'
 alias chkg='function _chkg(){chkDFT $1 -dft g09 $@};_chkg'
 alias ggedit='function _ggedit(){gedit orca/$1/$1.log};_ggedit'
+alias geditg='ggedit'
 alias gtail='function _gtail(){tail orca/$1/$1.log $2 $3};_gtail'
+alias tailg='gtail'
 alias chko='function _chko(){chkDFT $1 -dft orca $@};_chko'
 alias ogedit='function _ogedit(){gedit orca/$1/$1.out};_ogedit'
-alias otail='function _otail(){tail orca/$1/$1.out $2 $3};_otail'\n''')
+alias gedito='ogedit'
+alias otail='function _otail(){tail orca/$1/$1.out $2 $3};_otail'
+alias tailo='otail'\n''')
 if to_install['merlin']: f.write("alias merlin='python -i "+INSTALLDIR+"tools/merlin.py'\n")
 if to_install['scanDFT']: f.write("\nalias scanDFT='python "+INSTALLDIR+"tools/scanDFT.py'\n")
 if to_install['prnt']: f.write('''alias prnt='function _prnt(){ssh asimov "lpr -P hplj4525-365 -o sides=two-sided-long-edge -o InputSlot=Tray2 $PWD/$1;logout";echo "Printed..."};_prnt'\n''')

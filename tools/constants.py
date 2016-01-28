@@ -8,10 +8,10 @@ pi = math.pi
 PI = pi
 Pi = pi
 hbar = h/(2.0*pi)
-c = 299792458 # Speed of light (from NIST) in m/s
+c = 299792458.0 # Speed of light (from NIST) in m/s
 
 # Everything is converted to Angstroms
-DISTANCE = {'Bohr':0.529177249, 'Ang':1, 'Angstrom':1}
+DISTANCE = {'Bohr':0.529177, 'Ang':1.0, 'Angstrom':1.0}
 
 # Periodic Table data from http://www.science.co.il/PTelements.asp
 # Van der Waals Radii from http://link.springer.com/article/10.1023%2FA%3A1011625728803

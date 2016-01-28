@@ -124,7 +124,7 @@ def read_xyz(name):
 	else:
 		return frames
 
-def write_xyz(frames, name_or_file=None):
+def write_xyz(frames, name_or_file=None, ID='Atoms'):
 	if not name_or_file:
 		name_or_file = 'out' #default filename is out.xyz
 	
@@ -138,7 +138,7 @@ def write_xyz(frames, name_or_file=None):
 		frames = [frames] #we want to write a list of frames, so make it one
 	
 	for atoms in frames:
-		f.write(str(len(atoms))+'\nAtoms\n')
+		f.write(str(len(atoms))+'\n'+ID+'\n')
 		for a in atoms:
 			f.write('%s %f %f %f\n' % (a.element, a.x, a.y, a.z) )
 		
@@ -186,7 +186,7 @@ def write_lammps_data(system, pair_coeffs_included=False):
 	dihedral_types = dict( [(t.type,True) for t in dihedrals] ).keys()
 	system.atom_types, system.bond_types, system.angle_types, system.dihedral_types = atom_types, bond_types, angle_types, dihedral_types
 	# sort atom types by mass, largest masses first
-	atom_types.sort(key=lambda t:-t.mass) 
+	atom_types.sort(key=lambda t:-t.mass + (-1e6 if hasattr(t,'reax') else 0) )
 	# get type numbers to identify types to LAMMPS
 	for i,t in enumerate(atom_types): t.lammps_type = i+1
 	for i,t in enumerate(bond_types): t.lammps_type = i+1

@@ -155,7 +155,7 @@ def read(input_file):
 	return data
 
 # A function to parse orca.engrad files
-def engrad_read(input_file):
+def engrad_read(input_file, force='Ha/Bohr', pos='Bohr'):
 	if not os.path.isfile('orca/%s/%s.orca.engrad' % (input_file,input_file)):
 		print("Currently in %s, searching for orca/%s/%s.orca.engrad" % (os.getcwd(),input_file,input_file))
 		print("No engrad file exists. Please run simulation with grad=True.")
@@ -187,8 +187,12 @@ def engrad_read(input_file):
 			k = 0
 			for j in range(num_atoms):
 				tmp = data[i].split()
-				atoms.append(utils.Atom(tmp[0], float(tmp[1]), float(tmp[2]), float(tmp[3]) ))
-				atoms[-1].fx, atoms[-1].fy, atoms[-1].fz = -grad[k], -grad[k+1], -grad[k+2]
+				atoms.append(utils.Atom(tmp[0], units.convert_dist('Bohr',pos,float(tmp[1])),
+								units.convert_dist('Bohr',pos,float(tmp[2])),
+								units.convert_dist('Bohr',pos,float(tmp[3]))))
+				atoms[-1].fx = units.convert('Ha/Bohr',force,-grad[k])
+				atoms[-1].fy = units.convert('Ha/Bohr',force,-grad[k+1])
+				atoms[-1].fz = units.convert('Ha/Bohr',force,-grad[k+2])
 				i += 1
 				k += 3
 			break
@@ -196,7 +200,12 @@ def engrad_read(input_file):
 	return atoms, energy
 
 # A function to run an Orca DFT Simulation
-def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, procs=1, charge_and_multiplicity='0 1', previous=None, mem=None):
+def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, procs=1, charge_and_multiplicity='0 1', previous=None, mem=40):
+	if len(run_name) > 31 and queue is not None:
+		print("Error - Simulation Name too long for NBS system. Max character length is 31.")
+		print("Quitting orca job.")
+		sys.exit()
+
 	# Generate the orca input file
 	os.system('mkdir -p orca/%s' % run_name)
 	os.chdir('orca/%s' % run_name)
