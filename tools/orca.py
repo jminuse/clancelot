@@ -219,8 +219,11 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 		os.chdir('../../')
 		hold = read(previous)
 		os.chdir(pwd)
-		index = hold.energies.index(min(hold.energies))
-		atoms = hold.frames[index]
+		if " opt " in route.lower():
+			index = hold.energies.index(min(hold.energies)) 
+			atoms = hold.frames[index]
+		else:
+			atoms = hold.frames[-1]
 		hold = None
 
 	# If desiring .orca.engrad output, tell orca
