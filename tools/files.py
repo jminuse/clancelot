@@ -259,7 +259,6 @@ def packmol(system, molecules, molecule_ratio, density, seed=1): #density in g/m
 	#now have a list of atoms with element = H0 for molecule 0, H1 for molecule 1, etc
 	i = 0
 	while i < len(atoms):
-		
 		molecule_number = int(atoms[i].element[-1])
 		molecule = molecules[molecule_number]
 		system.add(molecule)
