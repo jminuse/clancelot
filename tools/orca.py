@@ -238,6 +238,8 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
  		route = route.strip() + ' MORead'
  		PATH = '../'+previous+'/'+previous+'.orca.gbw'
  		if not os.path.isfile(PATH):
+ 			PATH = '../'+previous+'/'+previous+'.orca.proc0.gbw'
+ 		if not os.path.isfile(PATH):
  			print("Error - Previous run %s does not have a .gbw file." % previous)
  			sys.exit()
  		extra_section = extra_section.strip() + '\n%moinp "' + PATH + '"' 
