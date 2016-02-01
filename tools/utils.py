@@ -594,7 +594,7 @@ def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTS=False,outName=None,write_xyz=Fals
 			f_high = deepcopy(frames[i])
 			frames = f_low + f_mid + [f_high]
 
-		if verbose: print "\tInterpolated %d,%d ... %lg" % (index-1,index+1,max(motion_per_frame(frames)))
+		if verbose: print "\tInterpolated %d,%d ... %lg" % (i-1,i+1,max(motion_per_frame(frames)))
 
 	if PROCRUSTS: procrustes(frames)
 
