@@ -617,10 +617,10 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 for i in indices:
                     rho_i = 1.0 / np.dot(y[i],s[i])
                     beta = rho_i * np.dot(y[i],r)
-                    r += ( alpha[len(alpha)-i] - beta )*s[i]
+                    r += ( alpha[-i-1] - beta )*s[i]
                 return r
             
-            step_direction = -BFGS_multiply(stored_coordinates, stored_gradients, current_gradient)
+            step_direction = -BFGS_multiply(list(reversed(stored_coordinates)), list(reversed(stored_gradients)), current_gradient)
             
             # Renorm to remove the effect of Hessian not being unit
             i = 0
@@ -744,7 +744,11 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             # Get difference in gradients for further calculations
             change_in_gradient = new_gradient - current_gradient
 
-            try:  # this was handled in numeric, let it remaines for more safety
+            #store past results to build up curvature information
+            stored_coordinates.append( change_in_coordinates )
+            stored_gradients.append( change_in_gradient )
+
+            try:  # this was handled in numeric, let it remain for more safety
                 rhok = 1.0 / (np.dot(change_in_gradient, change_in_coordinates))
             except ZeroDivisionError:
                 rhok = 1000.0
