@@ -258,13 +258,13 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             
             #remove net translation forces from the gradient
             for state in NEB.states[1:-1]:
-            	net_force = np.zeros(3)
+                net_force = np.zeros(3)
                 for a in state:
-                	net_force += (a.fx, a.fy, a.fz)
-            	for a in state:
-                	a.fx -= net_force[0] / len(state)
-                	a.fy -= net_force[1] / len(state)
-                	a.fz -= net_force[2] / len(state)
+                    net_force += (a.fx, a.fy, a.fz)
+                for a in state:
+                    a.fx -= net_force[0] / len(state)
+                    a.fy -= net_force[1] / len(state)
+                    a.fz -= net_force[2] / len(state)
             
             # Get the RMF real force
             NEB.convergence = NEB.convergence**0.5
@@ -567,9 +567,9 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             initial_coordinates.shape = (1,)
         current_coordinates = align_coordinates(initial_coordinates)
 
-        # Initialize inv Hess and Identity matrix
-        I = np.eye(len(current_coordinates), dtype=int)
-        current_Hessian = I
+        # Initialize stored coordinates and gradients
+        stored_coordinates = []
+        stored_gradients = []
 
         # Get gradient and store your old func_max
         current_gradient = target_gradient(current_coordinates)
@@ -599,12 +599,30 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 break
 
             if display > 1:
-                print("Trace of current_Hessian = %lg" % float(np.matrix.trace(current_Hessian)))
                 print("Step %d, " % loop_counter),
 
             # Get your step direction
-            step_direction = -np.dot(current_Hessian, current_gradient)
-            # Renorm to remove the effect of current_Hessian not being unit
+            #step_direction = -np.dot(current_Hessian, current_gradient)
+            
+            def BFGS_multiply(s,y,grad): #http://aria42.com/blog/2014/12/understanding-lbfgs/
+                r = copy.deepcopy(grad)
+                indices = xrange(len(s))
+                #compute right product
+                alpha = np.zeros( len(s) )
+                for i in reversed(indices):
+                    rho_i = 1.0 / np.dot(y[i],s[i])
+                    alpha[i] = rho_i * np.dot(s[i],r)
+                    r -= alpha[i] * y[i]
+                #compute left product
+                for i in indices:
+                    rho_i = 1.0 / np.dot(y[i],s[i])
+                    beta = rho_i * np.dot(y[i],r)
+                    r += ( alpha[len(alpha)-i] - beta )*s[i]
+                return r
+            
+            step_direction = -BFGS_multiply(stored_coordinates, stored_gradients, current_gradient)
+            
+            # Renorm to remove the effect of Hessian not being unit
             i = 0
             while i < len(step_direction):
                 # Get the distance the atom will move
@@ -648,14 +666,15 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 if display > 1:
                     print("Warning - Setting step to max step size"),
                 if reset_when_in_trouble:
-                    current_Hessian = I
+                    stored_coordinates = []
+                    stored_gradients = []
 
             # Hold new parameters
             new_coordinates = current_coordinates + step_size * step_direction
 
-            if fit_rigid:
-                new_coordinates, C, current_Hessian_tmp = align_coordinates(new_coordinates, [current_gradient, current_coordinates], current_Hessian)
-                current_gradient_tmp, current_coordinates_tmp = C
+            #if fit_rigid:
+            #    new_coordinates, C, current_Hessian_tmp = align_coordinates(new_coordinates, [current_gradient, current_coordinates], current_Hessian)
+            #    current_gradient_tmp, current_coordinates_tmp = C
 
             # Get the new gradient
             new_gradient = target_gradient(new_coordinates)
@@ -681,7 +700,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 # It is still up for debate if this is to be recommended or not.  As the 
                 # inverse hessian corects itself, it might not be important to do this.
                 if reset_when_in_trouble:
-                    current_Hessian = I
+                    stored_coordinates = []
+                    stored_gradients = []
                 backtrack += 1
                 reset_step_size = RESET_CONST
                 continue
@@ -698,7 +718,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                     # Once again, debatable if we want this here.  When reseting step sizes we
                     # might have a better H inverse than the Identity would be.
                     if reset_when_in_trouble:
-                        current_Hessian = I
+                        stored_coordinates = []
+                        stored_gradients = []
                     continue
                 # If we want to reset_step_size and we've never decreased before, we can take larger steps
                 # We increase step sizes by a factor of 1/step_size_adjustment
@@ -710,8 +731,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                         print("%lg,\t" % step_size),
             
             # If the step was good, we want to store the rotated values
-            if fit_rigid:
-                current_gradient, current_coordinates, current_Hessian = current_gradient_tmp, current_coordinates_tmp, current_Hessian_tmp
+            #if fit_rigid:
+            #    current_gradient, current_coordinates, current_Hessian = current_gradient_tmp, current_coordinates_tmp, current_Hessian_tmp
 
             # Recalculate change_in_coordinates to maintain the secant condition
             change_in_coordinates = new_coordinates - current_coordinates
@@ -736,9 +757,9 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
 
 
             # Run BFGS Update for the Inverse Hessian
-            A1 = I - change_in_coordinates[:, np.newaxis] * change_in_gradient[np.newaxis, :] * rhok
-            A2 = I - change_in_gradient[:, np.newaxis] * change_in_coordinates[np.newaxis, :] * rhok
-            current_Hessian = np.dot(A1, np.dot(current_Hessian, A2)) + (rhok * change_in_coordinates[:, np.newaxis] * change_in_coordinates[np.newaxis, :])
+            #A1 = I - change_in_coordinates[:, np.newaxis] * change_in_gradient[np.newaxis, :] * rhok
+            #A2 = I - change_in_gradient[:, np.newaxis] * change_in_coordinates[np.newaxis, :] * rhok
+            #current_Hessian = np.dot(A1, np.dot(current_Hessian, A2)) + (rhok * change_in_coordinates[:, np.newaxis] * change_in_coordinates[np.newaxis, :])
 
             if display > 1:
                 print("fval %lg" % (fval))
