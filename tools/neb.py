@@ -532,7 +532,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             step_size=0.1, step_size_adjustment=0.5, armijio_line_search_factor=1E-4, reset_when_in_trouble=True, linesearch='armijo',
             gradient_tolerance=1E-3, max_iterations=1000, reset_step_size=reset,
             MAX_STEP=0.2, fit_rigid=True,
-            display=0, callback=None):
+            display=0, callback=None, max_steps_remembered=5):
         import numpy as np
 
         # These are values deemed good for DFT NEB and removed from parameter space for simplification
@@ -747,6 +747,10 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             #store past results to build up curvature information
             stored_coordinates.append( change_in_coordinates )
             stored_gradients.append( change_in_gradient )
+            
+            if len(stored_coordinates)>max_steps_remembered:
+            	stored_coordinates = stored_coordinates[1:]
+            	stored_gradients = stored_gradients[1:]
 
             try:  # this was handled in numeric, let it remain for more safety
                 rhok = 1.0 / (np.dot(change_in_gradient, change_in_coordinates))
