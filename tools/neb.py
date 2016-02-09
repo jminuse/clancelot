@@ -320,7 +320,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             NEB.gradient = None #set to None so it will recalculate next time
             return np.array(gradient)
 
-    def fit_rigid(r, B=None, H=None):
+    def align_coordinates(r, B=None, H=None):
         from scipy.linalg import block_diag
         # Prevent rotation or translation
         coord_count = 0
@@ -392,7 +392,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 sys.exit()
             forces = -fprime(r)
             r += forces*alpha
-            r = fit_rigid(r)
+            r = align_coordinates(r)
             step += 1
 
     def quick_min_optimizer(f, r, nframes, fprime, dt=0.1, step_max=0.1, euler=False, viscosity=0.1, maxiter=1000, gtol=1E-3): # dt = fs, step_max = angstroms, viscosity = 1/fs
@@ -476,7 +476,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 v = v_new
                 acc = a_new
             
-            r = fit_rigid(r)
+            r = align_coordinates(r)
 
             step += 1
 
@@ -523,15 +523,16 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 #move atoms
                 r += v * dt
 
-            r = fit_rigid(r)
+            r = align_coordinates(r)
 
             step += 1
 
-    def bfgs_optimizer(f, x0, fprime,
-            alpha=0.1, beta=0.5, tau=1E-4, H_reset=True, linesearch='armijo',
-            gtol=1E-3, maxiter=1000, reset=reset,
-            MAX_STEP=0.2, frigid=True,
-            disp=0, callback=None):
+
+    def bfgs_optimizer(target_function, initial_coordinates, target_gradient,
+            step_size=0.1, step_size_adjustment=0.5, armijio_line_search_factor=1E-4, reset_when_in_trouble=True, linesearch='armijo',
+            gradient_tolerance=1E-3, max_iterations=1000, reset_step_size=reset,
+            MAX_STEP=0.2, fit_rigid=True,
+            display=0, callback=None):
         import numpy as np
 
         # These are values deemed good for DFT NEB and removed from parameter space for simplification
@@ -539,17 +540,13 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         MIN_STEP=1E-8
         BACKTRACK_EPS=1E-3
 
-        # If given a very bad initial guess, it's better to do steepest descent for some iterations first so as to not make
-        # a bad inverse hessian and then shoot off into dangerous territory
-        ANNEAL=0
-
-        if disp > 2:
+        if display > 2:
             print("\nValues in bfgs_optimize code:")
-            print("\talpha = %lg, beta = %lg, H_reset = %s" % (alpha, beta, str(H_reset)))
-            print("\tgtol = %lg, maxiter = %d, MAX_STEP = %lg" % (gtol, maxiter, MAX_STEP))
+            print("\tstep size = %lg, step size adjustment = %lg, reset_when_in_trouble = %s" % (step_size, step_size_adjustment, str(reset_when_in_trouble)))
+            print("\tgtol = %lg, max_iterations = %d, MAX_STEP = %lg" % (gradient_tolerance, max_iterations, MAX_STEP))
             print("\t-------------------")
-            print("\tMAX_BACKTRACK = %s, reset = %s, MIN_STEP = %lg, BACKTRACK_EPS = %lg" % (str(MAX_BACKTRACK), str(reset), MIN_STEP, BACKTRACK_EPS))
-            print("\tfrigid = %s\n" % str(frigid))
+            print("\tMAX_BACKTRACK = %s, reset_step_size = %s, MIN_STEP = %lg, BACKTRACK_EPS = %lg" % (str(MAX_BACKTRACK), str(reset_step_size), MIN_STEP, BACKTRACK_EPS))
+            print("\tfrigid = %s\n" % str(fit_rigid))
         def vecnorm(x, ord=2):
             if ord == np.Inf:
                 return np.amax(np.abs(x))
@@ -558,215 +555,207 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             else:
                 return np.sum(np.abs(x)**ord, axis=0)**(1.0 / ord)
 
-        # Func Call Counter
-        fcount = 0
+        function_call_counter = 0
 
-        # Set maxiter if not set
-        if maxiter is None:
-            maxiter = 200 * len(x0)
+        # Set max_iterations if not set
+        if max_iterations is None:
+            max_iterations = 200 * len(initial_coordinates)
 
         # Ensure coordinates are in the correct format
-        x0 = np.asarray(x0).flatten()
-        if x0.ndim == 0:
-            x0.shape = (1,)
-        xk = fit_rigid(x0)
+        initial_coordinates = np.asarray(initial_coordinates).flatten()
+        if initial_coordinates.ndim == 0:
+            initial_coordinates.shape = (1,)
+        current_coordinates = align_coordinates(initial_coordinates)
 
         # Initialize inv Hess and Identity matrix
-        I = np.eye(len(xk), dtype=int)
-        Hk = I
+        I = np.eye(len(current_coordinates), dtype=int)
+        current_Hessian = I
 
         # Get gradient and store your old func_max
-        gfk = fprime(xk)
-        if f is not None:
-            old_fval = f(xk)
-        fcount += 1
+        current_gradient = target_gradient(current_coordinates)
+        if target_function is not None:
+            old_fval = target_function(current_coordinates)
+        function_call_counter += 1
 
         # Hold original values
-        ALPHA_CONST = alpha
-        BETA_CONST = beta
-        RESET_CONST = reset
+        ALPHA_CONST = step_size
+        BETA_CONST = step_size_adjustment
+        RESET_CONST = reset_step_size
 
         # Get function to describe linesearch
         if linesearch is 'armijo':
-            if disp > 1: print("armijo linesearch "),
-            def check_backtrack(f1,f0,gk,pk,tau,alpha):
-                return f1-f0 > tau*alpha*np.dot(gk,pk)
+            if display > 1: print("armijo linesearch "),
+            def check_backtrack(f1,f0,gk,pk,armijio_line_search_factor,step_size):
+                return f1-f0 > armijio_line_search_factor*step_size*np.dot(gk,pk)
         else:
-            if disp > 1: print("default linesearch "),
-            def check_backtrack(f1,f0,pk,gk,tau,alpha):
+            if display > 1: print("default linesearch "),
+            def check_backtrack(f1,f0,pk,gk,armijio_line_search_factor,step_size):
                 return (f1-f0)/(abs(f1)+abs(f0)) > BACKTRACK_EPS
 
         backtrack, loop_counter, warnflag = 0, 0, 0
-        while (NEB.RMS_force > gtol) and (fcount < maxiter):
+        while (NEB.RMS_force > gradient_tolerance) and (function_call_counter < max_iterations):
             if MAX_BACKTRACK is not None and backtrack > MAX_BACKTRACK:
                 warnflag = 2
                 break
 
-            if disp > 1:
-                print("Trace of Hk = %lg" % float(np.matrix.trace(Hk)))
+            if display > 1:
+                print("Trace of current_Hessian = %lg" % float(np.matrix.trace(current_Hessian)))
                 print("Step %d, " % loop_counter),
 
             # Get your step direction
-            pk = -np.dot(Hk, gfk)
-            # Renorm to remove the effect of Hk not being unit
+            step_direction = -np.dot(current_Hessian, current_gradient)
+            # Renorm to remove the effect of current_Hessian not being unit
             i = 0
-            while i < len(pk):
+            while i < len(step_direction):
                 # Get the distance the atom will move
-                a,b,c = pk[i],pk[i+1],pk[i+2]
+                a,b,c = step_direction[i],step_direction[i+1],step_direction[i+2]
                 chk = float((a**2+b**2+c**2)**0.5)
-                a,b,c = gfk[i],gfk[i+1],gfk[i+2]
+                a,b,c = current_gradient[i],current_gradient[i+1],current_gradient[i+2]
                 scale = float((a**2+b**2+c**2)**0.5)
                 
-                pk[i] *= (scale / chk)
-                pk[i+1] *= (scale / chk)
-                pk[i+2] *= (scale / chk)
+                step_direction[i] *= (scale / chk)
+                step_direction[i+1] *= (scale / chk)
+                step_direction[i+2] *= (scale / chk)
                 i += 3
 
             # If we are doing unreasonably small step sizes, quit
-            if abs(max(pk*alpha)) < MIN_STEP:
-                if disp > 1:
+            if abs(max(step_direction*step_size)) < MIN_STEP:
+                if display > 1:
                     print("Error - Step size unreasonable (%lg)" 
-                                % abs(max(pk*alpha))),
+                                % abs(max(step_direction*step_size))),
                 warnflag = 2
                 break
 
             # If we have too large of a step size, set to max
             # Loop through atoms
             i, max_step_flag = 0, False
-            while i < len(pk):
+            while i < len(step_direction):
                 # Get the distance the atom will move
-                a,b,c = pk[i]*alpha,pk[i+1]*alpha,pk[i+2]*alpha
+                a,b,c = step_direction[i]*step_size,step_direction[i+1]*step_size,step_direction[i+2]*step_size
                 chk = float((a**2+b**2+c**2)**0.5)
 
                 # If d = sqrt(a^2+b^2+c^2) > MAX_STEP, scale by MAX_STEP/d
                 if chk > MAX_STEP:
                     max_step_flag = True
-                    pk[i] *= (MAX_STEP / chk)
-                    pk[i+1] *= (MAX_STEP / chk)
-                    pk[i+2] *= (MAX_STEP / chk)
+                    step_direction[i] *= (MAX_STEP / chk)
+                    step_direction[i+1] *= (MAX_STEP / chk)
+                    step_direction[i+2] *= (MAX_STEP / chk)
                 i += 3
 
             # As we are changing values manually, this is no longer
             # the BFGS(Hess) algorithm so reset the Inverse Hessian
             if max_step_flag:
-                if disp > 1:
+                if display > 1:
                     print("Warning - Setting step to max step size"),
-                if H_reset:
-                    Hk = I
+                if reset_when_in_trouble:
+                    current_Hessian = I
 
             # Hold new parameters
-            xkp1 = xk + alpha * pk
+            new_coordinates = current_coordinates + step_size * step_direction
 
-            if frigid:
-                xkp1, C, Hk_tmp = fit_rigid(xkp1, [gfk, xk], Hk)
-                gfk_tmp, xk_tmp = C
+            if fit_rigid:
+                new_coordinates, C, current_Hessian_tmp = align_coordinates(new_coordinates, [current_gradient, current_coordinates], current_Hessian)
+                current_gradient_tmp, current_coordinates_tmp = C
 
             # Get the new gradient
-            gfkp1 = fprime(xkp1)
+            new_gradient = target_gradient(new_coordinates)
 
             # Check if max has increased
-            if f is not None:
-                fval = f(xkp1)
-            fcount += 1
+            if target_function is not None:
+                fval = target_function(new_coordinates)
+            function_call_counter += 1
 
-            if f is not None and check_backtrack(fval, old_fval, gfkp1, pk, tau, alpha):
+            if target_function is not None and check_backtrack(fval, old_fval, new_gradient, step_direction, armijio_line_search_factor, step_size):
                 # Step taken overstepped the minimum.  Lowering step size
-                if disp > 1:
+                if display > 1:
                     print("\tResetting System as %lg > %lg!"
                             % (fval, old_fval))
-                    print("\talpha: %lg" % alpha),
+                    print("\talpha: %lg" % step_size),
 
-                alpha *= np.float64(beta)
+                step_size *= np.float64(step_size_adjustment)
 
-                if disp > 1:
-                    print("-> %lg\n" % alpha)
+                if display > 1:
+                    print("-> %lg\n" % step_size)
 
                 # Reset the Inverse Hessian if desired.
                 # It is still up for debate if this is to be recommended or not.  As the 
                 # inverse hessian corects itself, it might not be important to do this.
-                if H_reset:
-                    Hk = I
+                if reset_when_in_trouble:
+                    current_Hessian = I
                 backtrack += 1
-                reset = RESET_CONST
+                reset_step_size = RESET_CONST
                 continue
 
-            # This allows for the edge case in which after decreasing alpha, a situation arises
-            # in which larger alphas are acceptable again. Thus, we reset to the original alpha
-            elif reset is not None:
-                reset -= 1
-                # If we want to reset and alpha has been decreased before, set to initial vals
-                if reset < 0 and alpha < ALPHA_CONST:
-                    if disp > 1:
+            # This allows for the edge case in which after decreasing step_size, a situation arises
+            # in which larger alphas are acceptable again. Thus, we reset to the original step_size
+            elif reset_step_size is not None:
+                reset_step_size -= 1
+                # If we want to reset_step_size and step_size has been decreased before, set to initial vals
+                if reset_step_size < 0 and step_size < ALPHA_CONST:
+                    if display > 1:
                         print("\tResetting Alpha, Beta, Reset and Inverse Hessian")
-                    alpha, beta, reset = ALPHA_CONST, BETA_CONST, RESET_CONST
+                    step_size, step_size_adjustment, reset_step_size = ALPHA_CONST, BETA_CONST, RESET_CONST
                     # Once again, debatable if we want this here.  When reseting step sizes we
                     # might have a better H inverse than the Identity would be.
-                    if H_reset:
-                        Hk = I
+                    if reset_when_in_trouble:
+                        current_Hessian = I
                     continue
-                # If we want to reset and we've never decreased before, we can take larger steps
-                # We increase step sizes by a factor of 1/beta
-                elif reset < 0 and alpha >= ALPHA_CONST:
-                    if disp > 1:
-                        print("\tIncreasing step size: %lg ->" % alpha),
-                    alpha /= beta
-                    if disp > 1:
-                        print("%lg,\t" % alpha),
+                # If we want to reset_step_size and we've never decreased before, we can take larger steps
+                # We increase step sizes by a factor of 1/step_size_adjustment
+                elif reset_step_size < 0 and step_size >= ALPHA_CONST:
+                    if display > 1:
+                        print("\tIncreasing step size: %lg ->" % step_size),
+                    step_size /= step_size_adjustment
+                    if display > 1:
+                        print("%lg,\t" % step_size),
             
             # If the step was good, we want to store the rotated values
-            if frigid:
-                gfk, xk, Hk = gfk_tmp, xk_tmp, Hk_tmp
+            if fit_rigid:
+                current_gradient, current_coordinates, current_Hessian = current_gradient_tmp, current_coordinates_tmp, current_Hessian_tmp
 
-            # Recalculate sk to maintain the secant condition
-            sk = xkp1 - xk
+            # Recalculate change_in_coordinates to maintain the secant condition
+            change_in_coordinates = new_coordinates - current_coordinates
             
             # Store new max value in old_max for future comparison
-            if f is not None:
+            if target_function is not None:
                 old_fval = fval
 
             # Get difference in gradients for further calculations
-            yk = gfkp1 - gfk
+            change_in_gradient = new_gradient - current_gradient
 
             try:  # this was handled in numeric, let it remaines for more safety
-                rhok = 1.0 / (np.dot(yk, sk))
+                rhok = 1.0 / (np.dot(change_in_gradient, change_in_coordinates))
             except ZeroDivisionError:
                 rhok = 1000.0
-                if disp > 1:
+                if display > 1:
                     print("Divide-by-zero encountered: rhok assumed large")
             if np.isinf(rhok):  # this is patch for np
                 rhok = 1000.0
-                if disp > 1:
+                if display > 1:
                     print("Divide-by-zero encountered: rhok assumed large")
 
 
             # Run BFGS Update for the Inverse Hessian
-            A1 = I - sk[:, np.newaxis] * yk[np.newaxis, :] * rhok
-            A2 = I - yk[:, np.newaxis] * sk[np.newaxis, :] * rhok
-            Hk = np.dot(A1, np.dot(Hk, A2)) + \
-                 (rhok * sk[:, np.newaxis] * sk[np.newaxis, :])
+            A1 = I - change_in_coordinates[:, np.newaxis] * change_in_gradient[np.newaxis, :] * rhok
+            A2 = I - change_in_gradient[:, np.newaxis] * change_in_coordinates[np.newaxis, :] * rhok
+            current_Hessian = np.dot(A1, np.dot(current_Hessian, A2)) + (rhok * change_in_coordinates[:, np.newaxis] * change_in_coordinates[np.newaxis, :])
 
-            if disp > 1:
+            if display > 1:
                 print("fval %lg" % (fval))
 
             # Store new parameters, as it has passed the check
-            # (fval < old_fval is True)
-            xk = xkp1
-            # Store new gradient in old gradient
-            gfk = gfkp1
+            current_coordinates = new_coordinates
+            current_gradient = new_gradient
 
             # If callback is desired
             if callback is not None:
-                callback(xk)
+                callback(current_coordinates)
 
             # Increment the loop counter
             loop_counter += 1
 
-            if (NEB.RMS_force <= gtol):
+            if (NEB.RMS_force <= gradient_tolerance):
                 break
-
-            if ANNEAL > 0:
-                Hk = I
-                ANNEAL -= 1
             
         if f is not None:
             fval = old_fval
@@ -779,25 +768,25 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             warnflag = 2
 
         if warnflag == 2:
-            if disp == 1:
+            if display == 1:
                 print("Warning: Loss of precision.")
                 print("         Current function value: %f" % fval)
                 print("         Iterations: %d" % loop_counter)
-                print("         Function evaluations: %d" % fcount)
+                print("         Function evaluations: %d" % function_call_counter)
 
-        elif loop_counter >= maxiter:
+        elif loop_counter >= max_iterations:
             warnflag = 1
-            if disp == 1:
+            if display == 1:
                 print("Warning: Maximum Iteration was exceeded.")
                 print("         Current function value: %f" % fval)
                 print("         Iterations: %d" % loop_counter)
-                print("         Function evaluations: %d" % fcount)
+                print("         Function evaluations: %d" % function_call_counter)
         else:
-            if disp == 1:
+            if display == 1:
                 print("Success!")
                 print("         Current function value: %f" % fval)
                 print("         Iterations: %d" % loop_counter)
-                print("         Function evaluations: %d" % fcount)
+                print("         Function evaluations: %d" % function_call_counter)
 
     #######################################################################################################################
     #######################################################################################################################
@@ -824,10 +813,10 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             fprime=NEB.get_gradient, dt=dt, dtmax=dtmax, step_max=step_max,
             Nmin=Nmin, finc=finc, fdec=fdec, astart=astart, fa=fa, euler=euler, maxiter=maxiter, gtol=gtol)
     elif opt == 'BFGS':
-        bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient,
-            gtol=float(gtol), maxiter=int(maxiter), frigid=frigid, linesearch=linesearch,
-            alpha=float(alpha), beta=float(beta), tau=float(tau), H_reset=H_reset, reset=reset,
-            MAX_STEP=float(step_max), disp=disp
+        bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.get_gradient,
+            step_size=float(alpha), step_size_adjustment=float(beta), armijio_line_search_factor=float(tau), reset_when_in_trouble=H_reset,
+            gradient_tolerance=float(gtol), max_iterations=int(maxiter), fit_rigid=frigid, linesearch=linesearch, reset_step_size=reset,
+            MAX_STEP=float(step_max), display=disp
             )
     elif opt == 'BFGS2':
         from scipy.optimize.bfgsh import fmin_bfgs_h
