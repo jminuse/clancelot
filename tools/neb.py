@@ -608,6 +608,11 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                     rho_i = 1.0 / np.dot(y[i],s[i])
                     alpha[i] = rho_i * np.dot(s[i],r)
                     r -= alpha[i] * y[i]
+                
+                # Only multiply by approximate inv_hessian if we have stored coordinates
+                if len(s) > 0:
+                    r *= np.dot(y[-1],s[-1]) / np.dot(y[-1],y[-1])
+
                 #compute left product
                 for i in indices:
                     rho_i = 1.0 / np.dot(y[i],s[i])
