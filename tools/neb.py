@@ -617,7 +617,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 for i in indices:
                     rho_i = 1.0 / np.dot(y[i],s[i])
                     beta = rho_i * np.dot(y[i],r)
-                    r += ( alpha[-i-1] - beta )*s[i]
+                    r += ( alpha[i] - beta )*s[i]
                 return r
             
             step_direction = -BFGS_multiply(list(reversed(stored_coordinates)), list(reversed(stored_gradients)), current_gradient)
