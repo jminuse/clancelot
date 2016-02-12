@@ -786,7 +786,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             if (NEB.RMS_force <= gradient_tolerance):
                 break
             
-        if f is not None:
+        if target_function is not None:
             fval = old_fval
         else:
             fval = float('NaN')
@@ -1055,7 +1055,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             if (NEB.RMS_force <= gradient_tolerance):
                 break
             
-        if f is not None:
+        if target_function is not None:
             fval = old_fval
         else:
             fval = float('NaN')
