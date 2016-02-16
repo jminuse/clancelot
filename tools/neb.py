@@ -210,12 +210,18 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             # Reset convergence check
             NEB.convergence = 0
 
+            fake_states = copy.deepcopy(NEB.states)
+            if frigid:
+                full_rotation = utils.procrustes(fake_states)
+            
+            sum_spring = 0.0
+            
             # Add spring forces to atoms
             for i,state in enumerate(NEB.states):
                 if i==0 or i==len(NEB.states)-1: continue # Don't change first or last state
-                for j,b in enumerate(state):
+                for j,bb in enumerate(state):
                     if j in spring_atoms:
-                        a,c = NEB.states[i-1][j], NEB.states[i+1][j]
+                        a,b,c = [fake_states[i+d][j] for d in [-1,0,1]]
                     
                         # Find tangent
                         tplus = np.array( [ c.x-b.x, c.y-b.y, c.z-b.z ] )
@@ -236,22 +242,30 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                         else: tangent /= np.linalg.norm(tangent)
                     
                         # Find spring forces parallel to tangent
-                        F_spring_parallel = NEB.k*( utils.dist(c,b) - utils.dist(b,a) ) * tangent
+                        F_spring_parallel = 10*NEB.k*( utils.dist(c,b) - utils.dist(b,a) ) * tangent
+                        sum_spring += abs( utils.dist(c,b) - utils.dist(b,a) )
                         
                         E_hartree = 0.5*NEB.k*( utils.dist_squared(c,b) + utils.dist_squared(b,a) )
                         energies[i] += units.convert_energy('Ha','kcal/mol', E_hartree)
                     
                         # Find DFT forces perpendicular to tangent
-                        real_force = np.array( [b.fx,b.fy,b.fz] )
+                        real_force = np.array( [bb.fx,bb.fy,bb.fz] )
                         F_real_perpendicular = real_force - np.dot(real_force, tangent)*tangent
                     
                         # Sum convergence check
                         NEB.convergence += b.fx**2 + b.fy**2 + b.fz**2
                         
+                        if frigid:
+                            R = full_rotation[i-1]
+                            R_inv = np.linalg.inv(R)
+                            F_spring_parallel = np.dot(F_spring_parallel, R_inv)
+                        
                         # Set NEB forces
-                        b.fx, b.fy, b.fz = F_spring_parallel + F_real_perpendicular
-            
+                        bb.fx, bb.fy, bb.fz = F_spring_parallel + F_real_perpendicular
+                        
+            #print 'R_spring =', sum_spring/len(NEB.states)/len(NEB.states[0])
             #remove net translation forces from the gradient
+            
             for state in NEB.states[1:-1]:
                 net_force = np.zeros(3)
                 for a in state:
