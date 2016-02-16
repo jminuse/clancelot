@@ -20,6 +20,7 @@ If added to the project and you want to contribute, you can do the following:
 
 		`ssh-add`
 5. Whenever you want to add or delete a file (remember that you cannot add an empty folder) run:
+
 	To Add:
 
 		`git add PATH/TO/FILE/NEW_FILE_NAME`
