@@ -54,7 +54,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         spring_atoms = [i for i,a in enumerate(states[0]) if a.element in elements]
 
     # Output for user
-    if opt in ['ROOT','BROYDEN_ROOT']:
+    if opt == 'BROYDEN_ROOT':
         print("\nRunning neb with optimization method %s" % str(opt))   
     elif opt in ['QM','FIRE']:
         if euler: tmp = ' with euler'
@@ -834,9 +834,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
     n = NEB(name, states, theory, extra_section, k)
 
     # Output for user
-    if opt == 'ROOT':
-        scipy.optimize.root(NEB.get_gradient, np.array(NEB.coords_start))
-    elif opt == 'BROYDEN_ROOT':
+    if opt == 'BROYDEN_ROOT':
         scipy.optimize.broyden1(NEB.get_gradient, np.array(NEB.coords_start), alpha=float(alpha), verbose=(disp != 0))
     elif opt == 'QM':
         quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, 
