@@ -54,8 +54,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         spring_atoms = [i for i,a in enumerate(states[0]) if a.element in elements]
 
     # Output for user
-    if opt == 'BROYDEN_ROOT':
-        print("\nRunning neb with optimizaiton method %s" % str(opt))   
+    if opt in ['ROOT','BROYDEN_ROOT']:
+        print("\nRunning neb with optimization method %s" % str(opt))   
     elif opt in ['QM','FIRE']:
         if euler: tmp = ' with euler'
         else: tmp = ' with verlet alg.'
@@ -320,7 +320,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             NEB.gradient = None #set to None so it will recalculate next time
             return np.array(gradient)
 
-    def align_coordinates(r, B=None, H=None):
+    def align_coordinates(r, B=None, H=None, return_matrix=False):
         from scipy.linalg import block_diag
         # Prevent rotation or translation
         coord_count = 0
@@ -333,7 +333,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         # Translate and rotate each frame to fit its neighbor
         # Note, procrustes will change st[-1] which is fine as we need this for spring
         # force calculations
-        A = utils.procrustes(st) 
+        A = utils.procrustes(st)
 
         coord_count = 0
         for s in st[1:-1]:
@@ -351,6 +351,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             #H = R.T*H*R
             H = R*H*R.T
 
+        if return_matrix:
+            return A
         if B is None and H is None:
             return r
         elif B is not None and H is None:
@@ -532,7 +534,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             step_size=0.1, step_size_adjustment=0.5, armijio_line_search_factor=1E-4, reset_when_in_trouble=True, linesearch='armijo',
             gradient_tolerance=1E-3, max_iterations=1000, reset_step_size=reset,
             MAX_STEP=0.2, fit_rigid=True,
-            display=0, callback=None, max_steps_remembered=5):
+            display=0, callback=None, max_steps_remembered=2):
         import numpy as np
 
         # These are values deemed good for DFT NEB and removed from parameter space for simplification
@@ -673,9 +675,13 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             new_coordinates = current_coordinates + step_size * step_direction
 
             #if fit_rigid:
-            #    new_coordinates, C, current_Hessian_tmp = align_coordinates(new_coordinates, [current_gradient, current_coordinates], current_Hessian)
-            #    current_gradient_tmp, current_coordinates_tmp = C
-
+            #    rotation = align_coordinates(new_coordinates, return_matrix=True)
+            #    print rotation
+            #    for i in xrange(len(stored_coordinates)):
+            #        for j in range(0, len(new_coordinates), 3):
+            #            stored_coordinates[i][j], stored_coordinates[i][j+1], stored_coordinates[i][j+2] = np.dot((stored_coordinates[i][j], stored_coordinates[i][j+1], stored_coordinates[i][j+2]), rotation)
+            #            stored_gradients[i][j], stored_gradients[i][j+1], stored_gradients[i][j+2] = np.dot((stored_gradients[i][j], stored_gradients[i][j+1], stored_gradients[i][j+2]), rotation)
+            
             # Get the new gradient
             new_gradient = target_gradient(new_coordinates)
 
@@ -698,7 +704,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
 
                 # Reset the Inverse Hessian if desired.
                 # It is still up for debate if this is to be recommended or not.  As the 
-                # inverse hessian corects itself, it might not be important to do this.
+                # inverse hessian corrects itself, it might not be important to do this.
                 if reset_when_in_trouble:
                     stored_coordinates = []
                     stored_gradients = []
@@ -730,10 +736,6 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                     if display > 1:
                         print("%lg,\t" % step_size),
             
-            # If the step was good, we want to store the rotated values
-            #if fit_rigid:
-            #    current_gradient, current_coordinates, current_Hessian = current_gradient_tmp, current_coordinates_tmp, current_Hessian_tmp
-
             # Recalculate change_in_coordinates to maintain the secant condition
             change_in_coordinates = new_coordinates - current_coordinates
             
@@ -749,8 +751,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             stored_gradients.append( change_in_gradient )
             
             if len(stored_coordinates)>max_steps_remembered:
-            	stored_coordinates = stored_coordinates[1:]
-            	stored_gradients = stored_gradients[1:]
+                stored_coordinates = stored_coordinates[1:]
+                stored_gradients = stored_gradients[1:]
 
             try:  # this was handled in numeric, let it remain for more safety
                 rhok = 1.0 / (np.dot(change_in_gradient, change_in_coordinates))
@@ -832,7 +834,9 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
     n = NEB(name, states, theory, extra_section, k)
 
     # Output for user
-    if opt == 'BROYDEN_ROOT':
+    if opt == 'ROOT':
+        scipy.optimize.root(NEB.get_gradient, np.array(NEB.coords_start))
+    elif opt == 'BROYDEN_ROOT':
         scipy.optimize.broyden1(NEB.get_gradient, np.array(NEB.coords_start), alpha=float(alpha), verbose=(disp != 0))
     elif opt == 'QM':
         quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, 
