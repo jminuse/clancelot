@@ -615,7 +615,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             # Get your step direction
             #step_direction = -np.dot(current_Hessian, current_gradient)
             
-            def BFGS_multiply(s,y,grad): #http://aria42.com/blog/2014/12/understanding-lbfgs/
+            def BFGS_multiply(s,y,grad): #http://aria42.com/blog/2014/12/understanding-lbfgs/, with corrections
                 r = copy.deepcopy(grad)
                 indices = xrange(len(s))
                 #compute right product
