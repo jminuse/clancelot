@@ -247,7 +247,7 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
  		if not os.path.isfile(previous_path):
  			print("Error - Previous run %s does not have a .gbw file." % previous)
  			sys.exit()
- 		shutil.copyfile(previous_path, 'previous.gbw')
+ 		copyfile(previous_path, 'previous.gbw')
  		extra_section = extra_section.strip() + '\n%moinp "previous.gbw"' 
 
  	# ---------------------------------------------------------------------------
