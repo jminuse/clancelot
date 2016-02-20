@@ -1,0 +1,38 @@
+
+Running neb with optimization method QM with euler
+	dt = 0.1
+	viscosity = 0.1, step_max = 0.2
+Spring Constant for NEB: 0.1837 Ha/Ang
+Convergence Criteria: gtol = 0.00183726 (Ha/Ang)
+Run_Name = BOLi_LiBO_QM
+DFT Package = orca
+---------------------------------------------
+terminate called after throwing an instance of 'terminate called after throwing an instance of 'std::bad_alloc'
+std::bad_alloc'
+  what():  std::bad_allocterminate called after throwing an instance of '  what():  std::bad_allocstd::bad_alloc'
+
+  what():  std::bad_alloc
+terminate called after throwing an instance of 'std::bad_alloc'
+
+  what():  std::bad_alloc
+terminate called after throwing an instance of 'std::bad_alloc'
+  what():  std::bad_alloc
+terminate called after throwing an instance of 'std::bad_alloc'
+  what():  std::bad_alloc
+terminate called after throwing an instance of 'std::bad_alloc'
+  what():  std::bad_alloc
+terminate called after throwing an instance of 'std::bad_alloc'
+  what():  std::bad_alloc
+terminate called after throwing an instance of 'std::bad_alloc'
+  what():  std::bad_alloc
+ORCA finished by error termination in ORCA_GTOInt
+ORCA finished by error termination in ORCA_GTOInt
+ORCA finished by error termination in ORCA_GTOInt
+ORCA finished by error termination in ORCA_GTOInt
+ORCA finished by error termination in ORCA_GTOInt
+ORCA finished by error termination in ORCA_GTOInt
+ORCA finished by error termination in ORCA_GTOInt
+ORCA finished by error termination in ORCA_GTOInt
+ORCA finished by error termination in ORCA_GTOInt
+Currently in /fs/home/hch54/Documents/projects/BFGS_bench4, searching for orca/BOLi_LiBO_QM-0-1/BOLi_LiBO_QM-0-1.orca.engrad
+No engrad file exists. Please run simulation with grad=True.

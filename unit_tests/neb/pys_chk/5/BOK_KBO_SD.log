@@ -1,0 +1,25 @@
+
+Running neb with optimization method SD
+	alpha = 0.1
+Spring Constant for NEB: 0.1837 Ha/Ang
+Convergence Criteria: gtol = 0.00183726 (Ha/Ang)
+Run_Name = BOK_KBO_SD
+DFT Package = orca
+---------------------------------------------
+terminate called after throwing an instance of 'St9bad_alloc'
+  what():  std::bad_alloc
+terminate called after throwing an instance of 'std::bad_alloc'
+  what():  std::bad_alloc
+terminate called after throwing an instance of 'std::bad_alloc'
+  what():  std::bad_alloc
+ORCA finished by error termination in ORCA_GTOInt
+ORCA finished by error termination in ORCA_GTOInt
+ORCA finished by error termination in ORCA_GTOInt
+terminate called after throwing an instance of 'std::bad_alloc'
+  what():  std::bad_alloc
+terminate called after throwing an instance of 'std::bad_alloc'
+  what():  std::bad_alloc
+ORCA finished by error termination in ORCA_GTOInt
+ORCA finished by error termination in ORCA_GTOInt
+Currently in /fs/home/hch54/Documents/projects/BFGS_bench4, searching for orca/BOK_KBO_SD-0-1/BOK_KBO_SD-0-1.orca.engrad
+No engrad file exists. Please run simulation with grad=True.
