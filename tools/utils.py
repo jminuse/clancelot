@@ -384,7 +384,7 @@ def procrustes(frames, count_atoms=None):
 		for a in frames[i]:
 			a.x,a.y,a.z = dot((a.x,a.y,a.z), rotation)
 			if hasattr(a,'fx'): a.fx,a.fy,a.fz = dot((a.x,a.y,a.z), rotation)
-		full_rotation.append(rotation)
+			full_rotation.append(rotation)
 
 	return full_rotation
 
