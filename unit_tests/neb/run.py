@@ -8,12 +8,12 @@ use_testbench = 1
 
 user = getuser()
 os.chdir('/fs/home/%s/clancelot/unit_tests/neb/' % user)
-if len(sys.argv) > 1: use_testbench = int(sys.argv[1])
+if len(sys.argv) > 1: use_testbench = sys.argv[1]
 queue = 'batch'
 
-print("Using testbench %d" % use_testbench)
+print("Using testbench %s" % use_testbench)
 
-if use_testbench == 1:
+if use_testbench == '1':
 	maxiter, gtol = 10, units.convert('eV/Ang','Ha/Ang',0.1)
 	route = '! M062X def2-TZVP Grid3 FinalGrid5'
 	opts = ['SD','BFGS','LBFGS']
@@ -25,7 +25,7 @@ if use_testbench == 1:
 	DFT = 'orca'
 	mem = 40
 	Nmax = 20
-elif use_testbench == 2:
+elif use_testbench == '2':
 	maxiter, gtol = 30, units.convert('eV/Ang','Ha/Ang',0.1)
 	route = '! M062X def2-TZVP Grid3 FinalGrid5'
 	opts = ['QM','SD','FIRE','BFGS','LBFGS']
@@ -37,7 +37,7 @@ elif use_testbench == 2:
 	DFT = 'orca'
 	mem = 40
 	Nmax = 20
-elif use_testbench == 3:
+elif use_testbench == '3':
 	maxiter, gtol = 100, units.convert('eV/Ang','Ha/Ang',0.1)
 	route = '! M062X def2-TZVP Grid3 FinalGrid5'
 	opts = ['QM','SD','FIRE','BFGS','LBFGS']
@@ -49,7 +49,7 @@ elif use_testbench == 3:
 	DFT = 'orca'
 	mem = 40
 	Nmax = 20
-elif use_testbench == 4:
+elif use_testbench == '4':
 	maxiter, gtol = 1000, units.convert('eV/Ang','Ha/Ang',0.05)
 	route = '! M062X def2-TZVP Grid3 FinalGrid5'
 	opts = ['QM','SD','FIRE','BFGS','LBFGS']
@@ -62,7 +62,7 @@ elif use_testbench == 4:
 	DFT = 'orca'
 	mem = 40
 	Nmax = 20
-elif use_testbench == 5:
+elif use_testbench == '5':
 	maxiter, gtol = 1000, units.convert('eV/Ang','Ha/Ang',0.05)
 	route = '! RI-B2PLYP D3BJ def2-TZVP def2-TZVP/C Grid3 FinalGrid5'
 	opts = ['QM','SD','FIRE','BFGS','LBFGS']
