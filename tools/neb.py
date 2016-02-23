@@ -21,8 +21,67 @@ import re, shutil, copy
 ##########################################################################
 ##########################################################################
 
+def g09_start_job(NEB, i, state, procs, queue, force, initial_guess, extra_section, mem):
+    if NEB.step>0:
+        guess = ' Guess=Read'
+    else:
+        if initial_guess:
+            guess = ' Guess=Read'
+        else:
+            guess = '' #no previous guess for first step
+    return g09.job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+' Force'+guess, state, procs=procs, queue=queue, force=force, previous=('%s-%d-%d'%(NEB.name,NEB.step-1,i)) if NEB.step>0 else initial_guess, extra_section=extra_section+'\n\n', neb=[True,'%s-%%d-%%d'%(NEB.name),len(NEB.states),i], mem=mem)
+
+
+def g09_results(NEB, step_to_use, i, state):
+    result = g09.parse_atoms('%s-%d-%d' % (NEB.name, step_to_use, i), check_convergence=False, parse_all=False)
+    if not result:
+        raise Exception('parse_atoms failed')
+    new_energy, new_atoms = result
+    
+    # Check if coordinates are aligned properly between state and new_atoms
+    def check_atom_coords(atoms1,atoms2,precision=1e-6):
+        for a1,a2 in zip(atoms1,atoms2):
+            if abs(a1.x-a2.x)>precision or abs(a1.y-a2.y)>precision or abs(a1.z-a2.z)>precision:
+                print i, 'atoms not in same frame:', a1.x, a1.y, a1.z, 'vs', a2.x, a2.y, a2.z
+                print abs(a1.x-a2.x), abs(a1.y-a2.y), abs(a1.z-a2.z)
+                exit()
+
+    if i!=0 and i!=len(NEB.states)-1:
+        check_atom_coords(state,new_atoms)
+        for a,b in zip(state, new_atoms):
+            a.fx = units.convert('Ha/Bohr','Ha/Ang',b.fx)
+            a.fy = units.convert('Ha/Bohr','Ha/Ang',b.fy)
+            a.fz = units.convert('Ha/Bohr','Ha/Ang',b.fz)    
+    
+    return new_energy, new_atoms
+
+
+def orca_start_job(NEB, i, state, procs, queue, force, initial_guess, extra_section, mem):
+    if NEB.step>0:
+        guess = ' MOREAD'
+        tmp = '%%moinp "../%s-%d-%d/%s-%d-%d.orca.gbw"' % (NEB.name,NEB.step-1,i,NEB.name,NEB.step-1,i)
+        extra_section = tmp + extra_section.strip()
+    else:
+        if initial_guess:
+            guess = ' MOREAD'
+            tmp = '%%moinp "../%s/%s.orca.gbw\n"' % (initial_guess,initial_guess)
+            extra_section = tmp + extra_section.strip()
+        else:
+            guess = '' #no previous guess for first step
+    return orca.job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+guess, state, extra_section=extra_section, grad=True, procs=procs, queue=queue)
+
+
+def orca_results(NEB, step_to_use, i, state):
+    new_atoms, new_energy = orca.engrad_read('%s-%d-%d' % (NEB.name, step_to_use, i),force='Ha/Ang',pos='Ang')
+    
+    for a,b in zip(state, new_atoms):
+        a.fx,a.fy,a.fz = b.fx,b.fy,b.fz
+    
+    return new_energy, new_atoms
+
+
 def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queue=None,
-        disp=0, k=0.1837, frigid=True,
+        disp=0, k=0.1837, frigid=True, start_job=None, get_results=None,
         DFT='orca', opt='LBFGS', gtol=1e-3, maxiter=1000,
         alpha=0.1, beta=0.5, tau=1E-3, reset=10, H_reset=True, Nmax=20,
         viscosity=0.1, dtmax=1.0, Nmin=5, finc=1.1, fdec=0.5, astart=0.1, fa=0.99,
@@ -33,6 +92,12 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
     import numpy as np
 
     DFT = DFT.lower().strip()
+    if DFT=='orca':
+        start_job = orca_start_job
+        get_results = orca_results
+    if DFT=='g09':
+        start_job = g09_start_job
+        get_results = g09_results
 
     # Contemplating a force addition of NoSymm to route if (1) DFT='g09' and (2) NoSymm not said
 
@@ -132,37 +197,10 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             running_jobs = []
             
             for i,state in enumerate(NEB.states):
-                
-                # Set the extra section to be whatever specified originally
-                extra_section = NEB.extra_section.strip()
-                # If g09, ensure two newlines at end
-                if DFT=='g09':
-                    extra_section += '\n\n'
-                
-                if NEB.step>0:
-                    if (i==0 or i==len(NEB.states)-1): # Only use DFT on endpoints on first step, because they don't change
-                        continue
-                    if DFT=='g09':
-                        guess = ' Guess=Read'
-                    elif DFT=='orca':
-                        guess = ' MOREAD'
-                        tmp = '%%moinp "../%s-%d-%d/%s-%d-%d.orca.gbw"' % (NEB.name,NEB.step-1,i,NEB.name,NEB.step-1,i)
-                        extra_section = tmp + extra_section.strip()
+                if (i==0 or i==len(NEB.states)-1) and NEB.step>0:
+                    pass #No need to calculate anything for first and last states after the first step
                 else:
-                    if initial_guess:
-                        if DFT=='g09':
-                            guess = ' Guess=Read'
-                        elif DFT=='orca':
-                            guess = ' MOREAD'
-                            tmp = '%%moinp "../%s/%s.orca.gbw\n"' % (initial_guess,initial_guess)
-                            extra_section = tmp + extra_section.strip()
-                    else:
-                        guess = '' #no previous guess for first step
-
-                if DFT=='g09':
-                    running_jobs.append( g09.job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+' Force'+guess, state, procs=procs, queue=queue, force=force, previous=('%s-%d-%d'%(NEB.name,NEB.step-1,i)) if NEB.step>0 else initial_guess, extra_section=extra_section, neb=[True,'%s-%%d-%%d'%(NEB.name),len(NEB.states),i], mem=mem) )
-                elif DFT=='orca':
-                    running_jobs.append( orca.job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+guess, state, extra_section=extra_section, grad=True, procs=procs, queue=queue) )
+                    running_jobs.append( start_job(NEB, i, state, procs, queue, force, initial_guess, extra_section, mem) )
 
             # Wait for jobs to finish
             for j in running_jobs: j.wait()
@@ -176,35 +214,9 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 else:
                     step_to_use = NEB.step
 
-                if DFT=='g09':
-                    result = g09.parse_atoms('%s-%d-%d' % (NEB.name, step_to_use, i), check_convergence=False, parse_all=False)
-                    if not result:
-                        raise Exception('parse_atoms failed')
-                    new_energy, new_atoms = result
-                elif DFT=='orca':
-                    new_atoms, new_energy = orca.engrad_read('%s-%d-%d' % (NEB.name, step_to_use, i),force='Ha/Ang',pos='Ang')
-
+                new_energy, new_atoms = get_results(NEB, step_to_use, i, state)
                 energies.append(new_energy)
 
-                if DFT=='g09':
-                    # Check if coordinates are aligned properly between state and new_atoms
-                    def check_atom_coords(atoms1,atoms2,precision=1e-6):
-                        for a1,a2 in zip(atoms1,atoms2):
-                            if abs(a1.x-a2.x)>precision or abs(a1.y-a2.y)>precision or abs(a1.z-a2.z)>precision:
-                                print i, 'atoms not in same frame:', a1.x, a1.y, a1.z, 'vs', a2.x, a2.y, a2.z
-                                print abs(a1.x-a2.x), abs(a1.y-a2.y), abs(a1.z-a2.z)
-                                exit()
-
-                    if i!=0 and i!=len(NEB.states)-1:
-                        check_atom_coords(state,new_atoms)
-                        for a,b in zip(state, new_atoms):
-                            a.fx = units.convert('Ha/Bohr','Ha/Ang',b.fx)
-                            a.fy = units.convert('Ha/Bohr','Ha/Ang',b.fy)
-                            a.fz = units.convert('Ha/Bohr','Ha/Ang',b.fz)
-
-                elif DFT=='orca':
-                    for a,b in zip(state, new_atoms):
-                        a.fx,a.fy,a.fz = b.fx,b.fy,b.fz
             # V = potential energy from DFT. energies = V+springs
             V = copy.deepcopy(energies) 
             # Reset convergence check
