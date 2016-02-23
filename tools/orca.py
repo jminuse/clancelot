@@ -275,6 +275,8 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 ##NBS-name: '''+run_name+'''
 ##NBS-nproc: '''+str(procs)+'''
 ##NBS-queue: '''+queue+'''
+##NBS-fmemory: '''+str(mem)+'''
+##NBS-mfail:
 
 ##NBS-sandbox: yes
 ##NBS-tmp_sandbox: yes
@@ -306,7 +308,7 @@ touch '''+run_name+'''.orca.opt
 		f = open(run_name+'.nbs', 'w')
 		f.write(NBS)
 		f.close()
-		os.system('jsub %s.nbs' % run_name)
+		os.system('jsub %s.nbs -prop orca' % run_name)
 		print 'To see files, ssh to node (eg ssh jnode-16.icse.cornell.edu) and ls /tmp/icse_<Job ID>'
 
 	# Copy run script
