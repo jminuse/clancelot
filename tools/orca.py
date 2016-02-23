@@ -280,7 +280,7 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 ##NBS-tmp_sandbox: yes
 ##NBS-fdisk: 8192
 ##NBS-input: *.orca
-'''+('##NBS-input: previous.gbw' if previous else '')+'''
+'''+('##NBS-input: previous.gbw' if os.path.exists('previous.gbw') else '')+'''
 
 ##NBS-output: *.out -overwrite
 ##NBS-output: *.xyz -overwrite
@@ -293,7 +293,7 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 export PATH=/fs/europa/g_pc/ompi_1_6_5/bin:/fs/europa/g_pc/orca_3_0_3_linux_x86-64:$PATH
 export LD_LIBRARY_PATH=/fs/europa/g_pc/ompi_1_6_5/lib:$LD_LIBRARY_PATH
 
-/fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca '''+run_name+'''.orca > '''+run_name+'''.out
+/fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca '''+run_name+'''.orca > '''+run_name+'''.out 2>&1
 
 touch '''+run_name+'''.out
 touch '''+run_name+'''.orca.xyz

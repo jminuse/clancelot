@@ -186,7 +186,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
 
                 energies.append(new_energy)
 
-                if DFT == 'g09':
+                if DFT=='g09':
                     # Check if coordinates are aligned properly between state and new_atoms
                     def check_atom_coords(atoms1,atoms2,precision=1e-6):
                         for a1,a2 in zip(atoms1,atoms2):
@@ -202,7 +202,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                             a.fy = units.convert('Ha/Bohr','Ha/Ang',b.fy)
                             a.fz = units.convert('Ha/Bohr','Ha/Ang',b.fz)
 
-                elif DFT == 'orca':
+                elif DFT=='orca':
                     for a,b in zip(state, new_atoms):
                         a.fx,a.fy,a.fz = b.fx,b.fy,b.fz
             # V = potential energy from DFT. energies = V+springs
