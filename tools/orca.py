@@ -274,12 +274,14 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 ##NBS-name: "%s"
 ##NBS-nproc: %d
 ##NBS-queue: "%s"
+##NBS-fmemory: "%d"
+##NBS-mfail:
 
 export PATH=/fs/europa/g_pc/ompi_1_6_5/bin:/fs/europa/g_pc/orca_3_0_3_linux_x86-64:$PATH
 export LD_LIBRARY_PATH=/fs/europa/g_pc/ompi_1_6_5/lib:$LD_LIBRARY_PATH
 
 /fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca %s.orca > %s.out 2>&1
-''' % (run_name, procs, queue, os.getcwd()+'/'+run_name, os.getcwd()+'/'+run_name)
+''' % (run_name, procs, queue, mem, os.getcwd()+'/'+run_name, os.getcwd()+'/'+run_name)
 		f = open(run_name+'.nbs', 'w')
 		f.write(NBS)
 		f.close()
