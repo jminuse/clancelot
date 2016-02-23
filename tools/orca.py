@@ -221,7 +221,7 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 		os.chdir('../../')
 		hold = read(previous)
 		os.chdir(pwd)
-		if " opt " in route.lower():
+		if " opt " in route.lower() or " sp " in route.lower(): #don't want lowest energy state for other job types
 			index = hold.energies.index(min(hold.energies)) 
 			atoms = hold.frames[index]
 		else:
@@ -241,13 +241,14 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
  	# Add moread if previous
  	if previous is not None:
  		route = route.strip() + ' MORead'
- 		PATH = '../'+previous+'/'+previous+'.orca.gbw'
- 		if not os.path.isfile(PATH):
- 			PATH = '../'+previous+'/'+previous+'.orca.proc0.gbw'
- 		if not os.path.isfile(PATH):
+ 		previous_path = '../'+previous+'/'+previous+'.orca.gbw'
+ 		if not os.path.isfile(previous_path):
+ 			previous_path = '../'+previous+'/'+previous+'.orca.proc0.gbw'
+ 		if not os.path.isfile(previous_path):
  			print("Error - Previous run %s does not have a .gbw file." % previous)
  			sys.exit()
- 		extra_section = extra_section.strip() + '\n%moinp "' + PATH + '"' 
+ 		copyfile(previous_path, 'previous.gbw')
+ 		extra_section = extra_section.strip() + '\n%moinp "previous.gbw"' 
 
  	# ---------------------------------------------------------------------------
  	# NO MORE CHANGES TO EXTRA_SECTION AFTER THIS!-------------------------------
@@ -268,24 +269,47 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 	if queue is None:
 		process_handle = Popen('/fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca %s.orca > %s.out' % (run_name, run_name), shell=True)
 	elif queue=='debug':
-		print 'Would run', run_name, charge_and_multiplicity
+		print 'Would run', run_name
 	else:
 		NBS = '''#!/bin/bash
-##NBS-name: "%s"
-##NBS-nproc: %d
-##NBS-queue: "%s"
-##NBS-fmemory: "%d"
+##NBS-name: '''+run_name+'''
+##NBS-nproc: '''+str(procs)+'''
+##NBS-queue: '''+queue+'''
+##NBS-fmemory: '''+str(mem)+'''
 ##NBS-mfail:
+
+##NBS-sandbox: yes
+##NBS-tmp_sandbox: yes
+##NBS-fdisk: 8192
+##NBS-input: *.orca
+'''+('##NBS-input: previous.gbw' if previous else '')+'''
+
+##NBS-output: *.out -overwrite
+##NBS-output: *.xyz -overwrite
+##NBS-output: *.trj -overwrite
+##NBS-output: *.gbw -overwrite
+##NBS-output: *.engrad -overwrite
+##NBS-output: *.prop -overwrite
+##NBS-output: *.opt -overwrite
 
 export PATH=/fs/europa/g_pc/ompi_1_6_5/bin:/fs/europa/g_pc/orca_3_0_3_linux_x86-64:$PATH
 export LD_LIBRARY_PATH=/fs/europa/g_pc/ompi_1_6_5/lib:$LD_LIBRARY_PATH
 
-/fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca %s.orca > %s.out 2>&1
-''' % (run_name, procs, queue, mem, os.getcwd()+'/'+run_name, os.getcwd()+'/'+run_name)
+/fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca '''+run_name+'''.orca > '''+run_name+'''.out 2>&1
+
+touch '''+run_name+'''.out
+touch '''+run_name+'''.orca.xyz
+touch '''+run_name+'''.orca.trj
+touch '''+run_name+'''.orca.gbw
+touch '''+run_name+'''.orca.engrad
+touch '''+run_name+'''.orca.prop
+touch '''+run_name+'''.orca.opt
+''' # The use of "touch" above is a patch for an NBS bug, where files alphabetically after the other files cannot be missing or they prevent the others from being copied. 
 		f = open(run_name+'.nbs', 'w')
 		f.write(NBS)
 		f.close()
-		os.system('jsub %s.nbs' % run_name)
+		os.system('jsub %s.nbs -prop orca' % run_name)
+		print 'To see files, ssh to node (eg ssh jnode-16.icse.cornell.edu) and ls /tmp/icse_<Job ID>'
 
 	# Copy run script
 	fname = sys.argv[0]

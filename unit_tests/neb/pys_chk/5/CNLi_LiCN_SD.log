@@ -1,0 +1,18 @@
+
+Running neb with optimization method SD
+	alpha = 0.1
+Spring Constant for NEB: 0.1837 Ha/Ang
+Convergence Criteria: gtol = 0.00183726 (Ha/Ang)
+Run_Name = CNLi_LiCN_SD
+DFT Package = orca
+---------------------------------------------
+0 -100.35 +  18.1  81.7 202.0 379.0 593.4 797.1 926.9 934.5 838.7 416.1  99.8  20.6  24.1  30.7  35.8  35.5  28.7  17.9   7.7   3.3  [92m2.67718721941[0m Ha/Ang
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!                        FATAL ERROR ENCOUNTERED               !!!
+!!!                        -----------------------               !!!
+!!!                           CANNOT OPEN FILE                   !!!
+!!!               Filename: CNLi_LiCN_SD-1-7.orca.grad.tmp                                   !!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Currently in /fs/home/hch54/Documents/projects/BFGS_bench4, searching for orca/CNLi_LiCN_SD-1-7/CNLi_LiCN_SD-1-7.orca.engrad
+No engrad file exists. Please run simulation with grad=True.
