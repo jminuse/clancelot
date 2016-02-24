@@ -15,7 +15,7 @@ class Atom():
 		self.y = y
 		self.z = z
 		self.index = index
-		self.type = type
+		self.type = type # object that may contain lammps_type, mass, and charge
 		self.molecule_index = molecule_index
 
 class Bond():
