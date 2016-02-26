@@ -85,3 +85,4 @@ class LJ:
 		gradient = LJ.gradient
 		LJ.gradient = None
 		return np.array(gradient)
+

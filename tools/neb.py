@@ -21,6 +21,203 @@ import re, shutil, copy
 ##########################################################################
 ##########################################################################
 
+import numpy as np
+import math
+
+def euler2mat(z=0, y=0, x=0):
+    ''' Return matrix for rotations around z, y and x axes
+
+    Uses the z, then y, then x convention above
+
+    Parameters
+    ----------
+    z : scalar
+       Rotation angle in radians around z-axis (performed first)
+    y : scalar
+       Rotation angle in radians around y-axis
+    x : scalar
+       Rotation angle in radians around x-axis (performed last)
+
+    Returns
+    -------
+    M : array shape (3,3)
+       Rotation matrix giving same rotation as for given angles
+
+    Examples
+    --------
+    >>> zrot = 1.3 # radians
+    >>> yrot = -0.1
+    >>> xrot = 0.2
+    >>> M = euler2mat(zrot, yrot, xrot)
+    >>> M.shape == (3, 3)
+    True
+
+    The output rotation matrix is equal to the composition of the
+    individual rotations
+
+    >>> M1 = euler2mat(zrot)
+    >>> M2 = euler2mat(0, yrot)
+    >>> M3 = euler2mat(0, 0, xrot)
+    >>> composed_M = np.dot(M3, np.dot(M2, M1))
+    >>> np.allclose(M, composed_M)
+    True
+
+    You can specify rotations by named arguments
+
+    >>> np.all(M3 == euler2mat(x=xrot))
+    True
+
+    When applying M to a vector, the vector should column vector to the
+    right of M.  If the right hand side is a 2D array rather than a
+    vector, then each column of the 2D array represents a vector.
+
+    >>> vec = np.array([1, 0, 0]).reshape((3,1))
+    >>> v2 = np.dot(M, vec)
+    >>> vecs = np.array([[1, 0, 0],[0, 1, 0]]).T # giving 3x2 array
+    >>> vecs2 = np.dot(M, vecs)
+
+    Rotations are counter-clockwise.
+
+    >>> zred = np.dot(euler2mat(z=np.pi/2), np.eye(3))
+    >>> np.allclose(zred, [[0, -1, 0],[1, 0, 0], [0, 0, 1]])
+    True
+    >>> yred = np.dot(euler2mat(y=np.pi/2), np.eye(3))
+    >>> np.allclose(yred, [[0, 0, 1],[0, 1, 0], [-1, 0, 0]])
+    True
+    >>> xred = np.dot(euler2mat(x=np.pi/2), np.eye(3))
+    >>> np.allclose(xred, [[1, 0, 0],[0, 0, -1], [0, 1, 0]])
+    True
+
+    Notes
+    -----
+    The direction of rotation is given by the right-hand rule (orient
+    the thumb of the right hand along the axis around which the rotation
+    occurs, with the end of the thumb at the positive end of the axis;
+    curl your fingers; the direction your fingers curl is the direction
+    of rotation).  Therefore, the rotations are counterclockwise if
+    looking along the axis of rotation from positive to negative.
+    '''
+    Ms = []
+    if z:
+        cosz = math.cos(z)
+        sinz = math.sin(z)
+        Ms.append(np.array(
+                [[cosz, -sinz, 0],
+                 [sinz, cosz, 0],
+                 [0, 0, 1]]))
+    if y:
+        cosy = math.cos(y)
+        siny = math.sin(y)
+        Ms.append(np.array(
+                [[cosy, 0, siny],
+                 [0, 1, 0],
+                 [-siny, 0, cosy]]))
+    if x:
+        cosx = math.cos(x)
+        sinx = math.sin(x)
+        Ms.append(np.array(
+                [[1, 0, 0],
+                 [0, cosx, -sinx],
+                 [0, sinx, cosx]]))
+    if Ms:
+        return reduce(np.dot, Ms[::-1])
+    return np.eye(3)
+
+
+
+def sum_NEB_springs(translations_and_rotations, V, NEB, energies, fake_states=None, pointer=None):
+    N_modified = len(NEB.states)-1 #skip first image
+    #unpack translations
+    translations = []
+    for i in range(0, N_modified*3, 3): #three degrees of freedom per frame
+        translations.append( translations_and_rotations[i:i+3] )
+    #unpack rotations
+    full_rotation = []
+    for i in range(N_modified*3, N_modified*3*2, 3):
+        euler_angles = translations_and_rotations[i:i+3]
+        full_rotation.append( euler2mat(*euler_angles) )
+        
+    #make rotation matrices from 3 angles
+    
+    if not fake_states:
+        fake_states = copy.deepcopy(NEB.states)
+    
+    #start_rotation = utils.procrustes(fake_states, append_in_loop=False)
+    #
+    
+    #for i in range(len(full_rotation)):
+    #    full_rotation[i] = np.dot( full_rotation[i], start_rotation[i] )
+    
+    for i,state in enumerate(fake_states[1:]):
+        for a in state:
+            a.x += translations[i][0]
+            a.y += translations[i][1]
+            a.z += translations[i][2]
+            a.x,a.y,a.z = np.dot( full_rotation[i], (a.x,a.y,a.z) )
+    
+    sum_springs = 0.0
+    for i,state in enumerate(NEB.states):
+        if i==0 or i==len(NEB.states)-1: continue # Don't change first or last state
+        for j,bb in enumerate(state):
+            if j in range(len(NEB.states[0])):
+                F_spring_parallel, F_real_perpendicular = get_NEB_forces(fake_states, i, j, V, full_rotation, NEB, energies, bb, False)
+                sum_springs += np.linalg.norm(F_spring_parallel)
+    
+    if pointer is not None:
+        pointer.append(full_rotation)
+    
+    return sum_springs# + 1e3*sum([x**2 for x in translations_and_rotations])
+
+
+
+
+
+def get_NEB_forces(fake_states, i, j, V, full_rotation, NEB, energies, bb, frigid):
+    import numpy as np
+    a,b,c = [fake_states[i+d][j] for d in [-1,0,1]]
+
+    # Find tangent
+    tplus = np.array( [ c.x-b.x, c.y-b.y, c.z-b.z ] )
+    tminus = np.array( [ b.x-a.x, b.y-a.y, b.z-a.z ] )
+    dVmin = min(abs(V[i+1]-V[i]), abs(V[i-1]-V[i]))
+    dVmax = max(abs(V[i+1]-V[i]), abs(V[i-1]-V[i]))
+    if V[i+1]>V[i] and V[i]>V[i-1]: # Not at an extremum, trend of V is up
+        tangent = tplus
+    elif V[i+1]<V[i] and V[i]<V[i-1]: # Not at an extremum, trend of V is down
+        tangent = tminus
+    elif V[i+1]>V[i-1]: # At local extremum, next V is higher
+        tangent = tplus*dVmax + tminus*dVmin
+    else: # At local extremum, previous V is higher
+        tangent = tplus*dVmin + tminus*dVmax
+    
+    # Normalize tangent
+    if np.linalg.norm(tangent) != 0:
+        tangent /= np.linalg.norm(tangent)
+
+    # Find spring forces parallel to tangent
+    F_spring_parallel = NEB.k*( utils.dist(c,b) - utils.dist(b,a) ) * tangent
+
+    E_hartree = 0.5*NEB.k*( utils.dist_squared(c,b) + utils.dist_squared(b,a) )
+    energies[i] += units.convert_energy('Ha','kcal/mol', E_hartree)
+
+    # Find DFT forces perpendicular to tangent
+    real_force = np.array( [bb.fx,bb.fy,bb.fz] )
+    F_real_perpendicular = real_force - np.dot(real_force, tangent)*tangent
+
+    # Sum convergence check
+    NEB.convergence += b.fx**2 + b.fy**2 + b.fz**2
+    
+    if frigid:
+        R = full_rotation[i-1]
+        R_inv = np.linalg.inv(R)
+        F_spring_parallel = np.dot( R_inv, F_spring_parallel )
+    
+    return F_spring_parallel, F_real_perpendicular
+
+
+
+
+
 def g09_start_job(NEB, i, state, procs, queue, force, initial_guess, extra_section, mem):
     if NEB.step>0:
         guess = ' Guess=Read'
@@ -223,69 +420,52 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             NEB.convergence = 0
 
             fake_states = copy.deepcopy(NEB.states)
-            if frigid:
-                full_rotation = utils.procrustes(fake_states)
+            fake_states2 = copy.deepcopy(NEB.states)
+            #full_rotation = utils.procrustes(fake_states2, append_in_loop=False)
             
-            sum_spring = 0.0
+            #print sum_NEB_springs([0.0 for x in range( (len(NEB.states)-1)*6 )], V, NEB, energies)
+            solution = scipy.optimize.minimize(sum_NEB_springs, [0.0 for x in range( (len(NEB.states)-1)*6 )], args=(V, NEB, energies), options={'disp':False}, method='Nelder-Mead')
+            #print solution.x
+            pointer = []
+            sum_NEB_springs(solution.x, V, NEB, energies, fake_states2, pointer)
+            full_rotation = pointer[0]
+            
+            #if frigid:
+            #    full_rotation = utils.procrustes(fake_states, append_in_loop=False)
+            #else:
+            #    full_rotation = None
+            
+            sum_spring, sum_spring2 = 0.0, 0.0
             
             # Add spring forces to atoms
             for i,state in enumerate(NEB.states):
                 if i==0 or i==len(NEB.states)-1: continue # Don't change first or last state
                 for j,bb in enumerate(state):
                     if j in spring_atoms:
-                        a,b,c = [fake_states[i+d][j] for d in [-1,0,1]]
-                    
-                        # Find tangent
-                        tplus = np.array( [ c.x-b.x, c.y-b.y, c.z-b.z ] )
-                        tminus = np.array( [ b.x-a.x, b.y-a.y, b.z-a.z ] )
-                        dVmin = min(abs(V[i+1]-V[i]), abs(V[i-1]-V[i]))
-                        dVmax = max(abs(V[i+1]-V[i]), abs(V[i-1]-V[i]))
-                        if V[i+1]>V[i] and V[i]>V[i-1]: # Not at an extremum, trend of V is up
-                            tangent = tplus
-                        elif V[i+1]<V[i] and V[i]<V[i-1]: # Not at an extremum, trend of V is down
-                            tangent = tminus
-                        elif V[i+1]>V[i-1]: # At local extremum, next V is higher
-                            tangent = tplus*dVmax + tminus*dVmin
-                        else: # At local extremum, previous V is higher
-                            tangent = tplus*dVmin + tminus*dVmax
+                        F_spring_parallel, F_real_perpendicular = get_NEB_forces(fake_states, i, j, V, full_rotation, NEB, energies, bb, False)
+                        F_spring_parallel2, F_real_perpendicular2 = get_NEB_forces(fake_states2, i, j, V, full_rotation, NEB, copy.deepcopy(energies), bb, True)
                         
-                        # Normalize tangent
-                        if np.linalg.norm(tangent) == 0: pass
-                        else: tangent /= np.linalg.norm(tangent)
-                    
-                        # Find spring forces parallel to tangent
-                        F_spring_parallel = 10*NEB.k*( utils.dist(c,b) - utils.dist(b,a) ) * tangent
-                        sum_spring += abs( utils.dist(c,b) - utils.dist(b,a) )
-                        
-                        E_hartree = 0.5*NEB.k*( utils.dist_squared(c,b) + utils.dist_squared(b,a) )
-                        energies[i] += units.convert_energy('Ha','kcal/mol', E_hartree)
-                    
-                        # Find DFT forces perpendicular to tangent
-                        real_force = np.array( [bb.fx,bb.fy,bb.fz] )
-                        F_real_perpendicular = real_force - np.dot(real_force, tangent)*tangent
-                    
-                        # Sum convergence check
-                        NEB.convergence += b.fx**2 + b.fy**2 + b.fz**2
-                        
-                        if frigid:
-                            R = full_rotation[i-1]
-                            R_inv = np.linalg.inv(R)
-                            F_spring_parallel = np.dot(F_spring_parallel, R_inv)
+                        sum_spring += np.linalg.norm(F_spring_parallel)
+                        sum_spring2 += np.linalg.norm(F_spring_parallel2)
                         
                         # Set NEB forces
-                        bb.fx, bb.fy, bb.fz = F_spring_parallel + F_real_perpendicular
+                        if frigid:
+                            bb.fx, bb.fy, bb.fz = F_spring_parallel2 + F_real_perpendicular2
+                        else:
+                            bb.fx, bb.fy, bb.fz = F_spring_parallel + F_real_perpendicular
                         
-            #print 'R_spring =', sum_spring/len(NEB.states)/len(NEB.states[0])
+            print sum_spring, sum_spring2
             #remove net translation forces from the gradient
             
-            for state in NEB.states[1:-1]:
-                net_force = np.zeros(3)
-                for a in state:
-                    net_force += (a.fx, a.fy, a.fz)
-                for a in state:
-                    a.fx -= net_force[0] / len(state)
-                    a.fy -= net_force[1] / len(state)
-                    a.fz -= net_force[2] / len(state)
+            if frigid != None:
+                for state in NEB.states[1:-1]:
+                    net_force = np.zeros(3)
+                    for a in state:
+                        net_force += (a.fx, a.fy, a.fz)
+                    for a in state:
+                        a.fx -= net_force[0] / len(state)
+                        a.fy -= net_force[1] / len(state)
+                        a.fz -= net_force[2] / len(state)
             
             # Get the RMF real force
             NEB.convergence = NEB.convergence**0.5
@@ -407,7 +587,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
     ######################################################################################
     ######################################################################################
 
-    def steepest_descent(f, r, fprime, alpha=0.05, maxiter=1000, gtol=1E-3): #better, but tends to push error up eventually, especially towards endpoints.
+    def steepest_descent(f, r, fprime, alpha=0.05, maxiter=1000, gtol=1E-3):
         step = 0
         while (NEB.RMS_force > gtol) and (step < maxiter):
             if NEB.convergence < NEB.convergence_criteria:
@@ -415,7 +595,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 sys.exit()
             forces = -fprime(r)
             r += forces*alpha
-            r = align_coordinates(r)
+            #r = align_coordinates(r)
             step += 1
 
     def quick_min_optimizer(f, r, nframes, fprime, dt=0.1, step_max=0.1, euler=False, viscosity=0.1, maxiter=1000, gtol=1E-3): # dt = fs, step_max = angstroms, viscosity = 1/fs

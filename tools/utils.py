@@ -354,7 +354,7 @@ def orthogonal_procrustes(A, ref_matrix, reflection=False):
 
 # Procrustes works by geting an orthogonal frame to map frames[1:] to be as similar to frames[0] as possible
 # This implements the orthagonal procrustes with translation and no reflection (Partial Procrustes)
-def procrustes(frames, count_atoms=None):
+def procrustes(frames, count_atoms=None, append_in_loop=True):
 	if not count_atoms: count_atoms = range(len(frames[0]))
 	for s in frames:
 		center_x = sum([a.x for i,a in enumerate(s) if i in count_atoms])/len(count_atoms)
@@ -383,7 +383,10 @@ def procrustes(frames, count_atoms=None):
 		# rotate all atoms into alignment
 		for a in frames[i]:
 			a.x,a.y,a.z = dot((a.x,a.y,a.z), rotation)
-			if hasattr(a,'fx'): a.fx,a.fy,a.fz = dot((a.x,a.y,a.z), rotation)
+			if hasattr(a,'fx'): a.fx,a.fy,a.fz = dot((a.fx,a.fy,a.fz), rotation)
+			if append_in_loop:
+				full_rotation.append(rotation)
+		if not append_in_loop:
 			full_rotation.append(rotation)
 
 	return full_rotation
