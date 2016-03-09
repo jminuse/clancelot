@@ -156,11 +156,13 @@ def read(input_file):
 
 # A function to parse orca.engrad files
 def engrad_read(input_file, force='Ha/Bohr', pos='Bohr'):
-	if not os.path.isfile('orca/%s/%s.orca.engrad' % (input_file,input_file)):
-		print("Currently in %s, searching for orca/%s/%s.orca.engrad" % (os.getcwd(),input_file,input_file))
+	if not input_file.endswith('.engrad'):
+		input_file = 'orca/%s/%s.orca.engrad' % (input_file,input_file)
+	if not os.path.isfile(input_file):
+		print("Currently in %s, searching for %s" % (os.getcwd(),input_file))
 		print("No engrad file exists. Please run simulation with grad=True.")
 		sys.exit()
-	data = open('orca/%s/%s.orca.engrad' % (input_file,input_file),'r').read().split('\n')
+	data = open(input_file,'r').read().split('\n')
 	count, grad, atoms = 0, [], []
 	i = -1
 	while i < len(data):

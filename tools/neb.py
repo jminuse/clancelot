@@ -224,8 +224,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
 
             fake_states = copy.deepcopy(NEB.states)
             if frigid:
-                full_rotation = utils.procrustes(fake_states)
-            
+                full_rotation = utils.procrustes(fake_states, append_in_loop=False)
+                #for m in full_rotation: print m
             sum_spring = 0.0
             
             # Add spring forces to atoms
@@ -278,14 +278,15 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             #print 'R_spring =', sum_spring/len(NEB.states)/len(NEB.states[0])
             #remove net translation forces from the gradient
             
-            for state in NEB.states[1:-1]:
-                net_force = np.zeros(3)
-                for a in state:
-                    net_force += (a.fx, a.fy, a.fz)
-                for a in state:
-                    a.fx -= net_force[0] / len(state)
-                    a.fy -= net_force[1] / len(state)
-                    a.fz -= net_force[2] / len(state)
+			if frigid is not None:
+				for state in NEB.states[1:-1]:
+					net_force = np.zeros(3)
+					for a in state:
+						net_force += (a.fx, a.fy, a.fz)
+					for a in state:
+						a.fx -= net_force[0] / len(state)
+						a.fy -= net_force[1] / len(state)
+						a.fz -= net_force[2] / len(state)
             
             # Get the RMF real force
             NEB.convergence = NEB.convergence**0.5
@@ -415,7 +416,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 sys.exit()
             forces = -fprime(r)
             r += forces*alpha
-            r = align_coordinates(r)
+            #r = align_coordinates(r)
             step += 1
 
     def quick_min_optimizer(f, r, nframes, fprime, dt=0.1, step_max=0.1, euler=False, viscosity=0.1, maxiter=1000, gtol=1E-3): # dt = fs, step_max = angstroms, viscosity = 1/fs

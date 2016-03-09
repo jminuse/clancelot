@@ -75,10 +75,11 @@ def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, check_charg
 	return atoms, bonds, angles, dihedrals
 	
 
-def write_cml(atoms, bonds, name=None):
+def write_cml(atoms, bonds=[], name=None):
 	if name is None:
 		name = 'out' #default filename is out.cml
-	name += '.cml'
+	if not name.endswith('.cml'):
+		name += '.cml'
 	
 	#tree = xml.ElementTree()
 	#tree._root = xml.fromstring('<molecule></molecule>')
@@ -95,7 +96,7 @@ def write_cml(atoms, bonds, name=None):
 			f.write(' formalCharge="%d"' % a.type_index)
 		except: pass
 		try:
-			f.write(' label="%d"' % a.label)
+			f.write(' label="%s"' % str(a.label))
 		except: pass
 		f.write('/>\n')
 	f.write(' </atomArray>\n <bondArray>\n')
