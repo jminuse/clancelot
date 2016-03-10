@@ -2,6 +2,9 @@ import os, sys
 from getpass import getuser
 
 # In the following list, please ensure you have chosen what you want to install.  By default everything is selected
+# If you are installing on a non icse machine, only merlin will install. Recommend turning off all other installations,
+# except possibly 'vmd default settings' if you have vmd installed properly
+
 INSTALL_EVERYTHING=False
 to_install = {
 'vmd':1,
@@ -28,14 +31,15 @@ if INSTALL_EVERYTHING:
 if to_install['file_browser']:
 	os.system('gconftool-2   --type bool --set /apps/nautilus/preferences/always_use_browser true')
 
+# Use HOMEDIR instead of /fs/home/USERNAME in order to install on non icse machines
 USERNAME = getuser()
-
+HOMEDIR = os.path.expanduser('~')
 
 INSTALLDIR = os.getcwd()
 if INSTALLDIR[-1] != '/': INSTALLDIR += '/' # Ensure there is a trailing slash
-ZSHRC = '/fs/home/'+USERNAME+'/.zshrc'
-ZSH_CLANCELOT = '/fs/home/' + USERNAME + '/.zsh_clancelot'
-BASHRC = '/fs/home/'+USERNAME+'/.bashrc'
+ZSHRC = HOMEDIR+'/.zshrc'
+ZSH_CLANCELOT = HOMEDIR + '/.zsh_clancelot'
+BASHRC = HOMEDIR+'/.bashrc'
 temp=open(ZSHRC)
 zshrc_string=temp.read()
 temp.close()
@@ -220,9 +224,9 @@ s_hold = \'\'\'#!/bin/bash
 
 rm ^^^^^^^$$$$$$.log
 
-source /fs/home/'''+USERNAME+'''/.zshrc
+source '''+HOMEDIR+'''/.zshrc
 
-/fs/home/'''+USERNAME+'''/anaconda/bin/python2.7 -u ^^^^^^^$$$$$$.py >> ^^^^^^^$$$$$$.log 2>&1
+'''+HOMEDIR+'''/anaconda/bin/python2.7 -u ^^^^^^^$$$$$$.py >> ^^^^^^^$$$$$$.log 2>&1
 \'\'\'
 for i,s in enumerate(sys.argv):
 	if i == 0: continue
@@ -347,7 +351,7 @@ def reinstall(str):
 			return False
 
 if to_install['vmd default settings']:
-	if os.path.exists('/fs/home/'+USERNAME+'/.vmdrc'):
+	if os.path.exists(HOMEDIR+'/.vmdrc'):
 		if reinstall('Previous vmd settings found, backup old ~/.vmdrc to ~/.vmdrc_history?'):
 			os.system('mv ~/.vmdrc ~/.vmdrc_history')
 	os.system('cp vmdrc_default.txt ~/.vmdrc')
@@ -360,9 +364,9 @@ def anaconda_install():
 	os.system('rm ~/lib/Anaconda-2.2.0-Linux-x86_64.sh')
 
 def sublime_install():
-	os.system('mkdir -p /fs/home/'+USERNAME+'/lib')
+	os.system('mkdir -p '+HOMEDIR+'/lib')
 	os.system('wget -P ~/lib/ http://c758482.r82.cf2.rackcdn.com/sublime_text_3_build_3083_x64.tar.bz2')
-	os.system('tar xvf /fs/home/'+USERNAME+'/lib/sublime_text_3_build_3083_x64.tar.bz2 -C /fs/home/' + USERNAME + '/lib/')
+	os.system('tar xvf '+HOMEDIR+'/lib/sublime_text_3_build_3083_x64.tar.bz2 -C '+HOMEDIR+'/lib/')
 	zshrc_check_add("alias sublime='~/lib/sublime_text_3/sublime_text",ZSHRC,zshrc_string)
 	zshrc_check_add("alias subl='~/lib/sublime_text_3/sublime_text",ZSHRC,zshrc_string)
 
@@ -372,7 +376,7 @@ def junest_install():
 	zshrc_check_add("alias juju='junest'",ZSHRC,zshrc_string)
 
 if to_install['anaconda']:
-	if os.path.exists('/fs/home/'+USERNAME+'/anaconda') and os.path.isdir('/fs/home/'+USERNAME+'/anaconda'):
+	if os.path.exists(HOMEDIR+'/anaconda') and os.path.isdir(HOMEDIR+'/anaconda'):
 		if reinstall('Previous installation found, reinstall Anaconda (Python 2.7.9 and packages)?'):
 			anaconda_install()
 		else:
@@ -380,14 +384,14 @@ if to_install['anaconda']:
 	else:
 		anaconda_install()
 else:
-	if os.path.exists('/fs/home/'+USERNAME+'/anaconda') and os.path.isdir('/fs/home/'+USERNAME+'/anaconda'):
+	if os.path.exists(HOMEDIR+'/anaconda') and os.path.isdir(HOMEDIR+'/anaconda'):
 		zshrc_check_add('export PATH=~/anaconda/bin:$PATH',ZSHRC,zshrc_string)
 
 
 if to_install['sublime_text_3_build_3083']:
-	if os.path.exists('/fs/home/'+USERNAME+'/lib/sublime_text_3') and os.path.isdir('/fs/home/'+USERNAME+'/lib/sublime_text_3'):
+	if os.path.exists(HOMEDIR+'/lib/sublime_text_3') and os.path.isdir(HOMEDIR+'/lib/sublime_text_3'):
 		if reinstall('Previous installation found, reinstall Sublime Text 3?'):
-			os.system('rm -rf /fs/home/'+USERNAME+'/lib/sublime_text_3')
+			os.system('rm -rf '+HOMEDIR+'/lib/sublime_text_3')
 			sublime_install()
 			downloaded_tarball=True
 		else:
@@ -396,16 +400,16 @@ if to_install['sublime_text_3_build_3083']:
 		sublime_install()
 		downloaded_tarball=True
 else:
-	if os.path.exists('/fs/home/'+USERNAME+'/lib/sublime_text_3') and os.path.isdir('/fs/home/'+USERNAME+'/lib/sublime_text_3'):
+	if os.path.exists(HOMEDIR+'/lib/sublime_text_3') and os.path.isdir(HOMEDIR+'/lib/sublime_text_3'):
 		zshrc_check_add("alias sublime='~/lib/sublime_text_3/sublime_text",ZSHRC,zshrc_string)
 		zshrc_check_add("alias subl='~/lib/sublime_text_3/sublime_text",ZSHRC,zshrc_string)
 
 if to_install['junest (formerly juju)']: 
-	if os.path.exists('/fs/home/'+USERNAME+'/juju') and os.path.isdir('/fs/home/'+USERNAME+'/juju'):
+	if os.path.exists(HOMEDIR+'/juju') and os.path.isdir(HOMEDIR+'/juju'):
 		if reinstall('Previous installation found, reinstall juju/junest?'):
-			os.system('mv /fs/home/'+USERNAME+'/juju /fs/home/'+USERNAME+'/.trash/')
-			if os.path.exists('/fs/home/'+USERNAME+'/.junest') and os.path.isdir('/fs/home/'+USERNAME+'/.junest'):
-				os.system('mv /fs/home/'+USERNAME+'/.junest /fs/home/'+USERNAME+'/.trash/')
+			os.system('mv '+HOMEDIR+'/juju '+HOMEDIR+'/.trash/')
+			if os.path.exists(HOMEDIR+'/.junest') and os.path.isdir(HOMEDIR+'/.junest'):
+				os.system('mv '+HOMEDIR+'/.junest '+HOMEDIR+'/.trash/')
 			junest_install()
 			print("\nTo finish installing 'junest' please run:\n'pacman -Syyu pacman-mirrorlist && pacman -S gtk2 avogadro grep make ttf-liberation gedit'\n\n(when prompted for GL version, pick option 2, nvidia)\n\n\n")
 			os.system("zsh -c 'junest -f'")
@@ -416,13 +420,13 @@ if to_install['junest (formerly juju)']:
 		print("\nTo finish installing 'junest' please run:\n'pacman -Syyu pacman-mirrorlist && pacman -S gtk2 avogadro grep make ttf-liberation gedit'\n\n(when prompted for GL version, pick option 2, nvidia)\n\n\n")
 		os.system("zsh -c 'junest -f'")
 else:
-	if os.path.exists('/fs/home/'+USERNAME+'/juju') and os.path.isdir('/fs/home/'+USERNAME+'/juju'):
+	if os.path.exists(HOMEDIR+'/juju') and os.path.isdir(HOMEDIR+'/juju'):
 		zshrc_check_add("export PATH=~/juju/bin:$PATH",ZSHRC,zshrc_string)
 		zshrc_check_add("alias juju='junest'",ZSHRC,zshrc_string)
 
 if downloaded_tarball:
 	print('Removing previously downloaded tarballs')
-	os.system('rm -i /fs/home/'+USERNAME+'/lib/*.tar.*')
+	os.system('rm -i '+HOMEDIR+'/lib/*.tar.*')
 
 print("\n\n--------------Installation Finished--------------\nPlease reopen Terminal to apply changes.")
 
