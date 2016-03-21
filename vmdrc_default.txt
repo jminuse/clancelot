@@ -19,7 +19,6 @@ color Display FPS black
 color Axes Labels white
 
 mol modcolor 0 0 element
-#color Element C black
 color Element Se yellow3
 color Element Cl orange
 color Element I pink
