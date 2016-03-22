@@ -74,12 +74,19 @@ def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, check_charg
 	
 	return atoms, bonds, angles, dihedrals
 	
-
-def write_cml(atoms, bonds=[], name=None):
+# 1st param: either a utils.Molecule object or a list of util.Atom objects
+def write_cml(atoms_or_molecule, bonds=[], name=None):
 	if name is None:
 		name = 'out' #default filename is out.cml
 	if not name.endswith('.cml'):
 		name += '.cml'
+		
+	if atoms_or_molecule.__class__==utils.Molecule:
+		molecule = atoms_or_molecule
+		atoms = molecule.atoms
+		bonds = bonds or molecule.bonds
+	elif atoms_or_molecule[0].__class__==utils.Atom:
+		atoms = atoms_or_molecule
 	
 	#tree = xml.ElementTree()
 	#tree._root = xml.fromstring('<molecule></molecule>')
@@ -92,12 +99,8 @@ def write_cml(atoms, bonds=[], name=None):
 	f.write('<molecule>\n <atomArray>\n')
 	for i,a in enumerate(atoms):
 		f.write('  <atom id="a%d" elementType="%s" x3="%f" y3="%f" z3="%f"' % (i+1, a.element, a.x, a.y, a.z) )
-		try:
-			f.write(' formalCharge="%d"' % a.type_index)
-		except: pass
-		try:
-			f.write(' label="%s"' % str(a.label))
-		except: pass
+		if hasattr(a, 'type_index'):
+			f.write(' label="%d"' % a.type_index)
 		f.write('/>\n')
 	f.write(' </atomArray>\n <bondArray>\n')
 	for b in bonds:
@@ -106,6 +109,8 @@ def write_cml(atoms, bonds=[], name=None):
 
 
 def read_xyz(name):
+	if not name.endswith('.xyz') and '.' not in name:
+		name += '.xyz'
 	lines = open(name).readlines()
 	atom_count = int(lines[0].split()[0])
 	lines_by_frame = [ lines[i:i+atom_count+2] for i in range(0,len(lines),atom_count+2) ]

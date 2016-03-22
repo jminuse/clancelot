@@ -428,7 +428,7 @@ if downloaded_tarball:
 	print('Removing previously downloaded tarballs')
 	os.system('rm -i '+HOMEDIR+'/lib/*.tar.*')
 
-os.system('cp pre-commit.sh .git/hooks/pre-commit')
+os.system('cp pre-commit.sh .git/hooks/pre-commit') #copy pre-commit hook script to expected location
 os.system('chmod +x .git/hooks/pre-commit') #make pre-commit hook script executable
 
 print("\n\n--------------Installation Finished--------------\nPlease reopen Terminal to apply changes.")
