@@ -17,10 +17,19 @@ def test_orca():
 	if result.energy != target_result.energy:
 		raise Exception('Wrong orca energy: %f vs %f' % (result.energy, target_result.energy))
 
+def test_lammps():
+	molecule = utils.Molecule('acetone')
+	system = utils.System(box_size=[30.0,30.0,30.0], name='test')
+	system.add(molecule)
+	os.chdir('lammps')
+	files.write_lammps_data(system)
+	os.chdir('..')
+
 def test_files():
 	os.chdir('unit_tests/test_files')
 	test_xyz_cml()
 	test_orca()
+	test_lammps()
 	os.chdir('..')
 
 test_files()
