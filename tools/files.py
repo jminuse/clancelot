@@ -226,7 +226,7 @@ Masses
 	f.close()
 
 
-def packmol(system, molecules, molecule_ratio, density, seed=1): #density in g/mL
+def packmol(system, molecules, molecule_ratio=(1,), density=1.0, seed=1): #density in g/mL
 	try:
 		os.mkdir('packmol')
 	except: pass
@@ -256,9 +256,9 @@ def packmol(system, molecules, molecule_ratio, density, seed=1): #density in g/m
 	  number %d
 	  inside box 0. 0. 0. %f %f %f
 	end structure
-	''' % ((i,molecule_counts[i])+system.box_size) )
+	''' % ((i,molecule_counts[i])+tuple(system.box_size)) )
 	f.close()
-	os.system('/fs/home/jms875/build/packmol/packmol < '+system.name+'.packmol')
+	os.system('/fs/home/jms875/build/packmol/packmol < '+system.name+'.packmol > packmol.log')
 	atoms = read_xyz(system.name+'.packed.xyz')
 	os.chdir('..')
 

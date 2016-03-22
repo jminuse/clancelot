@@ -1,4 +1,5 @@
 import cPickle as pickle
+import re, shutil
 from merlin import *
 
 def test_xyz_cml():
@@ -25,10 +26,35 @@ def test_g09():
 
 def test_lammps():
 	molecule = utils.Molecule('acetone')
-	system = utils.System(box_size=[30.0,30.0,30.0], name='test')
+	system = utils.System(box_size=[20.0,20.0,20.0], name='test')
 	system.add(molecule)
+	files.packmol(system, (molecule,), molecule_ratio=(1,), density=0.1)
+	shutil.rmtree('lammps')
+	os.mkdir('lammps')
 	os.chdir('lammps')
-	files.write_lammps_data(system)
+	files.write_lammps_data(system, pair_coeffs_included=True)
+	output = open(system.name+'.in', 'w')
+	output.write('''	units real
+atom_style full
+pair_style lj/cut/coul/dsf 0.05 2.5 10.0
+bond_style harmonic
+angle_style harmonic
+dihedral_style opls
+special_bonds lj/coul 0.0 0.0 0.5
+boundary p p p
+read_data	'''+system.name+'''.data
+thermo_style multi
+thermo 0
+velocity all create 300.0 1 rot yes dist gaussian
+fix motion all nvt temp 300.0 300.0 100.0
+run 10''')
+	output.close()
+	os.system('/fs/home/jms875/build/lammps/lammps-7Dec15/src/lmp_serial -in %s.in -log %s.log > /dev/null' % (system.name,system.name))
+	logfile = open(system.name+'.log').read()
+	energies = re.findall('TotEng += +(\S+)', logfile)
+	target_energies = ['8.4933', '10.3644']
+	if energies != target_energies:
+		raise Exception('LAMMPS test failed: %s != %s' % (str(energies), str(target_energies)) )
 	os.chdir('..')
 
 def test_files():
