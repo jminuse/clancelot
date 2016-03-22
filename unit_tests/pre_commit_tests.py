@@ -17,6 +17,12 @@ def test_orca():
 	if result.energy != target_result.energy:
 		raise Exception('Wrong orca energy: %f vs %f' % (result.energy, target_result.energy))
 
+def test_g09():
+	result = g09.read('PbCl2_0_vac')
+	target_result = pickle.load(open('g09.pickle'))
+	if result.energy != target_result.energy:
+		raise Exception('Wrong g09 energy: %f vs %f' % (result.energy, target_result.energy))
+
 def test_lammps():
 	molecule = utils.Molecule('acetone')
 	system = utils.System(box_size=[30.0,30.0,30.0], name='test')
@@ -29,6 +35,7 @@ def test_files():
 	os.chdir('unit_tests/test_files')
 	test_xyz_cml()
 	test_orca()
+	test_g09()
 	test_lammps()
 	os.chdir('..')
 
