@@ -1,0 +1,11 @@
+! B97-D3 def2-TZVP GCP(DFT/TZ) ECP{def2-TZVP} Grid3 FinalGrid5 SlowConv MORead
+%method
+ RunTyp Gradient
+ end
+%maxcore 40
+%moinp "previous.gbw"
+*xyz 0 1
+Pb 3.625699 2.284807 1.535627
+Cl 1.195259 1.772364 -0.074954
+Cl 5.699082 1.736313 -0.544226
+*
