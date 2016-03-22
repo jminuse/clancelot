@@ -1,11 +1,12 @@
 #!/bin/sh
 #
-# An example hook script to verify what is about to be committed.
-# Called by "git commit" with no arguments.  The hook should
-# exit with non-zero status after issuing an appropriate message if
-# it wants to stop the commit.
-#
-# To enable this hook, rename this file to "pre-commit".
+# A hook script to test the code before it is committed.
+# To enable this hook, copy this file to ".git/hooks/pre-commit" 
+# and enable execution with chmod +x. This is done automatically
+# by install.py. 
+# This test does not stop the commit; it simply warns you if the 
+# commit fails a test. To stop the commit, make this script 
+# return a non-zero value. 
 
 python unit_tests/pre_commit_tests.py
 
