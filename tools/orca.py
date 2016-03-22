@@ -210,6 +210,9 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 	os.system('mkdir -p orca/%s' % run_name)
 	os.chdir('orca/%s' % run_name)
 
+	if '!' not in route:
+		route = '! ' + route #orca requires route line to start with "!"
+
 	# If running on system with more than one core, tell orca
 	if procs > 1:
 		#route += ' PAL%d' % procs

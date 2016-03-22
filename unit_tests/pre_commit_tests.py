@@ -13,8 +13,9 @@ def test_xyz_cml():
 			raise Exception(filetype+' filetype test failed')
 
 def test_orca():
-	result = orca.read('PbCl2_0_vac')
-	target_result = pickle.load(open('orca.pickle'))
+	orca.job('test', 'HF-3c', previous='H2').wait()
+	result = orca.read('test')
+	target_result = orca.read('H2')
 	if result.energy != target_result.energy:
 		raise Exception('Wrong orca energy: %f vs %f' % (result.energy, target_result.energy))
 

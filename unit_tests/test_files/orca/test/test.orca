@@ -1,0 +1,7 @@
+! HF-3c MORead
+%maxcore 40
+%moinp "previous.gbw"
+*xyz 0 1
+H 0.000000 0.000000 0.000000
+H 1.000000 0.000000 0.000000
+*
