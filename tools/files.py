@@ -44,42 +44,30 @@ def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, check_charg
 		atoms, bonds, angles, dihedrals = set_forcefield_parameters(atoms, bonds=bonds, angles=angles, dihedrals=dihedrals, name=name, parameter_file=parameter_file, extra_parameters=extra_parameters, check_charges=check_charges, allow_errors=allow_errors)
 
 	return atoms, bonds, angles, dihedrals
-<<<<<<< HEAD
 
-def write_cml(atoms_or_system, bonds=[], name=None):
-=======
-	
-# 1st param: either a utils.Molecule object or a list of util.Atom objects
-def write_cml(atoms_or_molecule, bonds=[], name=None):
->>>>>>> master
+# 1st param: either a list of util.Atom objects, a utils.Molecule object or a utils.System object
+def write_cml(atoms_or_molecule_or_system, bonds=[], name=None):
+
 	if name is None:
 		name = 'out' #default filename is out.cml
 	if not name.endswith('.cml'):
 		name += '.cml'
-<<<<<<< HEAD
 
 	# Determine whether input is an atom list or a system object
 	# If it is a system object, compile information to write cml file
-	if isinstance(atoms_or_system, utils.System):
-		system = atoms_or_system
+	if isinstance(atoms_or_molecule_or_system, utils.System):
+		system = atoms_or_molecule_or_system
 		atoms, bonds, periodic = system.atoms, system.bonds, system.periodic
-	else:
-		atoms =  atoms_or_system
-		periodic = False
-
-=======
-		
-	if atoms_or_molecule.__class__==utils.Molecule:
-		molecule = atoms_or_molecule
+	elif isinstance(atoms_or_molecule_or_system, utils.Molecule):
+		molecule = atoms_or_molecule_or_system
 		atoms = molecule.atoms
 		bonds = bonds or molecule.bonds
-	elif atoms_or_molecule[0].__class__==utils.Atom:
-		atoms = atoms_or_molecule
-	
->>>>>>> master
-	#tree = xml.ElementTree()
-	#tree._root = xml.fromstring('<molecule></molecule>')
-	#tree.write(name)
+		periodic = False
+	elif isinstance(atoms_or_molecule_or_system[0], utils.Atom):
+		atoms =  atoms_or_molecule_or_system
+		periodic = False
+	else:
+		raise Exception('Unable to write cml file = %s' % (name))
 
 	bonds = [ (b.atoms[0].index, b.atoms[1].index) for b in bonds ]
 	bonds.sort()
@@ -99,20 +87,16 @@ def write_cml(atoms_or_molecule, bonds=[], name=None):
 		f.write(' </crystal>\n')
 
 	# Write atom information
-	f.write('<atomArray>\n')
+	f.write(' <atomArray>\n')
 	for i,a in enumerate(atoms):
 		f.write('  <atom id="a%d" elementType="%s" x3="%f" y3="%f" z3="%f"' % (i+1, a.element, a.x, a.y, a.z) )
-<<<<<<< HEAD
-		try:
+
+		if hasattr(a, 'type.charge'):
 			f.write(' formalCharge="%d"' % a.type.charge)
-		except: pass
-		try:
-			f.write(' label="%s"' % str(a.type_index))
-		except: pass
-=======
+
 		if hasattr(a, 'type_index'):
 			f.write(' label="%d"' % a.type_index)
->>>>>>> master
+
 		f.write('/>\n')
 	f.write(' </atomArray>\n <bondArray>\n')
 	for b in bonds:
