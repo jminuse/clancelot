@@ -32,7 +32,9 @@ def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, check_charg
 		angles, dihedrals = [],[]
 	
 	if parameter_file:
-		elements, atom_types, bond_types, angle_types, dihedral_types = read_opls_parameters(parameter_file)
+		if not read_cml.atom_types:
+			read_cml.elements, read_cml.atom_types, read_cml.bond_types, read_cml.angle_types, read_cml.dihedral_types = read_opls_parameters(parameter_file)
+		elements, atom_types, bond_types, angle_types, dihedral_types = read_cml.elements, read_cml.atom_types, read_cml.bond_types, read_cml.angle_types, read_cml.dihedral_types
 		
 		#add extra parameters, if any
 		for index2s,params in extra_parameters.items():
@@ -73,9 +75,10 @@ def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, check_charg
 				else: print 'Exit'; exit()
 	
 	return atoms, bonds, angles, dihedrals
+read_cml.elements, read_cml.atom_types, read_cml.bond_types, read_cml.angle_types, read_cml.dihedral_types = None, None, None, None, None #store these between calls
 	
 # 1st param: either a utils.Molecule object or a list of util.Atom objects
-def write_cml(atoms_or_molecule, bonds=[], name=None):
+def write_cml(atoms_or_molecule, name=None, bonds=[]):
 	if name is None:
 		name = 'out' #default filename is out.cml
 	if not name.endswith('.cml'):
@@ -101,6 +104,8 @@ def write_cml(atoms_or_molecule, bonds=[], name=None):
 		f.write('  <atom id="a%d" elementType="%s" x3="%f" y3="%f" z3="%f"' % (i+1, a.element, a.x, a.y, a.z) )
 		if hasattr(a, 'type_index'):
 			f.write(' label="%d"' % a.type_index)
+		elif hasattr(a, 'label'):
+			f.write(' label="%s"' % str(a.label))
 		f.write('/>\n')
 	f.write(' </atomArray>\n <bondArray>\n')
 	for b in bonds:

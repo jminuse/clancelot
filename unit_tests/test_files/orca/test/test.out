@@ -202,9 +202,9 @@ Prescreening statistics:
  # of negligible batches done            ...          0 (  0.0%)
 
 Timings:
- Total evaluation time               ...     0.079 sec (   0.001 min)
- One electron matrix time            ...     0.004 sec (   0.000 min) =  4.9%
- Schwartz matrix evaluation time     ...     0.042 sec (   0.001 min) = 53.2%
+ Total evaluation time               ...     0.082 sec (   0.001 min)
+ One electron matrix time            ...     0.005 sec (   0.000 min) =  6.5%
+ Schwartz matrix evaluation time     ...     0.043 sec (   0.001 min) = 52.1%
  Repulsion integral time             ...     0.000 sec (   0.000 min) =  0.0%
 
 -------------------------------------------------------------------------------
@@ -415,18 +415,18 @@ TIMINGS
 
 Total SCF time: 0 days 0 hours 0 min 0 sec 
 
-Total time                  ....       0.025 sec
-Sum of individual times     ....       0.014 sec  ( 57.3%)
+Total time                  ....       0.033 sec
+Sum of individual times     ....       0.015 sec  ( 46.5%)
 
-Fock matrix formation       ....       0.006 sec  ( 24.2%)
-Diagonalization             ....       0.000 sec  (  1.1%)
+Fock matrix formation       ....       0.008 sec  ( 23.6%)
+Diagonalization             ....       0.000 sec  (  0.1%)
 Density matrix formation    ....       0.000 sec  (  0.0%)
-Population analysis         ....       0.007 sec  ( 27.1%)
-Initial guess               ....       0.000 sec  (  0.9%)
+Population analysis         ....       0.006 sec  ( 18.3%)
+Initial guess               ....       0.000 sec  (  0.7%)
 Orbital Transformation      ....       0.000 sec  (  0.0%)
 Orbital Orthonormalization  ....       0.000 sec  (  0.0%)
 DIIS solution               ....       0.000 sec  (  0.0%)
-SOSCF solution              ....       0.001 sec  (  4.0%)
+SOSCF solution              ....       0.001 sec  (  3.9%)
 
 Entering the calculation of the dispersion correction...
 
@@ -515,8 +515,8 @@ Magnitude (Debye)      :      0.00000
 
 Timings for individual modules:
 
-Sum of individual times         ...        0.162 sec (=   0.003 min)
-GTO integral calculation        ...        0.116 sec (=   0.002 min)  71.1 %
-SCF iterations                  ...        0.047 sec (=   0.001 min)  28.9 %
+Sum of individual times         ...        0.180 sec (=   0.003 min)
+GTO integral calculation        ...        0.122 sec (=   0.002 min)  67.9 %
+SCF iterations                  ...        0.058 sec (=   0.001 min)  32.1 %
                              ****ORCA TERMINATED NORMALLY****
-TOTAL RUN TIME: 0 days 0 hours 0 minutes 0 seconds 420 msec
+TOTAL RUN TIME: 0 days 0 hours 0 minutes 0 seconds 326 msec

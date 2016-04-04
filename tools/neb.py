@@ -58,17 +58,13 @@ def g09_results(NEB, step_to_use, i, state):
 
 def orca_start_job(NEB, i, state, procs, queue, force, initial_guess, extra_section, mem):
     if NEB.step>0:
-        guess = ' MOREAD'
-        tmp = '%%moinp "../%s-%d-%d/%s-%d-%d.orca.gbw"' % (NEB.name,NEB.step-1,i,NEB.name,NEB.step-1,i)
-        extra_section = tmp + extra_section.strip()
+        previous = '%s-%d-%d' % (NEB.name,NEB.step-1,i)
     else:
         if initial_guess:
-            guess = ' MOREAD'
-            tmp = '%%moinp "../%s/%s.orca.gbw\n"' % (initial_guess,initial_guess)
-            extra_section = tmp + extra_section.strip()
+            previous = initial_guess
         else:
-            guess = '' #no previous guess for first step
-    return orca.job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+guess, state, extra_section=extra_section, grad=True, procs=procs, queue=queue)
+            previous = None
+    return orca.job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory, state, extra_section=extra_section, grad=True, procs=procs, queue=queue, previous=previous)
 
 
 def orca_results(NEB, step_to_use, i, state):

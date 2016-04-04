@@ -6,7 +6,7 @@ from shutil import copyfile
 def read(input_file):
 	# Check file exists, and open
 	if not os.path.isfile('orca/%s/%s.out' % (input_file,input_file)):
-		print("Error - No output file exists for orca sim %s." % input_file)
+		raise Exception("No output file exists for orca sim %s." % input_file)
 		sys.exit()
 	data = open('orca/%s/%s.out' % (input_file,input_file),'r').read()
 
@@ -202,9 +202,9 @@ def engrad_read(input_file, force='Ha/Bohr', pos='Bohr'):
 	return atoms, energy
 
 # A function to run an Orca DFT Simulation
-def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, procs=1, charge_and_multiplicity='0 1', previous=None, mem=40):
+def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, procs=1, charge_and_multiplicity='0 1', previous=None, mem=1000):
 	if len(run_name) > 31 and queue is not None:
-		raise Exception("Error - job name too long (%d) for NBS. Max character length is 31." % len(run_name))
+		raise Exception("Job name too long (%d) for NBS. Max character length is 31." % len(run_name))
 
 	# Generate the orca input file
 	os.system('mkdir -p orca/%s' % run_name)
@@ -248,8 +248,7 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
  		if not os.path.isfile(previous_path):
  			previous_path = '../'+previous+'/'+previous+'.orca.proc0.gbw'
  		if not os.path.isfile(previous_path):
- 			print("Error - Previous run %s does not have a .gbw file." % previous)
- 			sys.exit()
+ 			raise Exception("Previous run %s does not have a .gbw file." % previous)
  		copyfile(previous_path, 'previous.gbw')
  		extra_section = extra_section.strip() + '\n%moinp "previous.gbw"' 
 
@@ -260,7 +259,7 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 	# Get input for orca formatted correctly
 	inp = route.strip()+'\n'+extra_section.strip()+'\n*xyz '+charge_and_multiplicity+'\n'
 	for a in atoms:
-		inp += '%s %f %f %f\n' % (a.element, a.x, a.y, a.z)
+		inp += '%s %f %f %f %s\n' % (a.element, a.x, a.y, a.z, (a.extra if hasattr(a,'extra') else ''))
 	inp += '*\n'
 
 	# Write the orca file
@@ -281,39 +280,38 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 ##NBS-unique: yes
 ##NBS-sandbox: yes
 ##NBS-tmp-sandbox: yes
+##NBS-history: yes
 ##NBS-name: '''+run_name+'''
 ##NBS-nproc: '''+str(procs)+'''
 ##NBS-queue: '''+queue+'''
+##NBS-stdout: '''+run_name+'''.out
 
 ##NBS-input: *.orca
 '''+('##NBS-input: previous.gbw' if os.path.exists('previous.gbw') else '')+'''
 
-##NBS-output: *.out -overwrite
-##NBS-output: *.xyz -overwrite
-##NBS-output: *.trj -overwrite
-##NBS-output: *.gbw -overwrite
-##NBS-output: *.engrad -overwrite
-##NBS-output: *.prop -overwrite
-##NBS-output: *.opt -overwrite
+##NBS-output: *.xyz -overwrite -best_xfer
+##NBS-output: *.trj -overwrite -best_xfer
+##NBS-output: *.gbw -overwrite -best_xfer
+##NBS-output: *.engrad -overwrite -best_xfer
+##NBS-output: *.prop -overwrite -best_xfer
+##NBS-output: *.opt -overwrite -best_xfer
 
 export PATH=/fs/europa/g_pc/ompi_1_6_5/bin:/fs/europa/g_pc/orca_3_0_3_linux_x86-64:$PATH
 export LD_LIBRARY_PATH=/fs/europa/g_pc/ompi_1_6_5/lib:$LD_LIBRARY_PATH
 
-/fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca '''+run_name+'''.orca > '''+run_name+'''.out 2>&1
+/fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca '''+run_name+'''.orca > '''+(os.getcwd()+'/'+run_name)+'''.out 2>&1
 
-touch '''+run_name+'''.out
 touch '''+run_name+'''.orca.xyz
 touch '''+run_name+'''.orca.trj
 touch '''+run_name+'''.orca.gbw
 touch '''+run_name+'''.orca.engrad
 touch '''+run_name+'''.orca.prop
 touch '''+run_name+'''.orca.opt
-''' # The use of "touch" above is a patch for an NBS bug, where files alphabetically after the other files cannot be missing or they prevent the others from being copied. 
+''' # The use of "touch" above is a patch for an NBS bug, where files cannot be missing or they prevent the others from being copied. 
 		f = open(run_name+'.nbs', 'w')
 		f.write(NBS)
 		f.close()
 		os.system('jsub %s.nbs -prop orca' % run_name)
-		print 'To see files, ssh to node (eg ssh jnode-16.icse.cornell.edu) and ls /tmp/icse_<Job ID>'
 
 	# Copy run script
 	fname = sys.argv[0]
