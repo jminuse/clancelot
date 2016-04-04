@@ -6,7 +6,7 @@ from shutil import copyfile
 def read(input_file):
 	# Check file exists, and open
 	if not os.path.isfile('orca/%s/%s.out' % (input_file,input_file)):
-		raise Exception("No output file exists for orca sim %s." % input_file)
+		raise Exception('Expected orca output file orca/%s/%s.out does not exist' % (input_file,input_file))
 		sys.exit()
 	data = open('orca/%s/%s.out' % (input_file,input_file),'r').read()
 
@@ -284,7 +284,6 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 ##NBS-name: '''+run_name+'''
 ##NBS-nproc: '''+str(procs)+'''
 ##NBS-queue: '''+queue+'''
-##NBS-stdout: '''+run_name+'''.out
 
 ##NBS-input: *.orca
 '''+('##NBS-input: previous.gbw' if os.path.exists('previous.gbw') else '')+'''
