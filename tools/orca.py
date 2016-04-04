@@ -248,11 +248,14 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
  	# Add moread if previous
  	if previous is not None:
  		route = route.strip() + ' MORead'
- 		previous_path = '../'+previous+'/'+previous+'.orca.gbw'
+ 		if previous.startswith('/'): #accept absolute paths
+ 			previous_path = previous
+ 		else:
+	 		previous_path = '../'+previous+'/'+previous+'.orca.gbw'
  		if not os.path.isfile(previous_path):
  			previous_path = '../'+previous+'/'+previous+'.orca.proc0.gbw'
  		if not os.path.isfile(previous_path):
- 			raise Exception("Previous run %s does not have a .gbw file." % previous)
+ 			raise Exception("Previous run %s does not have a .gbw file at %s." % (previous, previous_path))
  		copyfile(previous_path, 'previous.gbw')
  		extra_section = extra_section.strip() + '\n%moinp "previous.gbw"' 
 
