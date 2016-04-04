@@ -5,10 +5,14 @@ from shutil import copyfile
 
 def read(input_file):
 	# Check file exists, and open
-	if not os.path.isfile('orca/%s/%s.out' % (input_file,input_file)):
-		raise Exception('Expected orca output file orca/%s/%s.out does not exist' % (input_file,input_file))
+	if input_file.startswith('/'):
+		input_path = input_file
+	else:
+		input_path = 'orca/%s/%s.out' % (input_file,input_file)
+	if not os.path.isfile():
+		raise Exception('Expected orca output file does not exist at %s' % (input_path))
 		sys.exit()
-	data = open('orca/%s/%s.out' % (input_file,input_file),'r').read()
+	data = open(input_path,'r').read()
 
 	# Get the route line
 	hold, route = data, None
