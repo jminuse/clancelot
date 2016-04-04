@@ -1,6 +1,6 @@
 # More commands can be found here
 # http://www.life.umd.edu/biology/sukharevlab/download/vmd_scripts/vmd.rc
-# Using logfile command, you can log commands and learn new commands
+# Using the logfile command, you can log commands and learn new commands
 
 mol default style VDW
 mol modstyle 0 0 VDW 1.0 100.0
@@ -19,8 +19,8 @@ color Display FPS black
 color Axes Labels white
 
 mol modcolor 0 0 element
-#color Element C black
 color Element Se yellow3
 color Element Cl orange
 color Element I pink
 color Element Si silver
+

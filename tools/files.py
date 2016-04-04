@@ -44,12 +44,19 @@ def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, check_charg
 		atoms, bonds, angles, dihedrals = set_forcefield_parameters(atoms, bonds=bonds, angles=angles, dihedrals=dihedrals, name=name, parameter_file=parameter_file, extra_parameters=extra_parameters, check_charges=check_charges, allow_errors=allow_errors)
 
 	return atoms, bonds, angles, dihedrals
+<<<<<<< HEAD
 
 def write_cml(atoms_or_system, bonds=[], name=None):
+=======
+	
+# 1st param: either a utils.Molecule object or a list of util.Atom objects
+def write_cml(atoms_or_molecule, bonds=[], name=None):
+>>>>>>> master
 	if name is None:
 		name = 'out' #default filename is out.cml
 	if not name.endswith('.cml'):
 		name += '.cml'
+<<<<<<< HEAD
 
 	# Determine whether input is an atom list or a system object
 	# If it is a system object, compile information to write cml file
@@ -60,6 +67,16 @@ def write_cml(atoms_or_system, bonds=[], name=None):
 		atoms =  atoms_or_system
 		periodic = False
 
+=======
+		
+	if atoms_or_molecule.__class__==utils.Molecule:
+		molecule = atoms_or_molecule
+		atoms = molecule.atoms
+		bonds = bonds or molecule.bonds
+	elif atoms_or_molecule[0].__class__==utils.Atom:
+		atoms = atoms_or_molecule
+	
+>>>>>>> master
 	#tree = xml.ElementTree()
 	#tree._root = xml.fromstring('<molecule></molecule>')
 	#tree.write(name)
@@ -85,12 +102,17 @@ def write_cml(atoms_or_system, bonds=[], name=None):
 	f.write('<atomArray>\n')
 	for i,a in enumerate(atoms):
 		f.write('  <atom id="a%d" elementType="%s" x3="%f" y3="%f" z3="%f"' % (i+1, a.element, a.x, a.y, a.z) )
+<<<<<<< HEAD
 		try:
 			f.write(' formalCharge="%d"' % a.type.charge)
 		except: pass
 		try:
 			f.write(' label="%s"' % str(a.type_index))
 		except: pass
+=======
+		if hasattr(a, 'type_index'):
+			f.write(' label="%d"' % a.type_index)
+>>>>>>> master
 		f.write('/>\n')
 	f.write(' </atomArray>\n <bondArray>\n')
 	for b in bonds:
@@ -98,6 +120,8 @@ def write_cml(atoms_or_system, bonds=[], name=None):
 	f.write(' </bondArray>\n</molecule>')
 
 def read_xyz(name):
+	if not name.endswith('.xyz') and '.' not in name:
+		name += '.xyz'
 	lines = open(name).readlines()
 	atom_count = int(lines[0].split()[0])
 	lines_by_frame = [ lines[i:i+atom_count+2] for i in range(0,len(lines),atom_count+2) ]
@@ -314,7 +338,7 @@ Masses
 	f.close()
 
 
-def packmol(system, molecules, molecule_ratio, density, seed=1): #density in g/mL
+def packmol(system, molecules, molecule_ratio=(1,), density=1.0, seed=1): #density in g/mL
 	try:
 		os.mkdir('packmol')
 	except: pass
@@ -344,9 +368,9 @@ def packmol(system, molecules, molecule_ratio, density, seed=1): #density in g/m
 	  number %d
 	  inside box 0. 0. 0. %f %f %f
 	end structure
-	''' % ((i,molecule_counts[i])+system.box_size) )
+	''' % ((i,molecule_counts[i])+tuple(system.box_size)) )
 	f.close()
-	os.system('/fs/home/jms875/build/packmol/packmol < '+system.name+'.packmol')
+	os.system('/fs/home/jms875/build/packmol/packmol < '+system.name+'.packmol > packmol.log')
 	atoms = read_xyz(system.name+'.packed.xyz')
 	os.chdir('..')
 

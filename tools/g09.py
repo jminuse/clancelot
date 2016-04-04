@@ -574,6 +574,7 @@ def read(input_file):
 	if data.frames == []: data.frames = None
 	data.atoms = data.frames[-1] if type(data.frames)==list and type(data.frames[0])==list else data.frames
 	data.energies = parse_atoms(input_file, get_atoms=False, get_energy=True, check_convergence=False, get_time=False, counterpoise=False, parse_all=True)[0]
+	data.energy = data.energies[-1]
 	data.charges_CHELPG = parse_chelpg(input_file)
 	data.charges = data.charges_CHELPG
 	data.convergence = convergence(input_file)
