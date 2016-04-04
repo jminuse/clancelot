@@ -3,110 +3,105 @@ import xml.etree.ElementTree as xml
 import utils
 
 # Read the Chemical Markup Language (CML)
-def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, check_charges=True):
+def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, check_charges=True, allow_errors=False):
 	if not name.endswith('.cml'):
 		name += '.cml'
 	tree = xml.parse(name)
 	root = tree.getroot()
-	
-	atoms = []
-	for atom in root[0]:
-		a = utils.Atom( element=atom.attrib['elementType'], x=float(atom.attrib['x3']), y=float(atom.attrib['y3']), z=float(atom.attrib['z3']) )
-		a.bonded = []
-		a.index = int(atom.attrib['id'][1:])
-		if 'formalCharge' in atom.attrib:
-			a.type_index = int(atom.attrib['formalCharge'])
-		if 'label' in atom.attrib:
-			a.type_index = int(atom.attrib['label'])
-		atoms.append(a)
-	
-	bonds = []
-	if len(root)>1:
-		for bond in root[1]:
-			a, b = [int(n[1:]) for n in bond.attrib['atomRefs2'].split()]
-			bonds.append( utils.Bond(atoms[a-1],atoms[b-1]) )
-			atoms[a-1].bonded.append( atoms[b-1] )
-			atoms[b-1].bonded.append( atoms[a-1] )
-		angles, dihedrals = utils.get_angles_and_dihedrals(atoms)
-	else:
-		angles, dihedrals = [],[]
-	
-	if parameter_file:
-		elements, atom_types, bond_types, angle_types, dihedral_types = read_opls_parameters(parameter_file)
-		
-		#add extra parameters, if any
-		for index2s,params in extra_parameters.items():
-			if type(index2s)==int: continue #skip these
-			if len(index2s)==2:
-				bond_types.append( utils.Struct(index2s=index2s, e=params[0], r=params[1]) )
-			elif len(index2s)==3:
-				angle_types.append( utils.Struct(index2s=index2s, e=params[0], angle=params[1]) )
-			elif len(index2s)==4:
-				dihedral_types.append( utils.Struct(index2s=index2s, e=tuple(params)) )
-		
-		#set atom types
-		for a in atoms: 
-			for t in atom_types:
-				if t.index==a.type_index:
-					a.type = t
-			for t in extra_parameters:
-				if t==a.type_index:
-					a.type = extra_parameters[t]
-		
-		#check charges
-		if check_charges:
-			net_charge = sum([x.type.charge for x in atoms])
-			if abs(net_charge)>0.01: raise Exception('Non-neutral molecule, charge = %f: %s' % (net_charge, name))
-		
-		#set bond, angle, and dihedral types from parameter file
-		for x in bonds+angles+dihedrals: 
-			index2s = tuple([a.type.index2 for a in x.atoms])
-			try:
-				x.type = [t for t in bond_types+angle_types+dihedral_types if t.index2s==index2s or t.index2s==tuple(reversed(index2s))][0]
-			except: pass
 
-		#check consistency
-		for x in bonds+angles+dihedrals: 
-			if not x.type:
-				print 'No type for structure indices', tuple([a.type.index2 for a in x.atoms]), ':', tuple([a.element for a in x.atoms]), ': atoms', tuple([a.index for a in x.atoms]),'in file', name
-				if isinstance(x,utils.Dihedral): x.type = utils.Struct(index2s=index2s, e=(0.0,0.0,0.0)) #no params for dihedral is OK, just give warning
-				else: print 'Exit'; exit()
-	
+	# If periodic box information was passed to cml file, first root is the periodic box
+	# If no periodic box info, first root is atomArray
+	# Fill appropriate section when it is found
+	atoms, bonds, angles, dihedrals = [], [], [], []
+
+	for child in root:
+		# Skip crystal information
+		if child.tag == 'crystal':
+			continue
+
+		# Add atoms
+		if child.tag == 'atomArray':
+			for atom in child:
+				a = utils.Atom( element=atom.attrib['elementType'], x=float(atom.attrib['x3']), y=float(atom.attrib['y3']), z=float(atom.attrib['z3']) )
+				a.bonded = []
+				a.index = int(atom.attrib['id'][1:])
+				#if 'formalCharge' in atom.attrib:
+				#	a.type_index = int(atom.attrib['formalCharge'])
+				if 'label' in atom.attrib:
+					a.type_index = int(atom.attrib['label'])
+				atoms.append(a)
+
+		# Add atoms
+		if child.tag == 'bondArray':
+			for bond in child:
+				a, b = [int(n[1:]) for n in bond.attrib['atomRefs2'].split()]
+				bonds.append( utils.Bond(atoms[a-1],atoms[b-1]) )
+				atoms[a-1].bonded.append( atoms[b-1] )
+				atoms[b-1].bonded.append( atoms[a-1] )
+			angles, dihedrals = utils.get_angles_and_dihedrals(atoms)
+
+	if parameter_file:
+		atoms, bonds, angles, dihedrals = set_forcefield_parameters(atoms, bonds=bonds, angles=angles, dihedrals=dihedrals, name=name, parameter_file=parameter_file, extra_parameters=extra_parameters, check_charges=check_charges, allow_errors=allow_errors)
+
 	return atoms, bonds, angles, dihedrals
-	
-# 1st param: either a utils.Molecule object or a list of util.Atom objects
-def write_cml(atoms_or_molecule, bonds=[], name=None):
+
+# 1st param: either a list of util.Atom objects, a utils.Molecule object or a utils.System object
+def write_cml(atoms_or_molecule_or_system, bonds=[], name=None):
+
 	if name is None:
 		name = 'out' #default filename is out.cml
 	if not name.endswith('.cml'):
 		name += '.cml'
-		
-	if atoms_or_molecule.__class__==utils.Molecule:
-		molecule = atoms_or_molecule
+
+	# Determine whether input is an atom list or a system object
+	# If it is a system object, compile information to write cml file
+	if isinstance(atoms_or_molecule_or_system, utils.System):
+		system = atoms_or_molecule_or_system
+		atoms, bonds, periodic = system.atoms, system.bonds, system.periodic
+	elif isinstance(atoms_or_molecule_or_system, utils.Molecule):
+		molecule = atoms_or_molecule_or_system
 		atoms = molecule.atoms
 		bonds = bonds or molecule.bonds
-	elif atoms_or_molecule[0].__class__==utils.Atom:
-		atoms = atoms_or_molecule
-	
-	#tree = xml.ElementTree()
-	#tree._root = xml.fromstring('<molecule></molecule>')
-	#tree.write(name)
-	
+		periodic = False
+	elif isinstance(atoms_or_molecule_or_system[0], utils.Atom):
+		atoms =  atoms_or_molecule_or_system
+		periodic = False
+	else:
+		raise Exception('Unable to write cml file = %s' % (name))
+
 	bonds = [ (b.atoms[0].index, b.atoms[1].index) for b in bonds ]
 	bonds.sort()
-	
+
 	f = open(name, 'w')
-	f.write('<molecule>\n <atomArray>\n')
+	f.write('<molecule>\n')
+
+	# Write crystal information if provided. Assign it is a crystal if it is periodic
+	if periodic:
+		f.write(' <crystal>\n')
+		f.write('  <scalar title="a" units="units:angstrom">%3.6f</scalar>\n' % (system.box_size[0]) )
+		f.write('  <scalar title="b" units="units:angstrom">%3.6f</scalar>\n' % (system.box_size[1]) )
+		f.write('  <scalar title="c" units="units:angstrom">%3.6f</scalar>\n' % (system.box_size[2]) )
+		f.write('  <scalar title="alpha" units="units:degree">%3.6f</scalar>\n' % (system.box_angles[0]) )
+		f.write('  <scalar title="beta" units="units:degree">%3.6f</scalar>\n' % (system.box_angles[1]) )
+		f.write('  <scalar title="gamma" units="units:degree">%3.6f</scalar>\n' % (system.box_angles[2]) )
+		f.write(' </crystal>\n')
+
+	# Write atom information
+	f.write(' <atomArray>\n')
 	for i,a in enumerate(atoms):
 		f.write('  <atom id="a%d" elementType="%s" x3="%f" y3="%f" z3="%f"' % (i+1, a.element, a.x, a.y, a.z) )
+
+		if hasattr(a, 'type.charge'):
+			f.write(' formalCharge="%d"' % a.type.charge)
+
 		if hasattr(a, 'type_index'):
 			f.write(' label="%d"' % a.type_index)
+
 		f.write('/>\n')
 	f.write(' </atomArray>\n <bondArray>\n')
 	for b in bonds:
 		f.write('  <bond atomRefs2="a%d a%d" order="1"/>\n' % b )
 	f.write(' </bondArray>\n</molecule>')
-
 
 def read_xyz(name):
 	if not name.endswith('.xyz') and '.' not in name:
@@ -114,7 +109,7 @@ def read_xyz(name):
 	lines = open(name).readlines()
 	atom_count = int(lines[0].split()[0])
 	lines_by_frame = [ lines[i:i+atom_count+2] for i in range(0,len(lines),atom_count+2) ]
-	
+
 	frames = []
 	for frame in lines_by_frame:
 		atoms = []
@@ -123,35 +118,43 @@ def read_xyz(name):
 			if len(columns)>=4:
 				x,y,z = [float(s) for s in columns[1:4]]
 				atoms.append( utils.Atom(element=columns[0], x=x, y=y, z=z, index=len(atoms)+1) )
-		if len(atoms)>0: frames.append(atoms) 
-	
+		if len(atoms)>0: frames.append(atoms)
+
 	if len(frames)==1:
 		return frames[0]
 	else:
 		return frames
 
-def write_xyz(frames, name_or_file=None, ID='Atoms'):
+def write_xyz(frames_or_system, name_or_file=None, ID='Atoms'):
+	# Determine whether input is an atom list (frames) or a system object
+	# If it is a system object, compile information to write cml file
+	if isinstance(frames_or_system, utils.System):
+		system = frames_or_system
+		frames = system.atoms
+	else:
+		frames =  frames_or_system
+
 	if not name_or_file:
 		name_or_file = 'out' #default filename is out.xyz
-	
+
 	if type(name_or_file)==str: #if filename is provided, open it
 		name = name_or_file
 		f = open(name+'.xyz', 'w')
 	else: #if open file is provided, just append to it
 		f = name_or_file
-	
+
 	if isinstance(frames[0],utils.Atom):
 		frames = [frames] #we want to write a list of frames, so make it one
-	
+
 	for atoms in frames:
 		f.write(str(len(atoms))+'\n'+ID+'\n')
 		for a in atoms:
 			f.write('%s %f %f %f\n' % (a.element, a.x, a.y, a.z) )
-		
+
 	if type(name_or_file)==str: #close file if we opened it
 		f.close()
 
-def read_opls_parameters(parameter_file):
+def read_opls_parameters(parameter_file='oplsaa.prm'):
 	elements = {}; atom_types = []; bond_types = []; angle_types = []; dihedral_types = []
 	for line in open(parameter_file):
 		columns = line.split()
@@ -179,10 +182,96 @@ def read_opls_parameters(parameter_file):
 				dihedral_types[-1].e = dihedral_types[-1].e + (0.,)
 	return elements, atom_types, bond_types, angle_types, dihedral_types
 
+def set_forcefield_parameters(atoms, bonds=[], angles=[], dihedrals=[], parameter_file='oplsaa.prm', name='unnamed', extra_parameters={}, check_charges=True, allow_errors=False):
+	elements, atom_types, bond_types, angle_types, dihedral_types = read_opls_parameters(parameter_file)
+
+	#add extra parameters, if any
+	for index2s,params in extra_parameters.items():
+		if type(index2s)==int: continue #skip these
+		if len(index2s)==2:
+			bond_types.append( utils.Struct(index2s=index2s, e=params[0], r=params[1]) )
+		elif len(index2s)==3:
+			angle_types.append( utils.Struct(index2s=index2s, e=params[0], angle=params[1]) )
+		elif len(index2s)==4:
+			dihedral_types.append( utils.Struct(index2s=index2s, e=tuple(params)) )
+
+	#set atom types
+	for a in atoms:
+		if a.type_index is None:
+			raise Exception('OPLS label is missing from atom %d' % (a.index))
+		#print(a.printSelf())
+		for t in atom_types:
+			if t.index==a.type_index:
+				a.type = t
+		for t in extra_parameters:
+			if t==a.type_index:
+				a.type = extra_parameters[t]
+
+	#set bond, angle, and dihedral types from parameter file
+	for x in bonds+angles+dihedrals:
+		index2s = tuple([a.type.index2 for a in x.atoms])
+		try:
+			# Match type from opls parameters. Updated to allow for wildcard torsions
+			for t in (bond_types+angle_types+dihedral_types):
+				# Check for wildcard torsions
+				if len(index2s) == 4 and len(t.index2s) == 4:
+					if t.index2s[0] == 0 and t.index2s[3] == 0:
+						match = t.index2s[1:3]==index2s[1:3] or t.index2s[1:3]==tuple(reversed(index2s))[1:3]
+					elif t.index2s[0] == 0:
+						match = t.index2s[1:4]==index2s[1:4] or t.index2s[1:4]==tuple(reversed(index2s))[1:4]
+					elif t.index2s[3] == 0:
+						match = t.index2s[0:3]==index2s[0:3] or t.index2s[0:3]==tuple(reversed(index2s))[0:3]
+					else:
+						match = t.index2s==index2s or t.index2s==tuple(reversed(index2s))
+
+				# Check bonds and angles
+				else:
+					match = t.index2s==index2s or t.index2s==tuple(reversed(index2s))
+
+				if match:
+					x.type = t
+					break
+
+			#print([t for t in bond_types+angle_types+dihedral_types if t.index2s==index2s or t.index2s==tuple(reversed(index2s))])
+			#print([t for t in bond_types+angle_types+dihedral_types if t.index2s==index2s or t.index2s==tuple(reversed(index2s))][0])
+			
+			#x.type = [t for t in bond_types+angle_types+dihedral_types if t.index2s==index2s or t.index2s==tuple(reversed(index2s))][0]
+		except: pass
+
+	if check_charges:
+		check_net_charge(atoms, name=name)
+
+	check_consistency(atoms, bonds, angles, dihedrals, name=name, allow_errors=allow_errors)
+
+	return atoms, bonds, angles, dihedrals
+
+# Check charges to see if it is a neutral molecule
+# Requires force field parameters: type.charge
+# Raises exception if non-neutral. Consider changing to warning to allow non-neutral molecules
+def check_net_charge(atoms, name=''):
+	net_charge = sum([x.type.charge for x in atoms])
+	if abs(net_charge)>0.01: raise Exception('Non-neutral molecule, charge = %f: %s' % (net_charge, name))
+
+# Check to see if all possible force field parameters have been assigned.
+# Raises exception if missing an bond or angle. Missing dihedrals allowed.
+# Can turn off raising exceptions.
+def check_consistency(atoms, bonds, angles, dihedrals, name='', allow_errors=False):
+	for x in bonds+angles+dihedrals:
+		# Compile all index types?
+		index2s = tuple([a.type.index2 for a in x.atoms])
+
+		if not x.type:
+			print 'No type for structure indices', tuple([a.type.index2 for a in x.atoms]), ':', tuple([a.element for a in x.atoms]), ': atoms', tuple([a.index for a in x.atoms]),'in file', name
+			if isinstance(x,utils.Dihedral): x.type = utils.Struct(index2s=index2s, e=(0.0,0.0,0.0)) #no params for dihedral is OK, just give warning
+			elif allow_errors:
+				continue
+			else: print 'Exit'; exit()
 
 def write_lammps_data(system, pair_coeffs_included=False):
 	#unpack values from system
-	atoms, bonds, angles, dihedrals, box_size, run_name = system.atoms, system.bonds, system.angles, system.dihedrals, system.box_size, system.name
+	atoms, bonds, angles, dihedrals, box_size, box_angles, run_name = system.atoms, system.bonds, system.angles, system.dihedrals, system.box_size, system.box_angles, system.name
+	#unpack lammps box parameters from system
+	xlo, ylo, zlo, xhi, yhi, zhi, xy, xz, yz = system.xlo, system.ylo, system.zlo, system.xhi, system.yhi, system.zhi, system.xy, system.xz, system.yz
 	#ignore dihedrals with no energy
 	dihedrals = [d for d in dihedrals if any(d.type.e)]
 	#get list of unique atom types
@@ -196,17 +285,24 @@ def write_lammps_data(system, pair_coeffs_included=False):
 	# get type numbers to identify types to LAMMPS
 	for i,t in enumerate(atom_types): t.lammps_type = i+1
 	for i,t in enumerate(bond_types): t.lammps_type = i+1
-	for i,t in enumerate(angle_types): t.lammps_type = i+1
+	for i,t in enumerate(angle_types):
+		#print(angle_types)
+		#print(t)
+		#print(t.lammps_type)
+		t.lammps_type = i+1
 	for i,t in enumerate(dihedral_types): t.lammps_type = i+1
 	#start writing file
 	f = open(run_name+'.data', 'w')
 	f.write('LAMMPS Description\n\n%d atoms\n%d bonds\n%d angles\n%d dihedrals\n0  impropers\n\n' % (len(atoms), len(bonds), len(angles), len(dihedrals)) )
 	f.write('%d atom types\n%d bond types\n%d angle types\n%d dihedral types\n0  improper types\n' % (len(atom_types), len(bond_types), len(angle_types), len(dihedral_types)) )
-	f.write('''
- -'''+str(box_size[0]/2)+''' '''+str(box_size[0]/2)+''' xlo xhi
- -'''+str(box_size[1]/2)+''' '''+str(box_size[1]/2)+''' ylo yhi
- -'''+str(box_size[2]/2)+''' '''+str(box_size[2]/2)+''' zlo zhi
+	f.write('%3.5f %3.5f xlo xhi\n' % (xlo, xhi))
+	f.write('%3.5f %3.5f ylo yhi\n' % (ylo, yhi))
+	f.write('%3.5f %3.5f zlo zhi\n' % (zlo, zhi))
+	# If the system is triclinic box
+	if abs(box_angles[0]-90) > 0.001 or abs(box_angles[1]-90) > 0.001 or abs(box_angles[2]-90) > 0.001:
+		f.write('%3.5f %3.5f %3.5f xy xz yz\n' % (xy, xz, yz))
 
+	f.write('''
 Masses
 
 '''+('\n'.join(["%d\t%f" % (t.lammps_type, t.mass) for t in atom_types]))+'\n')
@@ -231,7 +327,7 @@ def packmol(system, molecules, molecule_ratio=(1,), density=1.0, seed=1): #densi
 		os.mkdir('packmol')
 	except: pass
 	os.chdir('packmol')
-	
+
 	f = open(system.name+'.packmol', 'w')
 	f.write('''
 	tolerance 2.0
@@ -244,13 +340,13 @@ def packmol(system, molecules, molecule_ratio=(1,), density=1.0, seed=1): #densi
 	count = density * system.box_size[0] * system.box_size[1] * system.box_size[2] / average_molecular_weight
 	molecule_counts = [int(round( count*x/sum(molecule_ratio) )) for x in molecule_ratio]
 	for i,m in enumerate(molecules):
-		
+
 		xyz_file = open('%d.xyz' % i, 'w')
 		xyz_file.write(str(len(m.atoms))+'\nAtoms\n')
 		for a in m.atoms:
 			xyz_file.write('%s%d %f %f %f\n' % (a.element, i, a.x, a.y, a.z) )
 		xyz_file.close()
-		
+
 		f.write('''
 	structure %d.xyz
 	  number %d
@@ -299,7 +395,7 @@ def inp_to_xyz(name, write=False,outName=None):
 		f.close()
 
 	atoms = []
-	for i,d in enumerate(data): 
+	for i,d in enumerate(data):
 		d = d.split()
 		atoms.append(utils.Atom(element=d[0], x=float(d[1]), y=float(d[2]), z=float(d[3]), index=i))
 

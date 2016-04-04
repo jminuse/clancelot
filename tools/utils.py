@@ -9,14 +9,35 @@ class Struct:
 		return str( dict([ (a,None) if type(self.__dict__[a]) in (list,dict) else (a,self.__dict__[a]) for a in self.__dict__]) )
 
 class Atom():
-	def __init__(self, element, x, y, z, index=None, type=None, molecule_index=1):
+	def __init__(self, element, x, y, z, index=None, type=None, molecule_index=1, bonded=[], type_index=None):
 		self.element = element
 		self.x = x
 		self.y = y
 		self.z = z
 		self.index = index
-		self.type = type # object that may contain lammps_type, mass, and charge
 		self.molecule_index = molecule_index
+		self.bonded=bonded
+		self.type_index=type_index
+		# When parameterized by OPLS, 'type' dict contains: {'bond_count': 3, 'index': 588, 'notes': '1,10-Phenanthroline C2', 'vdw_r': 3.55, 'element': 6, 'vdw_e': 0.07, 'charge': 0.392, 'mass': 12.011, 'index2': 48, 'element_name': 'CA'}
+		# Object May also contain lammps_type, mass, and charge
+		self.type = type
+
+	def translate(self, v):
+		self.x+=v[0]; self.y+=v[1]; self.z+=v[2]
+
+	def printSelf(self):
+		if self.type_index:
+			text = '%s, (%3.3f, %3.3f, %3.3f), index: %d, type_index: %d\n' % (self.element, self.x, self.y, self.z, self.index, self.type_index)
+		else:
+			text = '%s, (%3.3f, %3.3f, %3.3f), %d\n' % (self.element, self.x, self.y, self.z, self.index)
+
+		if self.type:
+			text += str(self.type)
+			text += '\n'
+		return text
+
+	def __str__(self):
+		return self.printSelf()
 
 class Bond():
 	def __init__(self, a, b, type=None):
@@ -94,14 +115,14 @@ def get_angles_and_dihedrals(atoms):
 			dihedral = (a,) + angle.atoms
 			if tuple(reversed(dihedral)) not in dihedral_set:
 				dihedral_set[dihedral] = True
-		
+
 		for b in angle.atoms[2].bonded:
 			if b is angle.atoms[1]: continue
 			dihedral = angle.atoms + (b,)
 			if tuple(reversed(dihedral)) not in dihedral_set:
 				dihedral_set[dihedral] = True
 	dihedrals = [Dihedral(*d) for d in dihedral_set.keys()]
-	
+
 	return angles, dihedrals
 
 def frange(low, high, step):
@@ -118,7 +139,7 @@ def quat_to_mat(q): #quat = [w i j k]
 
 def matvec(m,v):
 	return (m[0][0]*v[0] + m[0][1]*v[1] + m[0][2]*v[2], m[1][0]*v[0] + m[1][1]*v[1] + m[1][2]*v[2], m[2][0]*v[0] + m[2][1]*v[1] + m[2][2]*v[2])
-	
+
 def matmat(a,b):
 	product = [[0.]*3, [0.]*3, [0.]*3]
 	for y in range(3):
@@ -126,7 +147,7 @@ def matmat(a,b):
 			for k in range(3):
 				product[y][x] += a[y][k]*b[k][x]
 	return product
-	
+
 def rand_rotation(): #http://tog.acm.org/resources/GraphicsGems/, Ed III
 	import random
 	x = (random.random(), random.random(), random.random())
@@ -145,9 +166,8 @@ def rand_rotation(): #http://tog.acm.org/resources/GraphicsGems/, Ed III
 	Sy = Vx * st + Vy * ct
 
 	#Construct the rotation matrix  ( V Transpose(V) - I ) R, which is equivalent to V S - R.
-
 	M = [ [0.,0.,0.], [0.,0.,0.], [0.,0.,0.] ]
-	
+
 	M[0][0] = Vx * Sx - ct
 	M[0][1] = Vx * Sy - st
 	M[0][2] = Vx * Vz
@@ -159,17 +179,41 @@ def rand_rotation(): #http://tog.acm.org/resources/GraphicsGems/, Ed III
 	M[2][0] = Vz * Sx
 	M[2][1] = Vz * Sy
 	M[2][2] = 1.0 - z	# This equals Vz * Vz - 1.0
-	
+
+	return M
+
+# Construct rotation matrix around x, using t
+def rot_x(t):
+	M = [ [1., 0., 0.], [0., math.cos(t), -math.sin(t)], [0., math.sin(t), math.cos(t)] ]
+	return M
+
+# Construct rotation matrix around y, using t
+def rot_y(t):
+	M = [ [math.cos(t), 0., math.sin(t)], [0., 1., 0.], [-math.sin(t), 0., math.cos(t)] ]
+	return M
+
+# Construct rotation matrix around z, using t
+def rot_z(t):
+	M = [ [math.cos(t), -math.sin(t), 0.], [math.sin(t), math.cos(t), 0.], [0., 0., 1.] ]
+	return M
+
+# Construct general rotation matrix using yaw, pitch, and roll (alpha, beta, gamma)
+# Performs extrinsic rotation whose Euler angles are alpha, beta, gamma about axes z, y, x
+def rot_xyz(alpha, beta, gamma):
+	# Extrinsic definition
+	M = matmat(matmat(rot_z(gamma), rot_y(beta)), rot_x(alpha))
+	# Intrinsic definition
+	#M = matmat(matmat(rot_z(alpha), rot_y(beta)), rot_x(gamma))
 	return M
 
 elements_by_atomic_number = ['','H','He','Li','Be','B','C','N','O','F','Ne','Na','Mg','Al','Si','P','S','Cl','Ar','K','Ca','Sc','Ti','V','Cr','Mn','Fe','Co','Ni','Cu','Zn','Ga','Ge','As','Se','Br','Kr','Rb','Sr','Y','Zr','Nb','Mo','Tc','Ru','Rh','Pd','Ag','Cd','In','Sn','Sb','Te','I','Xe','Cs','Ba','La','Ce','Pr','Nd','Pm','Sm','Eu','Gd','Tb','Dy','Ho','Er','Tm','Yb','Lu','Hf','Ta','W','Re','Os','Ir','Pt','Au','Hg','Tl','Pb','Bi','Po','At','Rn','Fr','Ra','Ac','Th','Pa','U','Np','Pu','Am','Cm','Bk','Cf','Es','Fm','Md','No','Lr','Rf','Db','Sg','Bh','Hs','Mt','Ds','Rg','Cn','Uut','Fl','Uup','Lv','Uus','Uuo']
 
 
-class Molecule():	
-	def __init__(self, atoms_or_filename_or_all, bonds=None, angles=None, dihedrals=None, parameter_file='oplsaa.prm', extra_parameters={}, check_charges=True): #set atoms, bonds, etc, or assume 'atoms' contains all those things if only one parameter is passed in
+class Molecule():
+	def __init__(self, atoms_or_filename_or_all, bonds=None, angles=None, dihedrals=None, parameter_file='oplsaa.prm', extra_parameters={}, check_charges=True, allow_errors=False): #set atoms, bonds, etc, or assume 'atoms' contains all those things if only one parameter is passed in
 		if type(atoms_or_filename_or_all)==type('string'):
 			self.filename = atoms_or_filename_or_all
-			atoms, bonds, angles, dihedrals = files.read_cml(self.filename, parameter_file=parameter_file, extra_parameters=extra_parameters, check_charges=check_charges)
+			atoms, bonds, angles, dihedrals = files.read_cml(self.filename, parameter_file=parameter_file, extra_parameters=extra_parameters, check_charges=check_charges, allow_errors=allow_errors)
 		elif bonds:
 			atoms, bonds, angles, dihedrals = atoms_or_filename_or_all
 		else:
@@ -188,13 +232,70 @@ class Molecule():
 		rand_m = rand_rotation()
 		self.rotate(rand_m)
 
+	# Print all atoms
+	def printAtoms(self):
+		text = ''
+		for atom in self.atoms:
+			text += atom.printSelf()
+		return text
+
+	# When printing molecule, print all atoms
+	def __str__(self):
+		return self.printAtoms()
+
 
 class System():
-	def __init__(self, name=None, box_size=None):
+	# Initialize all system variables. Convert to float as necessary to prepare for any needed math
+	def __init__(self, name=None, box_size=(10.0,10.0,10.0), box_angles=(90.0,90.0,90.0), periodic=False):
 		self.atoms, self.bonds, self.angles, self.dihedrals = [], [], [], []
-		self.box_size = box_size
+		self.box_size = [float(param) for param in box_size] # (a, b, c)
+		self.box_angles = [float(param) for param in box_angles] # (alpha, beta, gamma)
 		self.name = name
 		self.molecules = []
+		self.periodic = periodic
+
+		# If the system is not a monoclinic box, set lammps triclinic parameters
+		if abs(box_angles[0]-90) > 0.001 or abs(box_angles[1]-90) > 0.001 or abs(box_angles[2]-90) > 0.001:
+			self.setTriclinicBox(self.periodic,self.box_size,self.box_angles)
+
+		# If system is a monoclinic box and set default lammps triclinic parameters
+		# Assumes center of box is the origin
+		else:
+			self.xlo = -self.box_size[0]/2.0
+			self.ylo = -self.box_size[1]/2.0
+			self.zlo = -self.box_size[2]/2.0
+			self.xhi = self.box_size[0]/2.0
+			self.yhi = self.box_size[1]/2.0
+			self.zhi = self.box_size[2]/2.0
+			self.xy = 0.0
+			self.xz = 0.0
+			self.yz = 0.0
+
+	# Establish lammps triclinic box boundary conditions for this system
+	def setTriclinicBox(self, periodic, box_size, box_angles):
+		a = box_size[0]
+		b = box_size[1]
+		c = box_size[2]
+		alpha = box_angles[0]
+		beta = box_angles[1]
+		gamma = box_angles[2]
+
+		# For lammmps, trigonal vectors established by using xy xz yz
+		# A = (xhi-xlo,0,0);
+		# B = (xy,yhi-ylo,0);
+		# C = (xz,yz,zhi-zlo)
+		self.xlo = 0.0
+		self.ylo = 0.0
+		self.zlo = 0.0
+
+		# Formula for converting (a,b,c,alpha,beta,gamma) to (lx,ly,lz,xy,xz,yz)
+		# taken from online lammps help
+		self.xhi = a
+		self.xy = b*math.cos(math.radians(gamma))
+		self.xz = c*math.cos(math.radians(beta))
+		self.yhi = math.sqrt(b**2 - self.xy**2)
+		self.yz = (b*c*math.cos(math.radians(alpha)) - self.xy * self.xz)/ self.yhi
+		self.zhi = math.sqrt(c**2 - self.xz**2 - self.yz**2)
 
 	def add(self, molecule, x=0.0, y=0.0, z=0.0):
 		atom_offset = len(self.atoms)
@@ -217,6 +318,13 @@ class System():
 		new_molecule.dihedrals = self.dihedrals[-len(molecule.dihedrals):]
 		self.molecules.append( new_molecule )
 
+	# Print all atoms
+	def printAtoms(self):
+		text = ''
+		for atom in self.atoms:
+			text += atom.printSelf()
+		return text
+
 def dist_squared(a,b):
 	return (a.x-b.x)**2 + (a.y-b.y)**2 + (a.z-b.z)**2
 
@@ -231,16 +339,16 @@ def angle_size(a,center,b):
 
 def dihedral_angle(a,b,c,d):
 	cache_key = a.x+b.x+c.x+d.x
-	
+
 	sqrt = math.sqrt
 	cos = math.cos
-	
+
 	#a,b,c,d = d,c,b,a
-	
+
 	vb1x, vb1y, vb1z = a.x-b.x, a.y-b.y, a.z-b.z
 	vb2x, vb2y, vb2z = c.x-b.x, c.y-b.y, c.z-b.z
 	vb3x, vb3y, vb3z = d.x-c.x, d.y-c.y, d.z-c.z
-	
+
 	# c0 calculation
 
 	sb1 = 1.0 / (vb1x*vb1x + vb1y*vb1y + vb1z*vb1z)
@@ -285,22 +393,22 @@ def dihedral_angle(a,b,c,d):
 	s2 = sc2 * sc2
 	s12 = sc1 * sc2
 	c = (c0 + c1mag*c2mag) * s12
-	
+
 	cx = vb1y*vb2z - vb1z*vb2y
 	cy = vb1z*vb2x - vb1x*vb2z
 	cz = vb1x*vb2y - vb1y*vb2x
 	cmag = sqrt(cx*cx + cy*cy + cz*cz)
 	dx = (cx*vb3x + cy*vb3y + cz*vb3z)/cmag/b3mag
-	
-	
+
+
 	if c>1.0: c = 1.0
 	if c<-1.0: c = -1.0
-	
+
 	phi = math.acos(c)
 	if dx < 0.0:
 		phi *= -1.0
 	phi *= -1.0
-	
+
 	return phi, math.cos(phi), math.cos(2*phi), math.cos(3*phi), math.cos(4*phi)
 
 # A test procrustes code to remove possibility of reflection
@@ -328,7 +436,7 @@ def orthogonal_procrustes(A, ref_matrix, reflection=False):
 	# trace(R'*A'*A*R) + trace(ref.T*ref) - trace((A*R).T*ref) - trace(ref.T*(A*R)), trace doesn't care about order, so re-order
 	# trace(R*R.T*A.T*A) + trace(ref.T*ref) - trace(R.T*A.T*ref) - trace(ref.T*A*R), simplify
 	# trace(A.T*A) + trace(ref.T*ref) - 2*trace(ref.T*A*R)
-	# Thus, to minimize we want to maximize trace(ref.T * A * R) 
+	# Thus, to minimize we want to maximize trace(ref.T * A * R)
 
 	# u*w*v.T = (ref.T*A).T
 	# ref.T * A = w * u.T * v
@@ -347,7 +455,7 @@ def orthogonal_procrustes(A, ref_matrix, reflection=False):
 		u[:,-1] *= -1
 		w[-1] *= -1
 		R = u.dot(vt)
-	
+
 	scale = w.sum() # Get the scaled difference
 
 	return R,scale
@@ -552,7 +660,7 @@ def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTS=False,outName=None,write_xyz=Fals
 	#----------
 
 	from copy import deepcopy
-	
+
 	# Get data as either frames or a file
 	if type(name)==type(''): frames = files.read_xyz(name)
 	elif type(name)==type([]): frames = name
@@ -604,7 +712,7 @@ def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTS=False,outName=None,write_xyz=Fals
 	if write_xyz: files.write_xyz(frames,'pretty_xyz' if outName==None else outName)
 	else: return frames
 
-# A function to format a string's colour 
+# A function to format a string's colour
 def color_set(s,c): return constants.COLOR[c] + str(s) + constants.COLOR['ENDC']
 colour_set = color_set
 
@@ -644,8 +752,8 @@ def opls_options(molecule, parameter_file='oplsaa.prm'):
 		elements = tuple([ a.element for a in d.atoms ])
 		options = dihedral_types_by_element[elements]
 		options_by_i = [ [],[],[],[] ]
-			
-		
+
+
 		if elements in dihedral_types_by_element:
 			print elements
 			for a in d.atoms:
@@ -661,25 +769,25 @@ def opls_options(molecule, parameter_file='oplsaa.prm'):
 		print a.element
 		for option in a.index2_options:
 			print '\t', option
-		
+
 		options = a.index2_options[0]
-		
+
 		for i in xrange(1,len(a.index2_options)):
 			options = options.intersection( a.index2_options[i] )
 
 		print '\t\t', options
 
-	
+
 def opt_opls(molecule, parameter_file='oplsaa.prm', taboo_time=100):
 	elements, atom_types, bond_types, angle_types, dihedral_types = files.read_opls_parameters(parameter_file)
 	atoms, bonds, angles, dihedrals = files.read_cml(molecule, parameter_file=None)
-	
+
 	bond_types_by_index2 = dict( [ (tuple(t.index2s),t) for t in bond_types ] + [ (tuple(reversed(t.index2s)),t) for t in bond_types ] )
 	angle_types_by_index2 = dict( [ (tuple(t.index2s),t) for t in angle_types ] + [ (tuple(reversed(t.index2s)),t) for t in angle_types ] )
 	dihedral_types_by_index2 = dict( [ (tuple(t.index2s),t) for t in dihedral_types ] + [ (tuple(reversed(t.index2s)),t) for t in dihedral_types ] )
-	
+
 	charges_by_index = dict( [ (t.index,t.charge) for t in atom_types ] )
-	
+
 	for a in atoms:
 		a.possible_types = set()
 		for t in atom_types:
@@ -687,7 +795,7 @@ def opt_opls(molecule, parameter_file='oplsaa.prm', taboo_time=100):
 				a.possible_types.add(t.index2)
 		a.possible_types = list(a.possible_types)
 		#a.possible_types.append(0)
-	
+
 	def count_conflicts(types):
 		for i,a in enumerate(atoms):
 			a.index2 = types[i]
@@ -696,13 +804,13 @@ def opt_opls(molecule, parameter_file='oplsaa.prm', taboo_time=100):
 			index2s = (b.atoms[0].index2, b.atoms[1].index2)
 			if not index2s in bond_types_by_index2:
 				conflicts += 1
-		
+
 		for a in angles:
 			index2s = (a.atoms[0].index2, a.atoms[1].index2, a.atoms[2].index2)
 			if not index2s in angle_types_by_index2:
 				conflicts += 1
-		
-		for d in dihedrals: 
+
+		for d in dihedrals:
 			index2s_0 = (d.atoms[0].index2, d.atoms[1].index2, d.atoms[2].index2, d.atoms[3].index2)
 			index2s_1 = (0,                 d.atoms[1].index2, d.atoms[2].index2, d.atoms[3].index2)
 			index2s_2 = (d.atoms[0].index2, d.atoms[1].index2, d.atoms[2].index2,        0)
@@ -712,12 +820,12 @@ def opt_opls(molecule, parameter_file='oplsaa.prm', taboo_time=100):
 			if not in0 and not in1 and not in2:
 				conflicts += 1
 		return conflicts
-	
+
 	import random
 	types = [random.choice(a.possible_types) for a in atoms]
 	taboo = [0 for a in atoms]
 	best = count_conflicts(types)
-	
+
 	step = 0
 	for step in range(100000):
 		i = random.randint( 0, len(types)-1 )
@@ -728,16 +836,16 @@ def opt_opls(molecule, parameter_file='oplsaa.prm', taboo_time=100):
 				break
 		old_type = types[i]
 		types[i] = random.choice(atoms[i].possible_types)
-		
+
 		conflicts = count_conflicts(types)
 		if conflicts <= best:
 			best = conflicts
 			taboo[i] = taboo_time
 		else:
 			types[i] = old_type
-	
+
 		taboo = [t-1 if t>0 else 0 for t in taboo]
-	
+
 		if step % 10000 == 0:
 			print best, conflicts, types
 		step += 1
@@ -750,21 +858,17 @@ def opt_opls(molecule, parameter_file='oplsaa.prm', taboo_time=100):
 		atoms[i].index_options = [t.index for t in tt]
 		#for t in tt:
 		#	print '\t', t.index, t.notes
-	
-	
-	
-	
-	
+
 	def net_charge(types):
 		charge = 0.0
 		for t in types:
 			charge += charges_by_index[t]
 		return charge
-	
+
 	types = [random.choice(a.index_options) for a in atoms]
 	taboo = [0 for a in atoms]
 	best = net_charge(types)
-	
+
 	for step in range(100000):
 		i = random.randint( 0, len(types)-1 )
 		for guess in types:
@@ -774,16 +878,16 @@ def opt_opls(molecule, parameter_file='oplsaa.prm', taboo_time=100):
 				break
 		old_type = types[i]
 		types[i] = random.choice(atoms[i].index_options)
-		
+
 		charge = net_charge(types)
 		if abs(charge) <= abs(best):
 			best = charge
 			taboo[i] = taboo_time
 		else:
 			types[i] = old_type
-	
+
 		taboo = [t-1 if t>0 else 0 for t in taboo]
-	
+
 		if step % 10000 == 0:
 			print best, charge, types
 		step += 1
