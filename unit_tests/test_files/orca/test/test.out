@@ -202,9 +202,9 @@ Prescreening statistics:
  # of negligible batches done            ...          0 (  0.0%)
 
 Timings:
- Total evaluation time               ...     0.237 sec (   0.004 min)
- One electron matrix time            ...     0.004 sec (   0.000 min) =  1.7%
- Schwartz matrix evaluation time     ...     0.140 sec (   0.002 min) = 59.1%
+ Total evaluation time               ...     0.249 sec (   0.004 min)
+ One electron matrix time            ...     0.014 sec (   0.000 min) =  5.7%
+ Schwartz matrix evaluation time     ...     0.146 sec (   0.002 min) = 58.6%
  Repulsion integral time             ...     0.000 sec (   0.000 min) =  0.0%
 
 -------------------------------------------------------------------------------
@@ -273,8 +273,8 @@ Smallest eigenvalue                        ... 5.111e-01
 Time for diagonalization                   ...    0.000 sec
 Threshold for overlap eigenvalues          ... 1.000e-08
 Number of eigenvalues below threshold      ... 0
-Time for construction of square roots      ...    0.003 sec
-Total time needed                          ...    0.003 sec
+Time for construction of square roots      ...    0.001 sec
+Total time needed                          ...    0.002 sec
 
 -----------------------------------------
 INITIAL GUESS: POLARIZED ATOMIC DENSITIES
@@ -415,18 +415,18 @@ TIMINGS
 
 Total SCF time: 0 days 0 hours 0 min 0 sec 
 
-Total time                  ....       0.029 sec
-Sum of individual times     ....       0.014 sec  ( 49.7%)
+Total time                  ....       0.020 sec
+Sum of individual times     ....       0.011 sec  ( 56.2%)
 
-Fock matrix formation       ....       0.007 sec  ( 25.8%)
+Fock matrix formation       ....       0.006 sec  ( 32.5%)
 Diagonalization             ....       0.000 sec  (  0.1%)
 Density matrix formation    ....       0.000 sec  (  0.0%)
-Population analysis         ....       0.005 sec  ( 17.2%)
-Initial guess               ....       0.000 sec  (  0.8%)
+Population analysis         ....       0.004 sec  ( 17.7%)
+Initial guess               ....       0.000 sec  (  1.3%)
 Orbital Transformation      ....       0.000 sec  (  0.0%)
 Orbital Orthonormalization  ....       0.000 sec  (  0.0%)
 DIIS solution               ....       0.000 sec  (  0.0%)
-SOSCF solution              ....       0.002 sec  (  5.8%)
+SOSCF solution              ....       0.001 sec  (  4.6%)
 
 Entering the calculation of the dispersion correction...
 
@@ -515,8 +515,8 @@ Magnitude (Debye)      :      0.00000
 
 Timings for individual modules:
 
-Sum of individual times         ...        0.434 sec (=   0.007 min)
-GTO integral calculation        ...        0.359 sec (=   0.006 min)  82.7 %
-SCF iterations                  ...        0.075 sec (=   0.001 min)  17.3 %
+Sum of individual times         ...        0.578 sec (=   0.010 min)
+GTO integral calculation        ...        0.523 sec (=   0.009 min)  90.5 %
+SCF iterations                  ...        0.055 sec (=   0.001 min)   9.5 %
                              ****ORCA TERMINATED NORMALLY****
-TOTAL RUN TIME: 0 days 0 hours 0 minutes 0 seconds 820 msec
+TOTAL RUN TIME: 0 days 0 hours 0 minutes 1 seconds 6 msec

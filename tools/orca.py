@@ -5,11 +5,11 @@ from shutil import copyfile
 
 def read(input_file):
 	# Check file exists, and open
-	if input_file.startswith('/'):
+	if input_file.startswith('/'): #allow absolute paths as filenames
 		input_path = input_file
 	else:
 		input_path = 'orca/%s/%s.out' % (input_file,input_file)
-	if not os.path.isfile():
+	if not os.path.isfile(input_path):
 		raise Exception('Expected orca output file does not exist at %s' % (input_path))
 		sys.exit()
 	data = open(input_path,'r').read()
