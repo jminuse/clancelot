@@ -27,6 +27,8 @@ def read(input_file):
 		if route is not None:
 			route = route.split()
 			route = ' '.join(route[2:])
+		else:
+			raise Exception('Could not find route line in orca output file %s: job most likely crashed.' % input_path)
 
 	# Get all the positions
 	hold, frames = data, []

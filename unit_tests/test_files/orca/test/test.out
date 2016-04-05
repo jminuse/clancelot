@@ -178,7 +178,7 @@ ECP PARAMETER INFORMATION
  Beginning two electron integral evaluation:
 Initializing the integral list in ORCA_GTOInt
  Starting repulsion integrals
-  <ss|ss>  ...            6 b.         0 skpd (  0.0%)     0.000 s. (  0.004 ms/b)
+  <ss|ss>  ...            6 b.         0 skpd (  0.0%)     0.000 s. (  0.003 ms/b)
 
 
                                       INTEGRAL STATISTICS
@@ -202,9 +202,9 @@ Prescreening statistics:
  # of negligible batches done            ...          0 (  0.0%)
 
 Timings:
- Total evaluation time               ...     0.252 sec (   0.004 min)
- One electron matrix time            ...     0.005 sec (   0.000 min) =  1.9%
- Schwartz matrix evaluation time     ...     0.150 sec (   0.003 min) = 59.7%
+ Total evaluation time               ...     0.254 sec (   0.004 min)
+ One electron matrix time            ...     0.004 sec (   0.000 min) =  1.8%
+ Schwartz matrix evaluation time     ...     0.140 sec (   0.002 min) = 55.1%
  Repulsion integral time             ...     0.000 sec (   0.000 min) =  0.0%
 
 -------------------------------------------------------------------------------
@@ -415,18 +415,18 @@ TIMINGS
 
 Total SCF time: 0 days 0 hours 0 min 0 sec 
 
-Total time                  ....       0.031 sec
-Sum of individual times     ....       0.016 sec  ( 51.2%)
+Total time                  ....       0.030 sec
+Sum of individual times     ....       0.015 sec  ( 49.3%)
 
-Fock matrix formation       ....       0.009 sec  ( 28.4%)
+Fock matrix formation       ....       0.008 sec  ( 26.8%)
 Diagonalization             ....       0.000 sec  (  0.1%)
 Density matrix formation    ....       0.000 sec  (  0.0%)
-Population analysis         ....       0.005 sec  ( 16.6%)
+Population analysis         ....       0.005 sec  ( 16.4%)
 Initial guess               ....       0.000 sec  (  0.9%)
 Orbital Transformation      ....       0.000 sec  (  0.0%)
 Orbital Orthonormalization  ....       0.000 sec  (  0.0%)
 DIIS solution               ....       0.000 sec  (  0.0%)
-SOSCF solution              ....       0.002 sec  (  5.3%)
+SOSCF solution              ....       0.002 sec  (  5.1%)
 
 Entering the calculation of the dispersion correction...
 
@@ -515,8 +515,8 @@ Magnitude (Debye)      :      0.00000
 
 Timings for individual modules:
 
-Sum of individual times         ...        0.501 sec (=   0.008 min)
-GTO integral calculation        ...        0.430 sec (=   0.007 min)  85.8 %
-SCF iterations                  ...        0.071 sec (=   0.001 min)  14.2 %
+Sum of individual times         ...        0.454 sec (=   0.008 min)
+GTO integral calculation        ...        0.386 sec (=   0.006 min)  85.1 %
+SCF iterations                  ...        0.068 sec (=   0.001 min)  14.9 %
                              ****ORCA TERMINATED NORMALLY****
-TOTAL RUN TIME: 0 days 0 hours 0 minutes 0 seconds 812 msec
+TOTAL RUN TIME: 0 days 0 hours 0 minutes 1 seconds 10 msec

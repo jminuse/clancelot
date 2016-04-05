@@ -61,7 +61,10 @@ def orca_start_job(NEB, i, state, procs, queue, force, initial_guess, extra_sect
         previous = '%s-%d-%d' % (NEB.name,NEB.step-1,i)
     else:
         if initial_guess:
-            previous = initial_guess
+        	if hasattr(initial_guess, '__iter__'):
+        		previous = initial_guess[i]
+        	else:
+	            previous = initial_guess
         else:
             previous = None
     return orca.job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory, state, extra_section=extra_section, grad=True, procs=procs, queue=queue, previous=previous)
