@@ -90,11 +90,11 @@ def read(input_file):
 	s = 'CHELPG Charges'
 	if hold.rfind(s) != -1:
 		hold = hold[hold.rfind(s):]
-		b = hold[:hold.find('\n\n')].split('\n')[2:]
+		b = hold[:hold.find('\n--------------------------------\nTotal charge:')].split('\n')[2:]
 		for a in b:
 			a = a.split()
 			charges_CHELPG.append([a[1].split(':')[0],float(a[-1])])
-		for a, charge in zip(atoms, charges_LOEWDIN):
+		for a, charge in zip(atoms, charges_CHELPG):
 			a.charge = charge[1]
 	else:
 		charges_CHELPG = None
