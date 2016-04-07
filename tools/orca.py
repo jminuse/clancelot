@@ -289,7 +289,6 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 ##NBS-unique: yes
 ##NBS-sandbox: yes
 ##NBS-tmp-sandbox: yes
-##NBS-history: yes
 ##NBS-name: '''+run_name+'''
 ##NBS-nproc: '''+str(procs)+'''
 ##NBS-queue: '''+queue+'''
@@ -297,17 +296,17 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 ##NBS-input: *.orca
 '''+('##NBS-input: previous.gbw' if os.path.exists('previous.gbw') else '')+'''
 
-##NBS-output: *.xyz -overwrite -best_xfer
-##NBS-output: *.trj -overwrite -best_xfer
-##NBS-output: *.gbw -overwrite -best_xfer
-##NBS-output: *.engrad -overwrite -best_xfer
-##NBS-output: *.prop -overwrite -best_xfer
-##NBS-output: *.opt -overwrite -best_xfer
+##NBS-output: *.xyz -overwrite
+##NBS-output: *.trj -overwrite
+##NBS-output: *.gbw -overwrite
+##NBS-output: *.engrad -overwrite
+##NBS-output: *.prop -overwrite
+##NBS-output: *.opt -overwrite
 
 export PATH=/fs/europa/g_pc/ompi_1_6_5/bin:/fs/europa/g_pc/orca_3_0_3_linux_x86-64:$PATH
 export LD_LIBRARY_PATH=/fs/europa/g_pc/ompi_1_6_5/lib:$LD_LIBRARY_PATH
 
-/fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca '''+run_name+'''.orca > '''+(os.getcwd()+'/'+run_name)+'''.out 2>&1
+/fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca '''+run_name+'''.orca > '''+(os.getcwd()+'/'+run_name)+'''.out
 
 touch '''+run_name+'''.orca.xyz
 touch '''+run_name+'''.orca.trj

@@ -87,7 +87,7 @@ else:
 
 # Get the header information
 head = 'Job Name: %s\n' % run_name
-head += 'DFT Simmulation in %s\n' % dft
+head += 'DFT calculation via %s\n' % dft
 head += 'Energy Data Points: %d\n' % len(data.energies)
 if len(data.energies) > 2:
         Ener = str(units.convert_energy(u1, u2, data.energies[-2] - data.energies[-3]))
