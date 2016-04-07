@@ -90,16 +90,15 @@ INFO   : the flag for use of LIBINT has been found!
 ================================================================================
                                        INPUT FILE
 ================================================================================
-NAME = test.orca
-|  1> ! HF-3c MORead
-|  2> %maxcore 1000
-|  3> %moinp "previous.gbw"
-|  4> *xyz 0 1
-|  5> H 0.000000 0.000000 0.000000 
-|  6> H 1.000000 0.000000 0.000000 
-|  7> *
-|  8> 
-|  9>                          ****END OF INPUT****
+NAME = H2.orca
+|  1> ! HF-3c
+|  2> %maxcore 40
+|  3> *xyz 0 1
+|  4> H 0.000000 0.000000 0.000000
+|  5> H 1.000000 0.000000 0.000000
+|  6> *
+|  7> 
+|  8>                          ****END OF INPUT****
 ================================================================================
 
                        ****************************
@@ -148,6 +147,26 @@ ECP PARAMETER INFORMATION
 
 
 
+
+
+Checking for AutoStart:
+The File: H2.orca.gbw exists
+Trying to determine its content:
+     ... Fine, the file contains calculation information
+     ... Fine, the calculation information was read
+     ... Fine, the file contains a basis set
+     ... Fine, the basis set was read
+     ... Fine, the file contains ECP parameters
+     ... Fine, ECP parameters were read
+     ... Fine, the file contains a geometry
+     ... Fine, the geometry was read
+     ... Fine, the file contains a set of orbitals
+     ... Fine, the orbitals can be read
+     => possible old guess file was deleted
+     => GBW file was renamed to GES file
+     => GES file is set as startup file
+     => Guess is set to MORead
+     ... now leaving AutoStart
 
 ------------------------------------------------------------------------------
                            ORCA GTO INTEGRAL CALCULATION
@@ -202,9 +221,9 @@ Prescreening statistics:
  # of negligible batches done            ...          0 (  0.0%)
 
 Timings:
- Total evaluation time               ...     0.093 sec (   0.002 min)
- One electron matrix time            ...     0.009 sec (   0.000 min) =  9.6%
- Schwartz matrix evaluation time     ...     0.045 sec (   0.001 min) = 48.0%
+ Total evaluation time               ...     0.081 sec (   0.001 min)
+ One electron matrix time            ...     0.006 sec (   0.000 min) =  7.7%
+ Schwartz matrix evaluation time     ...     0.043 sec (   0.001 min) = 52.6%
  Repulsion integral time             ...     0.000 sec (   0.000 min) =  0.0%
 
 -------------------------------------------------------------------------------
@@ -219,7 +238,7 @@ Hamiltonian:
 
 
 General Settings:
- Integral files         IntName         .... test.orca
+ Integral files         IntName         .... H2.orca
  Hartree-Fock type      HFTyp           .... RHF
  Total Charge           Charge          ....    0
  Multiplicity           Mult            ....    1
@@ -270,29 +289,26 @@ Convergence Tolerance:
 
 Diagonalization of the overlap matrix:
 Smallest eigenvalue                        ... 5.111e-01
-Time for diagonalization                   ...    0.023 sec
+Time for diagonalization                   ...    0.000 sec
 Threshold for overlap eigenvalues          ... 1.000e-08
 Number of eigenvalues below threshold      ... 0
-Time for construction of square roots      ...    0.015 sec
-Total time needed                          ...    0.038 sec
+Time for construction of square roots      ...    0.001 sec
+Total time needed                          ...    0.001 sec
 
------------------------------------------
-INITIAL GUESS: POLARIZED ATOMIC DENSITIES
------------------------------------------
-The minimal basis has 2 functions
-EHT matrix was diagonalized
-Basis set overlap was calculated now projecting the orbitals
-Using GuessMode=FMatrix for the initial guess
-C*T matrix was formed
-Effective Fockian was calculated
-Effective Fockian was diagonalized
-Initial density was built
+---------------------
+INITIAL GUESS: MOREAD
+---------------------
+Guess MOs are being read from file: H2.orca.ges
+Input Geometry matches current geometry (good)
+Input basis set matches current basis set (good)
+MOs were renormalized
+MOs were reorthogonalized (Cholesky)
                       ------------------
-                      INITIAL GUESS DONE
+                      INITIAL GUESS DONE (   0.0 sec)
                       ------------------
 
  InCore treatment chosen:
-   Memory dedicated               ...    1000 MB
+   Memory dedicated               ...     40 MB
    Memory needed                  ...      0 MB
    Number of tiny    integrals    ...       0
    Number of small   integrals    ...       0
@@ -342,12 +358,12 @@ SCF CONVERGENCE
   Last Energy change         ...    0.0000e+00  Tolerance :   1.0000e-06
   Last MAX-Density change    ...    0.0000e+00  Tolerance :   1.0000e-05
   Last RMS-Density change    ...    0.0000e+00  Tolerance :   1.0000e-06
-  Last Orbital Gradient      ...    4.6618e-17  Tolerance :   5.0000e-05
+  Last Orbital Gradient      ...    3.6292e-17  Tolerance :   5.0000e-05
   Last Orbital Rotation      ...    0.0000e+00  Tolerance :   5.0000e-05
 
-             **** THE GBW FILE WAS UPDATED (test.orca.gbw) ****
-             **** DENSITY FILE WAS UPDATED (test.orca.scfp.tmp) ****
-             **** ENERGY FILE WAS UPDATED (test.orca.en.tmp) ****
+             **** THE GBW FILE WAS UPDATED (H2.orca.gbw) ****
+             **** DENSITY FILE WAS UPDATED (H2.orca.scfp.tmp) ****
+             **** ENERGY FILE WAS UPDATED (H2.orca.en.tmp) ****
 ----------------
 ORBITAL ENERGIES
 ----------------
@@ -363,9 +379,9 @@ ORBITAL ENERGIES
 -----------------------
 MULLIKEN ATOMIC CHARGES
 -----------------------
-   0 H :    0.000000
+   0 H :   -0.000000
    1 H :    0.000000
-Sum of atomic charges:    0.0000000
+Sum of atomic charges:   -0.0000000
 
 --------------------------------
 MULLIKEN REDUCED ORBITAL CHARGES
@@ -381,7 +397,7 @@ MULLIKEN REDUCED ORBITAL CHARGES
 ----------------------
 LOEWDIN ATOMIC CHARGES
 ----------------------
-   0 H :    0.000000
+   0 H :   -0.000000
    1 H :    0.000000
 
 -------------------------------
@@ -403,8 +419,8 @@ LOEWDIN REDUCED ORBITAL CHARGES
   FA   - Mayer's free valence
 
   ATOM       NA         ZA         QA         VA         BVA        FA
-  0 H      1.0000     1.0000     0.0000     1.0000     1.0000     0.0000
-  1 H      1.0000     1.0000     0.0000     1.0000     1.0000     0.0000
+  0 H      1.0000     1.0000    -0.0000     1.0000     1.0000    -0.0000
+  1 H      1.0000     1.0000     0.0000     1.0000     1.0000    -0.0000
 
   Mayer bond orders larger than 0.1
 B(  0-H ,  1-H ) :   1.0000 
@@ -415,18 +431,18 @@ TIMINGS
 
 Total SCF time: 0 days 0 hours 0 min 0 sec 
 
-Total time                  ....       0.110 sec
-Sum of individual times     ....       0.094 sec  ( 85.4%)
+Total time                  ....       0.025 sec
+Sum of individual times     ....       0.015 sec  ( 59.9%)
 
-Fock matrix formation       ....       0.065 sec  ( 58.7%)
-Diagonalization             ....       0.001 sec  (  0.5%)
+Fock matrix formation       ....       0.006 sec  ( 23.5%)
+Diagonalization             ....       0.000 sec  (  0.0%)
 Density matrix formation    ....       0.000 sec  (  0.0%)
-Population analysis         ....       0.007 sec  (  6.3%)
-Initial guess               ....       0.000 sec  (  0.2%)
+Population analysis         ....       0.005 sec  ( 19.7%)
+Initial guess               ....       0.003 sec  ( 13.6%)
 Orbital Transformation      ....       0.000 sec  (  0.0%)
-Orbital Orthonormalization  ....       0.000 sec  (  0.0%)
+Orbital Orthonormalization  ....       0.000 sec  (  0.2%)
 DIIS solution               ....       0.000 sec  (  0.0%)
-SOSCF solution              ....       0.022 sec  ( 19.7%)
+SOSCF solution              ....       0.001 sec  (  3.0%)
 
 Entering the calculation of the dispersion correction...
 
@@ -497,14 +513,14 @@ FINAL SINGLE POINT ENERGY        -1.063891182618
 Dipole Moment Calculation                       ... on
 Quadrupole Moment Calculation                   ... off
 Polarizability Calculation                      ... off
-GBWName                                         ... test.orca.gbw
-Electron density file                           ... test.orca.scfp.tmp
+GBWName                                         ... H2.orca.gbw
+Electron density file                           ... H2.orca.scfp.tmp
 
 -------------
 DIPOLE MOMENT
 -------------
                                 X             Y             Z
-Electronic contribution:     -0.00000      -0.00000      -0.00000
+Electronic contribution:      0.00000      -0.00000      -0.00000
 Nuclear contribution   :      0.00000       0.00000       0.00000
                         -----------------------------------------
 Total Dipole Moment    :      0.00000       0.00000       0.00000
@@ -515,8 +531,8 @@ Magnitude (Debye)      :      0.00000
 
 Timings for individual modules:
 
-Sum of individual times         ...        5.353 sec (=   0.089 min)
-GTO integral calculation        ...        2.870 sec (=   0.048 min)  53.6 %
-SCF iterations                  ...        2.483 sec (=   0.041 min)  46.4 %
+Sum of individual times         ...        0.167 sec (=   0.003 min)
+GTO integral calculation        ...        0.120 sec (=   0.002 min)  72.0 %
+SCF iterations                  ...        0.047 sec (=   0.001 min)  28.0 %
                              ****ORCA TERMINATED NORMALLY****
-TOTAL RUN TIME: 0 days 0 hours 0 minutes 7 seconds 916 msec
+TOTAL RUN TIME: 0 days 0 hours 0 minutes 0 seconds 732 msec

@@ -1,0 +1,11 @@
+
+	tolerance 2.0
+	filetype xyz
+	output test.packed.xyz
+	seed 1
+	
+	structure 0.xyz
+	  number 8
+	  inside box 0. 0. 0. 20.000000 20.000000 20.000000
+	end structure
+	
