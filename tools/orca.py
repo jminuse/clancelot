@@ -86,6 +86,19 @@ def read(input_file):
 	else:
 		charges_LOEWDIN = None
 
+	hold, charges_CHELPG = data, []
+	s = 'CHELPG Charges'
+	if hold.rfind(s) != -1:
+		hold = hold[hold.rfind(s):]
+		b = hold[:hold.find('\n\n')].split('\n')[2:]
+		for a in b:
+			a = a.split()
+			charges_CHELPG.append([a[1].split(':')[0],float(a[-1])])
+		for a, charge in zip(atoms, charges_LOEWDIN):
+			a.charge = charge[1]
+	else:
+		charges_CHELPG = None
+
 	# Get Total Simulation Time
 	hold = data
 	s = 'TOTAL RUN TIME'
@@ -150,6 +163,7 @@ def read(input_file):
 	data.energy = energy
 	data.charges_MULLIKEN = charges_MULLIKEN
 	data.charges_LOEWDIN = charges_LOEWDIN
+	data.charges_CHELPG = charges_CHELPG
 	data.charges = deepcopy(charges_MULLIKEN)
 	data.convergence = convergence
 	data.converged = converged

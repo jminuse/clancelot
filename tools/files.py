@@ -126,7 +126,7 @@ def read_xyz(name):
 
 def write_xyz(frames_or_system, name_or_file=None, ID='Atoms'):
 	# Determine whether input is an atom list (frames) or a system object
-	# If it is a system object, compile information to write cml file
+	# If it is a system object, compile information to write xyz file
 	if isinstance(frames_or_system, utils.System):
 		system = frames_or_system
 		frames = system.atoms
