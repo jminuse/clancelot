@@ -2,6 +2,7 @@ from merlin import *
 from subprocess import Popen
 from copy import deepcopy
 from shutil import copyfile
+import re
 
 def read(input_file):
 	# Check file exists, and open
@@ -21,6 +22,14 @@ def read(input_file):
 	except IndexError:
 		raise Exception('Could not find route line in %s: job most likely crashed.' % input_path)
 
+	# Get all the energies
+	energies = [float(e) for e in re.findall('FINAL SINGLE POINT ENERGY +(\S+)', data)]
+	
+	if len(energies) > 0:
+		energy = min(energies)
+	else:
+		energy = None
+		
 	# Get all the positions
 	section, frames = data, []
 	s = 'CARTESIAN COORDINATES (ANGSTROEM)'
@@ -34,17 +43,9 @@ def read(input_file):
 		frames.append(frame)
 
 	if len(frames) > 0:
-		atoms = frames[-1]
+		atoms = frames[ energies.index(energy) ]
 	else:
 		atoms = None
-
-	# Get all the energies
-	energies = [float(e) for e in re.findall('FINAL SINGLE POINT ENERGY +(\S+)', data)]
-	
-	if len(energies) > 0:
-		energy = energies[-1]
-	else:
-		energy = None
 
 	# Get charges
 	hold, charges_MULLIKEN = data, []
