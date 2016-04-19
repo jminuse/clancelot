@@ -39,13 +39,7 @@ def read(input_file):
 		atoms = None
 
 	# Get all the energies
-	section, energies = data, []
-	s = 'FINAL SINGLE POINT ENERGY'
-	while s in section:
-		section = section[section.find(s):]
-		energy_string = section[:section.find('\n')].split()[-1]
-		energies.append(float(energy_string))
-		section = section[section.find('\n'):]
+	energies = [float(e) for e in re.findall('FINAL SINGLE POINT ENERGY +(\S+)', data)]
 	
 	if len(energies) > 0:
 		energy = energies[-1]
