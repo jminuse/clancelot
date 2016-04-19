@@ -68,8 +68,10 @@ def write_cml(atoms_or_molecule_or_system, bonds=[], name=None):
 	else:
 		raise Exception('Unable to write cml file = %s' % (name))
 
-	bonds = [ (b.atoms[0].index, b.atoms[1].index) for b in bonds ]
-	bonds.sort()
+	for i,a in enumerate(atoms):
+		a.index_from_1 = i+1
+	bond_indices = [ (b.atoms[0].index_from_1 , b.atoms[1].index_from_1) for b in bonds ]
+	bond_indices.sort()
 
 	f = open(name, 'w')
 	f.write('<molecule>\n')
@@ -92,14 +94,14 @@ def write_cml(atoms_or_molecule_or_system, bonds=[], name=None):
 		if hasattr(a, 'type.charge'):
 			f.write(' formalCharge="%d"' % a.type.charge)
 
-		if hasattr(a, 'type_index'):
+		if hasattr(a, 'type_index') and a.type_index!=None:
 			f.write(' label="%d"' % a.type_index)
 		elif hasattr(a, 'label'):
 			f.write(' label="%s"' % str(a.label))
 		f.write('/>\n')
 	f.write(' </atomArray>\n <bondArray>\n')
-	for b in bonds:
-		f.write('  <bond atomRefs2="a%d a%d" order="1"/>\n' % b )
+	for pair in bond_indices:
+		f.write('  <bond atomRefs2="a%d a%d" order="1"/>\n' % pair )
 	f.write(' </bondArray>\n</molecule>')
 
 def read_xyz(name):

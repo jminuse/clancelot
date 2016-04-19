@@ -87,16 +87,19 @@ class DFT_out():
 
 def get_bonds(atoms):
 	bonds = []
-	for i,a in enumerate(atoms):
+	for a in atoms:
 		a.bonded = []
+	for i,a in enumerate(atoms):
 		for b in atoms[i+1:]:
 			dd = dist_squared(a,b)
 			if (a.element not in [1,'H'] and b.element not in [1,'H'] and dd<2**2) or (dd < 1.2**2 and (a.element in [1,'H'])!=(b.element in [1,'H']) ) or (dd < 2.8**2 and (a.element in ['Pb',82] or b.element in ['Pb',82]) ):
-				bonds.append( Bond(a,b) ) #offset from current, distance
+				bonds.append( Bond(a,b) )
+				if a not in b.bonded: b.bonded.append(a)
+				if b not in a.bonded: a.bonded.append(b)
 	return bonds
 
 def get_angles_and_dihedrals(atoms):
-	angles = [];
+	angles = []
 	for center in atoms:
 		if len(center.bonded)<2: continue
 		for i,a in enumerate(center.bonded):

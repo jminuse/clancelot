@@ -13,22 +13,13 @@ def read(input_file):
 		raise Exception('Expected orca output file does not exist at %s' % (input_path))
 		sys.exit()
 	data = open(input_path,'r').read()
+	data_lines = data.splitlines()
 
 	# Get the route line
-	hold, route = data, None
-	s = 'INPUT FILE'
-	if hold.find(s) != -1:
-		hold = hold[hold.find(s):]
-		hold = hold[:hold.find('END OF INPUT')].split('\n')
-		for h in hold:
-			if '1>' in h:
-				route = h
-				break
-		if route is not None:
-			route = route.split()
-			route = ' '.join(route[2:])
-		else:
-			raise Exception('Could not find route line in orca output file %s: job most likely crashed.' % input_path)
+	try:
+		route = [line[5:] for line in data_lines if line.startswith('|  1>')][0]
+	except IndexError:
+		raise Exception('Could not find route line in %s: job most likely crashed.' % input_path)
 
 	# Get all the positions
 	hold, frames = data, []
@@ -149,10 +140,9 @@ def read(input_file):
 	if hold.find(s) != -1:
 		converged = True
 
-	hold, finished = data, False
-	s = 'ORCA TERMINATED NORMALLY'
-	if hold.find(s) != -1:
-		finished = True
+	finished = 'ORCA TERMINATED NORMALLY' in data
+		
+	warnings = [line for line in data_lines if line.startswith('Warning: ')]
 
 	data = utils.DFT_out(input_file, 'orca')
 
@@ -171,6 +161,7 @@ def read(input_file):
 	data.bandgaps = bandgaps
 	data.bandgap = bandgap
 	data.finished = finished
+	data.warnings = warnings
 
 	return data
 
@@ -222,7 +213,7 @@ def engrad_read(input_file, force='Ha/Bohr', pos='Bohr'):
 	return atoms, energy
 
 # A function to run an Orca DFT Simulation
-def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, procs=1, charge_and_multiplicity='0 1', previous=None, mem=1000):
+def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, procs=1, charge=None, multiplicity=None, charge_and_multiplicity='0 1', previous=None, mem=4000):
 	if len(run_name) > 31 and queue is not None:
 		raise Exception("Job name too long (%d) for NBS. Max character length is 31." % len(run_name))
 
@@ -242,14 +233,13 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 	if previous is not None and atoms == []:
 		pwd = os.getcwd()
 		os.chdir('../../')
-		hold = read(previous)
+		old_results = read(previous)
 		os.chdir(pwd)
-		if " opt " in route.lower() or " sp " in route.lower(): #don't want lowest energy state for other job types
-			index = hold.energies.index(min(hold.energies)) 
-			atoms = hold.frames[index]
+		if " opt " in route.lower() or " sp " in route.lower(): # then take lowest energy from previous. Don't want lowest energy state for other job types. 
+			index = old_results.energies.index(min(old_results.energies)) 
+			atoms = old_results.frames[index]
 		else:
-			atoms = hold.frames[-1]
-		hold = None
+			atoms = old_results.frames[-1]
 
 	# If desiring .orca.engrad output, tell orca
 	if grad:
@@ -279,6 +269,10 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
  	# NO MORE CHANGES TO EXTRA_SECTION AFTER THIS!-------------------------------
  	# ---------------------------------------------------------------------------
 
+	if charge!=None or multiplicity!=None: #if either charge or multiplicity are specified, use that
+		if charge==None: charge = 0 #default neutral charge
+		if multiplicity==None: multiplicity = 1 #default singlet state
+		charge_and_multiplicity = '%d %d' % (charge, multiplicity)
 	# Get input for orca formatted correctly
 	inp = route.strip()+'\n'+extra_section.strip()+'\n*xyz '+charge_and_multiplicity+'\n'
 	for a in atoms:
