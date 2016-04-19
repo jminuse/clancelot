@@ -22,16 +22,16 @@ def read(input_file):
 		raise Exception('Could not find route line in %s: job most likely crashed.' % input_path)
 
 	# Get all the positions
-	hold, frames = data, []
+	section, frames = data, []
 	s = 'CARTESIAN COORDINATES (ANGSTROEM)'
-	while hold.find(s) != -1:
-		hold = hold[hold.find(s)+len(s):]
-		tmp = hold[:hold.find('\n\n')].split('\n')[2:]
-		tmp_atoms = []
-		for a in tmp:
-			a = a.split()
-			tmp_atoms.append(utils.Atom(a[0],float(a[1]),float(a[2]),float(a[3])))
-		frames.append(tmp_atoms)
+	while s in section:
+		section = section[section.find(s)+len(s):]
+		atom_block = section[:section.find('\n\n')].split('\n')[2:]
+		frame = []
+		for line in atom_block:
+			a = line.split()
+			frame.append(utils.Atom(a[0],float(a[1]),float(a[2]),float(a[3])))
+		frames.append(frame)
 
 	if len(frames) > 0:
 		atoms = frames[-1]
@@ -39,13 +39,13 @@ def read(input_file):
 		atoms = None
 
 	# Get all the energies
-	hold, energies = data, []
+	section, energies = data, []
 	s = 'FINAL SINGLE POINT ENERGY'
-	while hold.find(s) != -1:
-		hold = hold[hold.find(s):]
-		tmp = hold[:hold.find('\n')].split()[-1]
-		energies.append(float(tmp))
-		hold = hold[hold.find('\n'):]
+	while s in section:
+		section = section[section.find(s):]
+		energy_string = section[:section.find('\n')].split()[-1]
+		energies.append(float(energy_string))
+		section = section[section.find('\n'):]
 	
 	if len(energies) > 0:
 		energy = energies[-1]
