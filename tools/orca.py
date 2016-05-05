@@ -241,11 +241,12 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
  		if previous.startswith('/'): #accept absolute paths
  			previous_path = previous
  		else:
-	 		previous_path = '../'+previous+'/'+previous+'.orca.gbw'
+ 			current_dir = os.getcwd()
+	 		previous_path = current_dir+'/../'+previous+'/'+previous+'.orca.gbw'
  		if not os.path.isfile(previous_path):
- 			previous_path = '../'+previous+'/'+previous+'.orca.proc0.gbw'
+ 			previous_path = current_dir+'/../'+previous+'/'+previous+'.orca.proc0.gbw'
  		if not os.path.isfile(previous_path):
- 			raise Exception("Previous run %s does not have a .gbw file at %s." % (previous, previous_path))
+ 			raise Exception("Previous run does not have a .gbw file at %s." % (previous_path))
  		copyfile(previous_path, 'previous.gbw')
  		extra_section = extra_section.strip() + '\n%moinp "previous.gbw"'
  		
