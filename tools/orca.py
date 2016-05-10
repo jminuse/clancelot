@@ -123,7 +123,13 @@ def read(input_file):
 	s = 'Geometry convergence'
 	if hold.rfind(s) != -1:
 		hold = hold[hold.rfind(s)+len(s):]
-		tmp = hold[:hold.rfind('Max(Bonds)')].split('\n')[3:-2]
+
+		# Cartesian optimization does not compute Max(Bonds). Instead use a more general '\n\n' if 'Max(Bonds)'' cannot be found
+		if hold.rfind('Max(Bonds)') != -1:
+			tmp = hold[:hold.rfind('Max(Bonds)')].split('\n')[3:-2]
+		else:
+			tmp = hold[:hold.find('\n\n')].split('\n')[3:-1]
+
 		convergence = []
 		for a in tmp:
 			a = a.split()
