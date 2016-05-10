@@ -2,6 +2,7 @@ from merlin import *
 from subprocess import Popen
 from copy import deepcopy
 from shutil import copyfile
+import re
 
 def read(input_file):
 	# Check file exists, and open
@@ -10,7 +11,7 @@ def read(input_file):
 	else:
 		input_path = 'orca/%s/%s.out' % (input_file,input_file)
 	if not os.path.isfile(input_path):
-		raise Exception('Expected orca output file does not exist at %s' % (input_path))
+		raise IOError('Expected orca output file does not exist at %s' % (input_path))
 		sys.exit()
 	data = open(input_path,'r').read()
 	data_lines = data.splitlines()
@@ -19,38 +20,35 @@ def read(input_file):
 	try:
 		route = [line[5:] for line in data_lines if line.startswith('|  1>')][0]
 	except IndexError:
-		raise Exception('Could not find route line in %s: job most likely crashed.' % input_path)
-
-	# Get all the positions
-	hold, frames = data, []
-	s = 'CARTESIAN COORDINATES (ANGSTROEM)'
-	while hold.find(s) != -1:
-		hold = hold[hold.find(s)+len(s):]
-		tmp = hold[:hold.find('\n\n')].split('\n')[2:]
-		tmp_atoms = []
-		for a in tmp:
-			a = a.split()
-			tmp_atoms.append(utils.Atom(a[0],float(a[1]),float(a[2]),float(a[3])))
-		frames.append(tmp_atoms)
-
-	if len(frames) > 0:
-		atoms = frames[-1]
-	else:
-		atoms = None
+		raise IOError('Could not find route line in %s: job most likely crashed.' % input_path)
 
 	# Get all the energies
-	hold, energies = data, []
-	s = 'FINAL SINGLE POINT ENERGY'
-	while hold.find(s) != -1:
-		hold = hold[hold.find(s):]
-		tmp = hold[:hold.find('\n')].split()[-1]
-		energies.append(float(tmp))
-		hold = hold[hold.find('\n'):]
+	energies = [float(e) for e in re.findall('FINAL SINGLE POINT ENERGY +(\S+)', data)]
 	
 	if len(energies) > 0:
-		energy = energies[-1]
+		energy = min(energies)
 	else:
 		energy = None
+		
+	# Get all the positions
+	section, frames = data, []
+	s = 'CARTESIAN COORDINATES (ANGSTROEM)'
+	while s in section:
+		section = section[section.find(s)+len(s):]
+		atom_block = section[:section.find('\n\n')].split('\n')[2:]
+		frame = []
+		for line in atom_block:
+			a = line.split()
+			frame.append(utils.Atom(a[0],float(a[1]),float(a[2]),float(a[3])))
+		frames.append(frame)
+
+	if frames:
+		if energy is None:
+			atoms = frames[-1]
+		else:
+			atoms = frames[ energies.index(energy) ]
+	else:
+		atoms = None
 
 	# Get charges
 	hold, charges_MULLIKEN = data, []
@@ -170,9 +168,7 @@ def engrad_read(input_file, force='Ha/Bohr', pos='Bohr'):
 	if not input_file.endswith('.engrad'):
 		input_file = 'orca/%s/%s.orca.engrad' % (input_file,input_file)
 	if not os.path.isfile(input_file):
-		print("Currently in %s, searching for %s" % (os.getcwd(),input_file))
-		print("No engrad file exists. Please run simulation with grad=True.")
-		sys.exit()
+		raise IOError("No engrad file %s exists in %s. Please run simulation with grad=True." % (input_file,os.getcwd()))
 	data = open(input_file,'r').read().split('\n')
 	count, grad, atoms = 0, [], []
 	i = -1
@@ -229,18 +225,6 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 		#route += ' PAL%d' % procs
 		extra_section = '%pal nprocs '+str(procs)+' end\n' + extra_section.strip()
 
-	# If no atoms were specified, but previous was, grab lowest energy atoms
-	if previous is not None and atoms == []:
-		pwd = os.getcwd()
-		os.chdir('../../')
-		old_results = read(previous)
-		os.chdir(pwd)
-		if " opt " in route.lower() or " sp " in route.lower(): # then take lowest energy from previous. Don't want lowest energy state for other job types. 
-			index = old_results.energies.index(min(old_results.energies)) 
-			atoms = old_results.frames[index]
-		else:
-			atoms = old_results.frames[-1]
-
 	# If desiring .orca.engrad output, tell orca
 	if grad:
 		extra_section = extra_section.strip() + '''\n%method
@@ -251,19 +235,31 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
  	if mem is not None:
  		extra_section = extra_section.strip() + '\n%maxcore ' + str(mem).strip()
 
- 	# Add moread if previous
+ 	# Add moread if a previous orca job was provided
  	if previous is not None:
  		route = route.strip() + ' MORead'
+ 		current_dir = os.getcwd()
  		if previous.startswith('/'): #accept absolute paths
  			previous_path = previous
  		else:
-	 		previous_path = '../'+previous+'/'+previous+'.orca.gbw'
+	 		previous_path = current_dir+'/../'+previous+'/'+previous+'.orca.gbw'
+	 		if not os.path.isfile(previous_path):
+	 			if os.path.isfile(current_dir+'/../'+previous+'/'+previous+'.orca.proc0.gbw'):
+	 				previous_path = current_dir+'/../'+previous+'/'+previous+'.orca.proc0.gbw'
  		if not os.path.isfile(previous_path):
- 			previous_path = '../'+previous+'/'+previous+'.orca.proc0.gbw'
- 		if not os.path.isfile(previous_path):
- 			raise Exception("Previous run %s does not have a .gbw file at %s." % (previous, previous_path))
+ 			raise Exception("Previous run does not have a .gbw file at %s." % (previous_path))
  		copyfile(previous_path, 'previous.gbw')
- 		extra_section = extra_section.strip() + '\n%moinp "previous.gbw"' 
+ 		extra_section = extra_section.strip() + '\n%moinp "previous.gbw"'
+ 		
+ 		
+ 		# If no atoms were specified, get the atoms from the previous job
+		if atoms == []:
+			old_results = read(previous_path.replace('.orca.gbw','.out').replace('.orca.proc0.gbw','.out'))
+			if " opt " in route.lower() or " sp " in route.lower(): # then take lowest-energy atoms from previous job
+				index = old_results.energies.index(min(old_results.energies)) 
+				atoms = old_results.frames[index]
+			else: #otherwise just take the last atoms
+				atoms = old_results.frames[-1]
 
  	# ---------------------------------------------------------------------------
  	# NO MORE CHANGES TO EXTRA_SECTION AFTER THIS!-------------------------------
