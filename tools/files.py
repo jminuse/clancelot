@@ -259,6 +259,71 @@ def set_forcefield_parameters(atoms, bonds=[], angles=[], dihedrals=[], paramete
 
 	return atoms, bonds, angles, dihedrals
 
+def refresh_forcefield_parameters(atoms, bonds=[], angles=[], dihedrals=[], parameter_file=None, name='unnamed', extra_parameters={}, check_charges=True, allow_errors=False):
+	elements, atom_types, bond_types, angle_types, dihedral_types = [], [], [], [], []
+	if parameter_file:
+		elements, atom_types, bond_types, angle_types, dihedral_types = read_opls_parameters(parameter_file)
+
+	#add extra parameters, if any
+	for index2s,params in extra_parameters.items():
+		if type(index2s)==int: continue #skip these
+		if len(index2s)==2:
+			bond_types.append( utils.Struct(index2s=index2s, e=params[0], r=params[1]) )
+		elif len(index2s)==3:
+			angle_types.append( utils.Struct(index2s=index2s, e=params[0], angle=params[1]) )
+		elif len(index2s)==4:
+			dihedral_types.append( utils.Struct(index2s=index2s, e=tuple(params)) )
+
+	#set atom types
+	for a in atoms:
+		if a.type_index is None:
+			raise Exception('OPLS label is missing from atom %d' % (a.index))
+		#print(a.printSelf())
+		for t in atom_types:
+			if t.index==a.type_index:
+				a.type = t
+		for t in extra_parameters:
+			if t==a.type_index:
+				a.type = extra_parameters[t]
+
+	#set bond, angle, and dihedral types from parameter file
+	for x in bonds+angles+dihedrals:
+		index2s = tuple([a.type.index2 for a in x.atoms])
+		try:
+			# Match type from opls parameters. Updated to allow for wildcard torsions
+			for t in (bond_types+angle_types+dihedral_types):
+				# Check for wildcard torsions
+				if len(index2s) == 4 and len(t.index2s) == 4:
+					if t.index2s[0] == 0 and t.index2s[3] == 0:
+						match = t.index2s[1:3]==index2s[1:3] or t.index2s[1:3]==tuple(reversed(index2s))[1:3]
+					elif t.index2s[0] == 0:
+						match = t.index2s[1:4]==index2s[1:4] or t.index2s[1:4]==tuple(reversed(index2s))[1:4]
+					elif t.index2s[3] == 0:
+						match = t.index2s[0:3]==index2s[0:3] or t.index2s[0:3]==tuple(reversed(index2s))[0:3]
+					else:
+						match = t.index2s==index2s or t.index2s==tuple(reversed(index2s))
+
+				# Check bonds and angles
+				else:
+					match = t.index2s==index2s or t.index2s==tuple(reversed(index2s))
+
+				if match:
+					x.type = t
+					break
+
+			#print([t for t in bond_types+angle_types+dihedral_types if t.index2s==index2s or t.index2s==tuple(reversed(index2s))])
+			#print([t for t in bond_types+angle_types+dihedral_types if t.index2s==index2s or t.index2s==tuple(reversed(index2s))][0])
+			
+			#x.type = [t for t in bond_types+angle_types+dihedral_types if t.index2s==index2s or t.index2s==tuple(reversed(index2s))][0]
+		except: pass
+
+	if check_charges:
+		check_net_charge(atoms, name=name)
+
+	#check_consistency(atoms, bonds, angles, dihedrals, name=name, allow_errors=allow_errors)
+
+	return atoms, bonds, angles, dihedrals
+
 # Check charges to see if it is a neutral molecule
 # Requires force field parameters: type.charge
 # Raises exception if non-neutral. Consider changing to warning to allow non-neutral molecules
@@ -281,13 +346,18 @@ def check_consistency(atoms, bonds, angles, dihedrals, name='', allow_errors=Fal
 				continue
 			else: print 'Exit'; exit()
 
+#@profile
 def write_lammps_data(system, pair_coeffs_included=False):
 	#unpack values from system
 	atoms, bonds, angles, dihedrals, box_size, box_angles, run_name = system.atoms, system.bonds, system.angles, system.dihedrals, system.box_size, system.box_angles, system.name
 	#unpack lammps box parameters from system
 	xlo, ylo, zlo, xhi, yhi, zhi, xy, xz, yz = system.xlo, system.ylo, system.zlo, system.xhi, system.yhi, system.zhi, system.xy, system.xz, system.yz
+
+	#ignore angles with no energy
+	angles = [ang for ang in angles if ang.type.e > 0]
 	#ignore dihedrals with no energy
 	dihedrals = [d for d in dihedrals if any(d.type.e)]
+
 	#get list of unique atom types
 	atom_types = dict( [(t.type,True) for t in atoms] ).keys() #unique set of atom types
 	bond_types = dict( [(t.type,True) for t in bonds] ).keys()
