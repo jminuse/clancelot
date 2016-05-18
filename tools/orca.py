@@ -124,7 +124,7 @@ def read(input_file):
 	if hold.rfind(s) != -1:
 		hold = hold[hold.rfind(s)+len(s):]
 
-		# Cartesian optimization does not compute Max(Bonds). Instead use a more general '\n\n' if 'Max(Bonds)'' cannot be found
+		# Cartesian optimization does not compute Max(Bonds). Instead use a more general '\n\n' if 'Max(Bonds)' cannot be found
 		if hold.rfind('Max(Bonds)') != -1:
 			tmp = hold[:hold.rfind('Max(Bonds)')].split('\n')[3:-2]
 		else:
