@@ -213,10 +213,10 @@ elements_by_atomic_number = ['','H','He','Li','Be','B','C','N','O','F','Ne','Na'
 
 
 class Molecule():
-	def __init__(self, atoms_or_filename_or_all, bonds=None, angles=None, dihedrals=None, parameter_file='oplsaa.prm', extra_parameters={}, check_charges=True, allow_errors=False): #set atoms, bonds, etc, or assume 'atoms' contains all those things if only one parameter is passed in
+	def __init__(self, atoms_or_filename_or_all, bonds=None, angles=None, dihedrals=None, parameter_file='oplsaa.prm', extra_parameters={}, test_charges=True, allow_errors=False): #set atoms, bonds, etc, or assume 'atoms' contains all those things if only one parameter is passed in
 		if type(atoms_or_filename_or_all)==type('string'):
 			self.filename = atoms_or_filename_or_all
-			atoms, bonds, angles, dihedrals = files.read_cml(self.filename, parameter_file=parameter_file, extra_parameters=extra_parameters, check_charges=check_charges, allow_errors=allow_errors)
+			atoms, bonds, angles, dihedrals = files.read_cml(self.filename, parameter_file=parameter_file, extra_parameters=extra_parameters, test_charges=test_charges, allow_errors=allow_errors)
 		elif bonds:
 			atoms, bonds, angles, dihedrals = atoms_or_filename_or_all
 		else:

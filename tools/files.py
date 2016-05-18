@@ -3,7 +3,7 @@ import xml.etree.ElementTree as xml
 import utils
 
 # Read the Chemical Markup Language (CML)
-def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, check_charges=True, allow_errors=False):
+def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, test_charges=True, allow_errors=False):
 	if not name.endswith('.cml'):
 		name += '.cml'
 	tree = xml.parse(name)
@@ -41,7 +41,7 @@ def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, check_charg
 			angles, dihedrals = utils.get_angles_and_dihedrals(atoms)
 
 	if parameter_file:
-		atoms, bonds, angles, dihedrals = set_forcefield_parameters(atoms, bonds=bonds, angles=angles, dihedrals=dihedrals, name=name, parameter_file=parameter_file, extra_parameters=extra_parameters, check_charges=check_charges, allow_errors=allow_errors)
+		atoms, bonds, angles, dihedrals = set_forcefield_parameters(atoms, bonds=bonds, angles=angles, dihedrals=dihedrals, name=name, parameter_file=parameter_file, extra_parameters=extra_parameters, test_charges=test_charges, allow_errors=allow_errors)
 
 	return atoms, bonds, angles, dihedrals
 
@@ -196,7 +196,7 @@ read_opls_parameters.bond_types = None
 read_opls_parameters.angle_types = None
 read_opls_parameters.dihedral_types = None
 
-def set_forcefield_parameters(atoms, bonds=[], angles=[], dihedrals=[], parameter_file='oplsaa.prm', name='unnamed', extra_parameters={}, check_consistency=True, check_charges=True, allow_errors=False):
+def set_forcefield_parameters(atoms, bonds=[], angles=[], dihedrals=[], parameter_file='oplsaa.prm', name='unnamed', extra_parameters={}, test_consistency=True, test_charges=True, allow_errors=False):
 	elements, atom_types, bond_types, angle_types, dihedral_types = [], [], [], [], []
 
 	# If parameter_file set to None, only extra parameters will be passed.
@@ -256,10 +256,10 @@ def set_forcefield_parameters(atoms, bonds=[], angles=[], dihedrals=[], paramete
 			#x.type = [t for t in bond_types+angle_types+dihedral_types if t.index2s==index2s or t.index2s==tuple(reversed(index2s))][0]
 		except: pass
 
-	if check_charges:
+	if test_charges:
 		check_net_charge(atoms, name=name)
 
-	if check_consistency:
+	if test_consistency:
 		check_consistency(atoms, bonds, angles, dihedrals, name=name, allow_errors=allow_errors)
 
 	return atoms, bonds, angles, dihedrals
