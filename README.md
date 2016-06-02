@@ -51,7 +51,7 @@ TODO
   	- utils. elements_by_atomic_number  
   	- files.inp_to_xyz  
   - awk deprecated due to having in linter  
-1b. Things to adjust in code
+2. Things to adjust in code
   - Split utils classes and functions  
   - utils.get_bonds use vdw_r in constants  
   - utils.get_angles_and_dihedrals to get Impropers  
@@ -81,7 +81,7 @@ TODO
   - merge notes into readme documentation  
   - gcube console command  
   - awk console command
-2. Divide up documentation between people  
+3. Divide up documentation between people  
   - James:
   	- Utils classes, utils.rand_rotation, utils.opls stuff
   - Ace:
@@ -94,7 +94,7 @@ TODO
   	- neb
   	- gauss_err_fix, get_lists
   	- constants  
-3. Switch to pep8 style  
+4. Switch to pep8 style  
   - Fix variables:
   	- Underscore variables and functions
   	- Camal Case for classes
@@ -102,17 +102,17 @@ TODO
   - 160 char line limit  
   - Push variable declaration to top of file/function
 
-4. Subclass Exception to ClancelotException  
-5. Sublclass DeprecationWarning to ClancelotDeprecationWarning  
-6. Warnings & Exceptions & Deprecation file  
+5. Subclass Exception to ClancelotException  
+6. Sublclass DeprecationWarning to ClancelotDeprecationWarning  
+7. Warnings & Exceptions & Deprecation file  
 
-7. How to add new tests (commit hooks)  
-8. Pull out NBS  
+8. How to add new tests (commit hooks)  
+9. Pull out NBS  
 
-9. Quantum Espresso Support  
-10. LAMMPs Support - abstract out input file  
-11. Orca default routes? Best practices  
-12. Molecular monte carlo with toehee
+10. Quantum Espresso Support  
+11. LAMMPs Support - abstract out input file  
+12. Orca default routes? Best practices  
+13. Molecular monte carlo with toehee
 
-13. Glossary  
-14. structure and/or parameter (OPLS, ...) database  
+14. Glossary  
+15. structure and/or parameter (OPLS, ...) database  
