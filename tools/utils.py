@@ -2,7 +2,7 @@ import os, sys
 import math, copy, subprocess, time, numpy, re
 import files, constants
 from units import elem_i2s
-from warning import warn
+from warnings import warn
 
 class Struct:
 	def __init__(self, **kwargs):
