@@ -2,7 +2,8 @@ import os, sys
 import math, copy, subprocess, time, numpy, re
 import files, constants
 from units import elem_i2s
-from warnings import warn
+from warnings import warn, simplefilter
+simplefilter('always', DeprecationWarning)
 
 class Struct:
 	def __init__(self, **kwargs):
