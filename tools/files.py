@@ -392,7 +392,11 @@ def packmol(system, molecules, molecule_ratio=(1,), density=1.0, seed=1): #densi
 			a.x, a.y, a.z = atoms[i].x, atoms[i].y, atoms[i].z
 			i+=1
 
-def inp_to_xyz(name, write=False,outName=None):
+def inp_to_xyz(name, write=False, outName=None):
+	warn(
+        "this function is not used and will be removed soon.",
+        DeprecationWarning
+    )
 	data = open("gaussian/"+name+".inp",'r').read().split('\n')
 
 	# Get start of data

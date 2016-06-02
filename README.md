@@ -47,10 +47,10 @@ TODO
 
 1. Things to deprecate  
 
-  - [ ] In Utils:  
-  	- [ ] frange, quat_to_mat, matvec, matmat  
-  	- [ ] utils. elements_by_atomic_number  
-  	- [ ] files.inp_to_xyz  
+  - [x] In Utils:  
+  	- [x] frange, quat_to_mat, matvec, matmat  
+  	- [x] utils. elements_by_atomic_number  
+  	- [x] files.inp_to_xyz  
   - [ ] awk deprecated due to having in linter  
 2. Things to adjust in code  
   - [ ] Split utils classes and functions  
