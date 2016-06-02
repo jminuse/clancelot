@@ -42,3 +42,20 @@ If added to the project and you want to contribute, you can do the following:
 	
 		`git blame PATH/TO/FILE/FILE_NAME`
 
+
+TODO
+
+1. Pull out NBS  
+2. Subclass Exception to ClancelotException  
+3. Sublclass DeprecationWarning to ClancelotDeprecationWarning  
+4. Warnings & Exceptions & Deprecation file  
+5. Documentation
+  -
+  -
+  -
+6. Switch to pep8 style (or some style)  
+7. Quantum Espresso Support  
+8. LAMMPs Support - abstract out input file  
+9. Orca default routes? Best practices  
+10. How to add new tests (commit hooks)  
+11. 

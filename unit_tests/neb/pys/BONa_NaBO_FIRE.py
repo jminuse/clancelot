@@ -2,7 +2,7 @@ import sys
 import files, neb
 
 fptr = 'BONa_NaBO'
-frames = files.read_xyz('/fs/home/jms875/clancelot/unit_tests/neb/xyz/'+fptr+'.xyz')
+frames = files.read_xyz('/fs/home/hch54/clancelot/unit_tests/neb/xyz/'+fptr+'.xyz')
 opt = 'FIRE'
 route = '! HF-3c Grid3 FinalGrid5'
 
