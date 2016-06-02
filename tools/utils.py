@@ -71,12 +71,14 @@ class DFT_out():
 		self.dft = dft.lower()
 
 		# Initialize everything as None
+		self.route = None
 		self.frames = None
 		self.atoms = None
 		self.energies = None
 		self.energy = None
 		self.charges_MULLIKEN = None
 		self.charges_LOEWDIN = None
+		self.charges_CHELPG = None
 		self.charges = None
 		self.convergence = None
 		self.converged = None
@@ -84,6 +86,23 @@ class DFT_out():
 		self.bandgaps = None
 		self.bandgap = None
 		self.finished = None
+		self.warnings = None
+
+# A generic class to hold simulation data, aprticularly lammps trajectory files
+class sim_out():
+	def __init__(self, name, program='lammps'):
+		self.name = name
+		self.program = program.lower()
+
+		# Initialize everything as None
+		self.frames = None
+		self.atoms = None
+		self.timesteps = None
+		self.final_timestep = None
+		self.atom_counts = None
+		self.atom_count = None
+		self.box_bounds_list = None
+		self.box_bounds = None
 
 def get_bonds(atoms):
 	bonds = []
@@ -276,6 +295,13 @@ class System():
 
 	# Establish lammps triclinic box boundary conditions for this system
 	def setTriclinicBox(self, periodic, box_size, box_angles):
+		self.box_size[0] = box_size[0]
+		self.box_size[1] = box_size[1]
+		self.box_size[2] = box_size[2]
+		self.box_angles[0] = box_angles[0]
+		self.box_angles[1] = box_angles[1]
+		self.box_angles[2] = box_angles[2]
+
 		a = box_size[0]
 		b = box_size[1]
 		c = box_size[2]

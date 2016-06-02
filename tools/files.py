@@ -104,6 +104,104 @@ def write_cml(atoms_or_molecule_or_system, bonds=[], name=None):
 		f.write('  <bond atomRefs2="a%d a%d" order="1"/>\n' % pair )
 	f.write(' </bondArray>\n</molecule>')
 
+# Imports the atom style dump file from lammps. VMD automatically reads this when labelled as .lammpstrj
+def read_lammpstrj(name):
+	if not name.endswith('.lammpstrj') and '.' not in name:
+		name += '.lammpstrj'
+
+	data = open(name,'r').read()
+	data_lines = data.splitlines()
+
+	# Get all the positions
+	section, frames = data, []
+	s = 'ITEM: ATOMS id type x y z'
+	while s in section:
+		section = section[section.find(s)+len(s):]
+		atom_block = section[:section.find('\nITEM: TIMESTEP')].split('\n')[1:]
+		frame = []
+		for line in atom_block:
+			a = line.split()
+			frame.append(utils.Atom(a[1],float(a[2]),float(a[3]),float(a[4]),index=a[0]))
+		frames.append(frame)
+
+	if frames:
+		atoms = frames[-1]
+	else:
+		atoms = None
+
+	# Get all timesteps
+	section, timesteps = data, []
+	s = 'ITEM: TIMESTEP'
+	while s in section:
+		section = section[section.find(s)+len(s):]
+		tmp = section[:section.find('\nITEM: NUMBER OF ATOMS')].split('\n')[1:]
+		for line in tmp:
+			a = line.split()
+			timesteps.append(int(a[0]))
+
+	if len(timesteps) > 0:
+		final_timestep = timesteps[-1]
+	else:
+		final_timestep = None
+
+	# Get number of atoms. Useful if number of atoms change during simulation, such as during a deposition
+	section, atom_counts = data, []
+	s = 'ITEM: NUMBER OF ATOMS'
+	while s in section:
+		section = section[section.find(s)+len(s):]
+		tmp = section[:section.find('\nITEM: BOX BOUNDS')].split('\n')[1:]
+		for line in tmp:
+			a = line.split()
+			atom_counts.append(int(a[0]))
+
+	if len(atom_counts) > 0:
+		atom_count = atom_counts[-1]
+	else:
+		atom_count = None
+
+	# Get box bounds
+	# Currently only imports orthorhombic crystal information aka all angles = 90 degrees
+	section, box_bounds_list = data, []
+	s = 'ITEM: BOX BOUNDS'
+	while s in section:
+		section = section[section.find(s)+len(s):]
+		tmp = section[:section.find('\nTEM: ATOMS')].split('\n')[1:]
+		box_bounds = utils.Struct(xlo=None, xhi=None, ylo=None, yhi=None, zlo=None, zhi=None)
+
+		for line in tmp:
+			a = line.split()
+			if box_bounds.xlo is None:
+				box_bounds.xlo = float(a[0])
+				box_bounds.xhi = float(a[1])
+			elif box_bounds.ylo is None:
+				box_bounds.ylo = float(a[0])
+				box_bounds.yhi = float(a[1])
+			elif box_bounds.zlo is None:
+				box_bounds.zlo = float(a[0])
+				box_bounds.zhi = float(a[1])
+
+		box_bounds_list.append(box_bounds)
+
+	if len(box_bounds_list) > 0:
+		box_bounds = box_bounds_list[-1]
+	else:
+		box_bounds = None
+
+	# Create object to store all results
+	data = utils.sim_out(name, 'lammps')
+
+	# Record all lammps trajectory data into results object
+	data.frames = frames
+	data.atoms = atoms
+	data.timesteps = timesteps
+	data.final_timestep = final_timestep
+	data.atom_counts = atom_counts
+	data.atom_count = atom_count
+	data.box_bounds_list = box_bounds_list
+	data.box_bounds = box_bounds
+
+	return data
+
 def read_xyz(name):
 	if not name.endswith('.xyz') and '.' not in name:
 		name += '.xyz'
@@ -199,7 +297,7 @@ read_opls_parameters.dihedral_types = None
 def set_forcefield_parameters(atoms, bonds=[], angles=[], dihedrals=[], parameter_file='oplsaa.prm', name='unnamed', extra_parameters={}, test_consistency=True, test_charges=True, allow_errors=False):
 	elements, atom_types, bond_types, angle_types, dihedral_types = [], [], [], [], []
 
-	# If parameter_file set to None, only extra parameters will be passed.
+	# If parameter_file=None, only extra parameters will be passed.
 	if parameter_file:
 		elements, atom_types, bond_types, angle_types, dihedral_types = read_opls_parameters(parameter_file)
 
