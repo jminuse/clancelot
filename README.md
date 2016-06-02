@@ -45,17 +45,74 @@ If added to the project and you want to contribute, you can do the following:
 
 TODO
 
-1. Pull out NBS  
-2. Subclass Exception to ClancelotException  
-3. Sublclass DeprecationWarning to ClancelotDeprecationWarning  
-4. Warnings & Exceptions & Deprecation file  
-5. Documentation
-  -
-  -
-  -
-6. Switch to pep8 style (or some style)  
-7. Quantum Espresso Support  
-8. LAMMPs Support - abstract out input file  
-9. Orca default routes? Best practices  
-10. How to add new tests (commit hooks)  
-11. 
+1. Things to deprecate  
+  - In Utils:
+  	- frange, quat_to_mat, matvec, matmat
+  	- utils. elements_by_atomic_number  
+  	- files.inp_to_xyz  
+  - awk deprecated due to having in linter  
+1b. Things to adjust in code
+  - Split utils classes and functions  
+  - utils.get_bonds use vdw_r in constants  
+  - utils.get_angles_and_dihedrals to get Impropers  
+  - utils.rot_xyz flag for order of rotations
+  - update string function in classes (atom, bond, ...)
+  - Check class equality  
+  - Molecule ID num in system  
+  - system print atoms - to string
+  - utils.atom class - print statement - output style
+  - Change procrustes name  
+  - Merge utils.center_frames into utils.procrustes
+  - pretty_xyz -> smooth_frames
+  - move utils.colour stuff to another file  
+  - sysconst.py should be config file (or merlin to read conf)  
+  - separate folder for console commands  
+  - separate out optimizers from NEB  
+  - install constants and/or paths into merlin  
+  - strip out old log file code and implement more generalized one  
+  - document LJ, change name (benchmark), move to unit tests  
+  - move get lists python files to console commands folder, maybe add to only one file  
+  - move gauss_err_fix somewhere (console maybe?) - document
+  - overlapping atoms, 180 deg, build linter for g09 and orca
+  - OPLS in files to new MD Parameter file - make as class  
+  - files.check_net_charge -> utils.py  
+  - Lammps.py ?
+  - pysub to console commands dir  
+  - merge notes into readme documentation  
+  - gcube console command  
+  - awk console command
+2. Divide up documentation between people  
+  - James:
+  	- Utils classes, utils.rand_rotation, utils.opls stuff
+  - Ace:
+  	- utils.rot stuff
+  - Henry:
+  	- utils.improper_angle class distinction
+  	- units.py & exceptions
+  	- scanDFT, chkDFT  
+  	- orca
+  	- neb
+  	- gauss_err_fix, get_lists
+  	- constants  
+3. Switch to pep8 style  
+  - Fix variables:
+  	- Underscore variables and functions
+  	- Camal Case for classes
+  	- No 'hold' or 'tmp' or 'chk' variables!
+  - 160 char line limit  
+  - Push variable declaration to top of file/function
+
+4. Subclass Exception to ClancelotException  
+5. Sublclass DeprecationWarning to ClancelotDeprecationWarning  
+6. Warnings & Exceptions & Deprecation file  
+
+7. How to add new tests (commit hooks)  
+8. Pull out NBS  
+
+9. Quantum Espresso Support  
+10. LAMMPs Support - abstract out input file  
+11. Orca default routes? Best practices  
+12. Molecular monte carlo with toehee
+
+13. Glossary  
+14. structure and/or parameter (OPLS, ...) database  
