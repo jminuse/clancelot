@@ -61,10 +61,10 @@ def orca_start_job(NEB, i, state, procs, queue, force, initial_guess, extra_sect
         previous = '%s-%d-%d' % (NEB.name,NEB.step-1,i)
     else:
         if initial_guess:
-        	if hasattr(initial_guess, '__iter__'):
-        		previous = initial_guess[i]
-        	else:
-	            previous = initial_guess
+            if hasattr(initial_guess, '__iter__'):
+                previous = initial_guess[i]
+            else:
+                previous = initial_guess
         else:
             previous = None
     return orca.job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory, state, extra_section=extra_section, grad=True, procs=procs, queue=queue, previous=previous)
@@ -253,7 +253,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                         else: tangent /= np.linalg.norm(tangent)
                     
                         # Find spring forces parallel to tangent
-                        F_spring_parallel = 10*NEB.k*( utils.dist(c,b) - utils.dist(b,a) ) * tangent
+                        F_spring_parallel = NEB.k*( utils.dist(c,b) - utils.dist(b,a) ) * tangent
                         sum_spring += abs( utils.dist(c,b) - utils.dist(b,a) )
                         
                         E_hartree = 0.5*NEB.k*( utils.dist_squared(c,b) + utils.dist_squared(b,a) )
@@ -275,17 +275,16 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                         bb.fx, bb.fy, bb.fz = F_spring_parallel + F_real_perpendicular
                         
             #print 'R_spring =', sum_spring/len(NEB.states)/len(NEB.states[0])
-            #remove net translation forces from the gradient
-            
-			if frigid is not None:
-				for state in NEB.states[1:-1]:
-					net_force = np.zeros(3)
-					for a in state:
-						net_force += (a.fx, a.fy, a.fz)
-					for a in state:
-						a.fx -= net_force[0] / len(state)
-						a.fy -= net_force[1] / len(state)
-						a.fz -= net_force[2] / len(state)
+            # Remove net translation forces from the gradient
+            if frigid is not None:
+                for state in NEB.states[1:-1]:
+                    net_force = np.zeros(3)
+                    for a in state:
+                        net_force += (a.fx, a.fy, a.fz)
+                    for a in state:
+                        a.fx -= net_force[0] / len(state)
+                        a.fy -= net_force[1] / len(state)
+                        a.fz -= net_force[2] / len(state)
             
             # Get the RMF real force
             NEB.convergence = NEB.convergence**0.5
@@ -302,11 +301,11 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             NEB.RMS_force = RMS_force
                         
             # Print data
-            V = V[:1] + [ (e-V[0])/0.001 for e in V[1:] ]
+            V = V[:1] + [ units.convert_energy("Ha","kT_300",e-V[0]) for e in V[1:] ]
             if NEB.prv_RMS == None or NEB.prv_RMS > RMS_force:
-                rms = utils.color_set(RMS_force,'GREEN')
+                rms = utils.color_set(float("%.4f" % RMS_force),'GREEN')
             else:
-                rms = utils.color_set(RMS_force,'RED')
+                rms = utils.color_set(float("%.4f" % RMS_force),'RED')
             print NEB.step, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:]), rms, 'Ha/Ang'
             
             if NEB.prv_RMS is None: NEB.prv_RMS = RMS_force
@@ -415,7 +414,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 sys.exit()
             forces = -fprime(r)
             r += forces*alpha
-            #r = align_coordinates(r)
+            r = align_coordinates(r)
             step += 1
 
     def quick_min_optimizer(f, r, nframes, fprime, dt=0.1, step_max=0.1, euler=False, viscosity=0.1, maxiter=1000, gtol=1E-3): # dt = fs, step_max = angstroms, viscosity = 1/fs
