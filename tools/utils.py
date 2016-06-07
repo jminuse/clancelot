@@ -40,19 +40,22 @@ class Atom():
 		return self.printSelf()
 
 class Bond():
-	def __init__(self, a, b, type=None):
+	def __init__(self, a, b, type=None, r=None):
 		self.atoms = (a,b)
 		self.type = type
+		self.r = r
 
 class Angle():
-	def __init__(self, a, b, c, type=None):
+	def __init__(self, a, b, c, type=None, theta=None):
 		self.atoms = (a,b,c)
 		self.type = type
+		self.theta = theta
 
 class Dihedral():
-	def __init__(self, a, b, c, d, type=None):
+	def __init__(self, a, b, c, d, type=None, theta=None):
 		self.atoms = (a,b,c,d)
 		self.type = type
+		self.theta = theta
 
 class Job(): #a job on the queue
 	def __init__(self, name):
@@ -92,8 +95,8 @@ def get_bonds(atoms):
 	for i,a in enumerate(atoms):
 		for b in atoms[i+1:]:
 			dd = dist_squared(a,b)
-			if (a.element not in [1,'H'] and b.element not in [1,'H'] and dd<2**2) or (dd < 1.2**2 and (a.element in [1,'H'])!=(b.element in [1,'H']) ) or (dd < 2.8**2 and (a.element in ['Pb',82] or b.element in ['Pb',82]) ):
-				bonds.append( Bond(a,b) )
+			if (a.element not in [1,'H'] and b.element not in [1,'H'] and dd<2**2) or (dd < 1.2**2 and (a.element in [1,'H'])!=(b.element in [1,'H']) ) or (dd < 3.1**2 and (a.element in ['Pb',82] or b.element in ['Pb',82]) ):
+				bonds.append( Bond(a,b,r=dd**0.5) )
 				if a not in b.bonded: b.bonded.append(a)
 				if b not in a.bonded: a.bonded.append(b)
 	return bonds
@@ -110,7 +113,7 @@ def get_angles_and_dihedrals(atoms):
 				try:
 					theta = 180/math.pi*math.acos((A**2+B**2-N**2)/(2*A*B))
 				except: theta = 0.0
-				angles.append( Angle(a,center,b) )
+				angles.append( Angle(a,center,b,theta=theta) )
 	dihedral_set = {}
 	for angle in angles:
 		for a in angle.atoms[0].bonded:
