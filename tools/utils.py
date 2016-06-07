@@ -1,6 +1,9 @@
 import os, sys
 import math, copy, subprocess, time, numpy, re
 import files, constants
+from units import elem_i2s
+from warnings import warn, simplefilter
+simplefilter('always', DeprecationWarning)
 
 class Struct:
 	def __init__(self, **kwargs):
@@ -74,12 +77,14 @@ class DFT_out():
 		self.dft = dft.lower()
 
 		# Initialize everything as None
+		self.route = None
 		self.frames = None
 		self.atoms = None
 		self.energies = None
 		self.energy = None
 		self.charges_MULLIKEN = None
 		self.charges_LOEWDIN = None
+		self.charges_CHELPG = None
 		self.charges = None
 		self.convergence = None
 		self.converged = None
@@ -87,6 +92,23 @@ class DFT_out():
 		self.bandgaps = None
 		self.bandgap = None
 		self.finished = None
+		self.warnings = None
+
+# A generic class to hold simulation data, aprticularly lammps trajectory files
+class sim_out():
+	def __init__(self, name, program='lammps'):
+		self.name = name
+		self.program = program.lower()
+
+		# Initialize everything as None
+		self.frames = None
+		self.atoms = None
+		self.timesteps = None
+		self.final_timestep = None
+		self.atom_counts = None
+		self.atom_count = None
+		self.box_bounds_list = None
+		self.box_bounds = None
 
 def get_bonds(atoms):
 	bonds = []
@@ -132,11 +154,19 @@ def get_angles_and_dihedrals(atoms):
 	return angles, dihedrals
 
 def frange(low, high, step):
+	warn(
+        "similar functionality already exists in numpy. Please switch to np.arange.",
+        DeprecationWarning
+    )
 	while low < high:
 		yield low
 		low += step
 
 def quat_to_mat(q): #quat = [w i j k]
+	warn(
+        "this functionality may be possible in numpy.",
+        DeprecationWarning
+    )
 	d,b,c,a = q
 	return [ [a**2+b**2-c**2-d**2, 2*b*c-2*a*d, 2*b*d+2*a*c],
 	[2*b*c+2*a*d, a**2-b**2+c**2-d**2, 2*c*d-2*a*b],
@@ -144,9 +174,17 @@ def quat_to_mat(q): #quat = [w i j k]
 	]
 
 def matvec(m,v):
+	warn(
+        "this functionality may be possible in numpy.",
+        DeprecationWarning
+    )
 	return (m[0][0]*v[0] + m[0][1]*v[1] + m[0][2]*v[2], m[1][0]*v[0] + m[1][1]*v[1] + m[1][2]*v[2], m[2][0]*v[0] + m[2][1]*v[1] + m[2][2]*v[2])
 
 def matmat(a,b):
+	warn(
+        "this functionality may be possible in numpy.",
+        DeprecationWarning
+    )
 	product = [[0.]*3, [0.]*3, [0.]*3]
 	for y in range(3):
 		for x in range(3):
@@ -212,14 +250,11 @@ def rot_xyz(alpha, beta, gamma):
 	#M = matmat(matmat(rot_z(alpha), rot_y(beta)), rot_x(gamma))
 	return M
 
-elements_by_atomic_number = ['','H','He','Li','Be','B','C','N','O','F','Ne','Na','Mg','Al','Si','P','S','Cl','Ar','K','Ca','Sc','Ti','V','Cr','Mn','Fe','Co','Ni','Cu','Zn','Ga','Ge','As','Se','Br','Kr','Rb','Sr','Y','Zr','Nb','Mo','Tc','Ru','Rh','Pd','Ag','Cd','In','Sn','Sb','Te','I','Xe','Cs','Ba','La','Ce','Pr','Nd','Pm','Sm','Eu','Gd','Tb','Dy','Ho','Er','Tm','Yb','Lu','Hf','Ta','W','Re','Os','Ir','Pt','Au','Hg','Tl','Pb','Bi','Po','At','Rn','Fr','Ra','Ac','Th','Pa','U','Np','Pu','Am','Cm','Bk','Cf','Es','Fm','Md','No','Lr','Rf','Db','Sg','Bh','Hs','Mt','Ds','Rg','Cn','Uut','Fl','Uup','Lv','Uus','Uuo']
-
-
 class Molecule():
-	def __init__(self, atoms_or_filename_or_all, bonds=None, angles=None, dihedrals=None, parameter_file='oplsaa.prm', extra_parameters={}, check_charges=True, allow_errors=False): #set atoms, bonds, etc, or assume 'atoms' contains all those things if only one parameter is passed in
+	def __init__(self, atoms_or_filename_or_all, bonds=None, angles=None, dihedrals=None, parameter_file='oplsaa.prm', extra_parameters={}, test_charges=True, allow_errors=False): #set atoms, bonds, etc, or assume 'atoms' contains all those things if only one parameter is passed in
 		if type(atoms_or_filename_or_all)==type('string'):
 			self.filename = atoms_or_filename_or_all
-			atoms, bonds, angles, dihedrals = files.read_cml(self.filename, parameter_file=parameter_file, extra_parameters=extra_parameters, check_charges=check_charges, allow_errors=allow_errors)
+			atoms, bonds, angles, dihedrals = files.read_cml(self.filename, parameter_file=parameter_file, extra_parameters=extra_parameters, test_charges=test_charges, allow_errors=allow_errors)
 		elif bonds:
 			atoms, bonds, angles, dihedrals = atoms_or_filename_or_all
 		else:
@@ -279,6 +314,13 @@ class System():
 
 	# Establish lammps triclinic box boundary conditions for this system
 	def setTriclinicBox(self, periodic, box_size, box_angles):
+		self.box_size[0] = box_size[0]
+		self.box_size[1] = box_size[1]
+		self.box_size[2] = box_size[2]
+		self.box_angles[0] = box_angles[0]
+		self.box_angles[1] = box_angles[1]
+		self.box_angles[2] = box_angles[2]
+
 		a = box_size[0]
 		b = box_size[1]
 		c = box_size[2]
@@ -733,7 +775,7 @@ strip_colour = strip_color
 def opls_options(molecule, parameter_file='oplsaa.prm'):
 	elements, atom_types, bond_types, angle_types, dihedral_types = files.read_opls_parameters(parameter_file)
 
-	elements_by_structure_indices = dict( [ (t.index2, elements_by_atomic_number[t.element] ) for t in atom_types ] )
+	elements_by_structure_indices = dict( [ (t.index2, elem_i2s(t.element) ) for t in atom_types ] )
 	elements_by_structure_indices[0] = 'X'
 
 	def add_to_list(dic,key,value):
@@ -797,7 +839,7 @@ def opt_opls(molecule, parameter_file='oplsaa.prm', taboo_time=100):
 	for a in atoms:
 		a.possible_types = set()
 		for t in atom_types:
-			if elements_by_atomic_number[t.element] == a.element and t.bond_count==len(a.bonded):
+			if elem_i2s(t.element) == a.element and t.bond_count==len(a.bonded):
 				a.possible_types.add(t.index2)
 		a.possible_types = list(a.possible_types)
 		#a.possible_types.append(0)
