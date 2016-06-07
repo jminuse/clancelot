@@ -952,7 +952,8 @@ def spaced_print(sOut,delim=['\t',' '],buf=4):
 	# Get the longest length in the column
 	for i,s in enumerate(sOut):
 		s = re.split(delim,s)
-		for j,ss in enumerate(s):
+		for j,sss in enumerate(s):
+			ss = strip_colour(sss)
 			try: s_len[j] = len(ss) if len(ss)>s_len[j] else s_len[j] # This makes the part of the list for each column the longest length
 			except: s_len.append(len(ss)) # If we are creating a new column this happens
 	for i in range(len(s_len)): s_len[i] += buf # Now we add a buffer to each column
@@ -960,7 +961,7 @@ def spaced_print(sOut,delim=['\t',' '],buf=4):
 	# Compile string output
 	for i,s in enumerate(sOut):
 		s = re.split(delim,s)
-		for j,ss in enumerate(s): s[j] = ss + ''.join([' ']*(s_len[j]-len(ss)))
+		for j,ss in enumerate(s): s[j] = ss + ''.join([' ']*(s_len[j]-len(strip_colour(ss))))
 		sOut[i] = ''.join(s)
 
 	return '\n'.join(sOut)
