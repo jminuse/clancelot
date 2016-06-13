@@ -28,19 +28,23 @@ class Atom():
 	def translate(self, v):
 		self.x+=v[0]; self.y+=v[1]; self.z+=v[2]
 
-	def printSelf(self):
-		if self.type_index:
-			text = '%s, (%3.3f, %3.3f, %3.3f), index: %d, type_index: %d\n' % (self.element, self.x, self.y, self.z, self.index, self.type_index)
-		else:
-			text = '%s, (%3.3f, %3.3f, %3.3f), %d\n' % (self.element, self.x, self.y, self.z, self.index)
+	def to_string(self, verbose=False):
+		text = '%s, (%3.3f, %3.3f, %3.3f), index: %d' % (self.element, self.x, self.y, self.z, self.index)
 
-		if self.type:
+		if self.type_index:
+			text += ', type_index: %d' % (self.type_index)
+
+		text += ', molecule_index: %d' % (self.molecule_index)
+
+		if self.type and verbose:
 			text += str(self.type)
-			text += '\n'
+
+		text += '\n'
+
 		return text
 
 	def __str__(self):
-		return self.printSelf()
+		return self.to_string()
 
 class Bond():
 	def __init__(self, a, b, type=None, r=None):
@@ -274,15 +278,15 @@ class Molecule():
 		self.rotate(rand_m)
 
 	# Print all atoms
-	def printAtoms(self):
+	def to_string(self):
 		text = ''
 		for atom in self.atoms:
-			text += atom.printSelf()
+			text += atom.to_string()
 		return text
 
 	# When printing molecule, print all atoms
 	def __str__(self):
-		return self.printAtoms()
+		return self.to_string()
 
 
 class System():
@@ -367,10 +371,10 @@ class System():
 		self.molecules.append( new_molecule )
 
 	# Print all atoms
-	def printAtoms(self):
+	def to_string(self):
 		text = ''
 		for atom in self.atoms:
-			text += atom.printSelf()
+			text += atom.to_string()
 		return text
 
 def dist_squared(a,b):

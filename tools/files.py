@@ -121,7 +121,13 @@ def read_lammpstrj(name):
 		frame = []
 		for line in atom_block:
 			a = line.split()
-			frame.append(utils.Atom(a[1],float(a[2]),float(a[3]),float(a[4]),index=a[0]))
+
+			# Check if atom has expected number of characteristics
+			if len(a) == 5:
+				frame.append(utils.Atom(a[1],float(a[2]),float(a[3]),float(a[4]),index=a[0]))
+			else:
+				print('Atom skipped due to missing information')
+				
 		frames.append(frame)
 
 	if frames:
