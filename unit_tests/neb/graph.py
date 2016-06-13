@@ -2,7 +2,7 @@ import os, sys
 import matplotlib.pyplot as plt
 import matplotlib
 import numpy as np
-from utils import strip_colour
+from utils import strip_colour, spaced_print
 
 # Change font size
 matplotlib.rcParams.update({'font.size': 10})
@@ -13,12 +13,14 @@ def is_int(x):
 		return True
 	except: return False
 
-OLD_GRAPHS = './pys_chk/5/'
+OLD_GRAPHS = None
+#OLD_GRAPHS = './pys_chk/5/'
 NEW_GRAPHS = './pys/'
 LOOSE = 1
 TO_GRAPH_OPTS = ['BFGS','LBFGS','SD','QM','FIRE']
 TO_GRAPH_GEOM = ['CNH','CNLi','CNNa','CNK',
 				 'BOH','BOLi','BONa','BOK']
+SPACE_FIXING = {"LBFGS":"","BFGS":"  ","SD":"      ","QM":"     ","FIRE":"    "}
 
 best_data_new = {} # Will be stored as "CN$X_$OPT" or "BO$X_$OPT"
 best_data_old = {}
@@ -97,18 +99,41 @@ if OLD_GRAPHS is not None:
 for geom in TO_GRAPH_GEOM:
 	min_y_list = []
 	max_y_list = []
+	output_file_1 = open("figs/%s_1" % geom,"w")
+	output_file_2 = open("figs/%s_2" % geom,"w")
+	out_F_2_data = []
+	out_F_2_str = ""
 	for opt in TO_GRAPH_OPTS:
 		name = geom+"_"+opt
 		if name in best_data_old:
+			out_F_2_str += "%s_old\t" % opt
 			min_y_list.append(min(best_data_old[name][1]))
 			max_y_list.append(max(best_data_old[name][1]))
 			x1, y1, l1 = range(len(best_data_old[name][1])), best_data_old[name][1], opt+"_old    step %d,    %.4f Ha/Ang,    %.2f kT_300" % (best_data_old[name][0], best_data_old[name][2], max_y_list[-1])
+			out_F_2_data.append(y1)
 			plt.plot(x1, y1, label=l1)
+			output_file_1.write("%s\t%d\t%.4f\t%.2f\n" % (opt+"_old",best_data_old[name][0], best_data_old[name][2], max_y_list[-1]) )
 		if name in best_data_new:
 			min_y_list.append(min(best_data_new[name][1]))
 			max_y_list.append(max(best_data_new[name][1]))
-			x2, y2, l2 = range(len(best_data_new[name][1])), best_data_new[name][1], opt+"_new    step %d,    %.4f Ha/Ang,    %.2f kT_300" % (best_data_new[name][0], best_data_new[name][2], max_y_list[-1])
+			if OLD_GRAPHS is None: legend_name_identifier = ""
+			else: legend_name_identifier = "_new"
+			out_F_2_str += "%s%s\t" % (opt,legend_name_identifier)
+			x2, y2, l2 = range(len(best_data_new[name][1])), best_data_new[name][1], opt+"%s%s    step %d,    %.4f Ha/Ang,    %.2f kT_300" % (legend_name_identifier, SPACE_FIXING[opt], best_data_new[name][0], best_data_new[name][2], max_y_list[-1])
 			plt.plot(x2, y2, label=l2)
+			out_F_2_data.append(y2)
+			output_file_1.write("%s\t%d\t%.4f\t%.2f\n" % (opt+legend_name_identifier,best_data_new[name][0], best_data_new[name][2], max_y_list[-1]) )
+	output_file_1.close()
+
+	out_F_2_str += "\n"
+	for i in range(len(out_F_2_data[0])):
+		for j in range(len(out_F_2_data)):
+			out_F_2_str += "%.4f\t" % out_F_2_data[j][i]
+		out_F_2_str += "\n"
+
+	out_F_2_str = spaced_print(out_F_2_str,['\t'],buf=4)
+	output_file_2.write(out_F_2_str)
+	output_file_2.close()
 
 	plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
 
@@ -125,27 +150,5 @@ for geom in TO_GRAPH_GEOM:
 	plt.title("Isomerization of %s" % geom)
 	fig = plt.gcf()
 
-	#plt.figure(num=None, figsize=(8, 6), dpi=80, facecolor='w', edgecolor='k')
-
 	plt.savefig("./figs/%s" % (geom), dpi=100, bbox_inches='tight')
 	plt.clf()
-
-
-'''
-
-plt.plot(t, t, 'r--', t, t**2, 'bs', t, t**3, 'g^')
-plt.show()
-
-
-
-t = np.arange(0.0, 2.0, 0.01)
-s = np.sin(2*np.pi*t)
-plt.plot(t, s)
-
-plt.xlabel('time (s)')
-plt.ylabel('voltage (mV)')
-plt.title('About as simple as it gets, folks')
-plt.grid(True)
-plt.savefig("test.png")
-plt.show()
-'''
