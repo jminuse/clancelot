@@ -4,7 +4,7 @@ from getpass import getuser
 import re, time
 import getpass
 
-KNOWN_USERS = {"ns762":"Nikita", "hch54":"Henry", "bas348":"Blaire", "sb2326":"Vineeth", "rfh66":"Ryan", "yma3":"Ace", "te79":"Taha", "afh72":"Angela", "aec253":"Aaron"}
+KNOWN_USERS = {"ns728":"Nikita", "hch54":"Henry", "bas348":"Blaire", "sb2326":"Vineeth", "rfh66":"Ryan", "yma3":"Ace", "te79":"Taha", "afh72":"Angela", "aec253":"Aaron"}
 FLIPPED_USERS = {v: k for k, v in KNOWN_USERS.items()}
 
 class bc:
