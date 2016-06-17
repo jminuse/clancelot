@@ -16,6 +16,8 @@ queue = 'batch'
 
 print("Using testbench %s" % use_testbench)
 
+frigid = True
+
 if use_testbench == '1':
 	maxiter, gtol = 10, units.convert('eV/Ang','Ha/Ang',0.1)
 	route = '! M062X def2-TZVP Grid3 FinalGrid5'
@@ -78,6 +80,20 @@ elif use_testbench == '5':
 	DFT = 'orca'
 	mem = 40
 	Nmax = 20
+elif use_testbench == '6':
+	maxiter, gtol = 1000, units.convert('eV/Ang','Ha/Ang',0.05)
+	route = '! RI-B2PLYP D3BJ def2-TZVP def2-TZVP/C Grid3 FinalGrid5'
+	opts = ['QM','SD','FIRE','BFGS','LBFGS']
+	xyzs = ['CNH_HCN','CNLi_LiCN','CNNa_NaCN','CNK_KCN','BOH_HBO','BOLi_LiBO','BONa_NaBO','BOK_KBO']
+
+	## Ensure you maintain similarities between optimization methods
+	queue = 'long'
+	alpha = 0.1
+	dt = 0.1
+	DFT = 'orca'
+	mem = 40
+	Nmax = 20
+	frigid = False
 elif use_testbench == 'HF3c':
 	maxiter, gtol = 200, units.convert('eV/Ang','Ha/Ang',0.05)
 	route = '! HF-3c Grid3 FinalGrid5'
@@ -119,7 +135,7 @@ opt = '$OPT$'
 route = '$ROUTE$'
 
 run_name = fptr[:fptr.find('.xyz')] + '_' + opt
-neb.neb(run_name, frames, route, opt=opt, maxiter=$MAXITER$, gtol=$GTOL$, DFT='$DFT$', alpha=$ALPHA$, dt=$DT$, mem=$MEM$, Nmax=$NMAX$)'''
+neb.neb(run_name, frames, route, opt=opt, maxiter=$MAXITER$, gtol=$GTOL$, DFT='$DFT$', alpha=$ALPHA$, dt=$DT$, mem=$MEM$, Nmax=$NMAX$, frigid=$FRIGID$)'''
 
 		# Replace with defined test
 		s = s.replace('$FPTR$',fptr)
@@ -133,6 +149,7 @@ neb.neb(run_name, frames, route, opt=opt, maxiter=$MAXITER$, gtol=$GTOL$, DFT='$
 		s = s.replace('$NMAX$',str(Nmax))
 		s = s.replace('$USER$',user)
 		s = s.replace('$DFT$',DFT)
+		s = s.replace('$FRIGID$',str(frigid))
 
 		# Write the python file
 		f = open('pys/'+fptr + '_' + opt+'.py','w')
