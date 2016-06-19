@@ -21,21 +21,23 @@ TO_GRAPH_OPTS = ['BFGS','LBFGS','SD','QM','FIRE']
 TO_GRAPH_GEOM = ['CNH','CNLi','CNNa','CNK',
 				 'BOH','BOLi','BONa','BOK']
 SPACE_FIXING = {"LBFGS":"","BFGS":"  ","SD":"      ","QM":"     ","FIRE":"    "}
+BEST = {"BOH":22, "BOLi":37, "BONa":46, "BOK":31, "CNH":23, "CNLi":45, "CNNa":47, "CNK":49}
 
 best_data_new = {} # Will be stored as "CN$X_$OPT" or "BO$X_$OPT"
 best_data_old = {}
 
-if not os.path.isdir("./figs"): os.mkdir("figs")
+if not os.path.isdir("./figs2"): os.mkdir("figs2")
 
 # Read in best case data points of the new data set
 for fptr in os.listdir(NEW_GRAPHS):
 	LOOSE_FLAG = False
 	if not fptr.endswith(".log"): continue
+	opt = fptr.split("_")[0]
 	file_by_line = open(NEW_GRAPHS+fptr,'r').read().split('\n')
 	while len(file_by_line) > 0 and file_by_line[-1] == '': file_by_line = file_by_line[:-1]
 
-	last_line = file_by_line[-1].split()
-	while last_line == [] or not is_int(last_line[0]):
+	chosen_line = file_by_line[-1].split()
+	while chosen_line == [] or not is_int(chosen_line[0]) or int(chosen_line[0]) != BEST[opt]:
 		file_by_line = file_by_line[:-1]
 		if len(file_by_line) == 0:
 			if LOOSE:
@@ -44,7 +46,7 @@ for fptr in os.listdir(NEW_GRAPHS):
 				break
 			else:
 				raise Exception("Unable to find good last line in %s%s" % (NEW_GRAPHS, fptr))
-		last_line = file_by_line[-1].split()
+		chosen_line = file_by_line[-1].split()
 	if LOOSE_FLAG: continue
 
 	# Parse last line for this data point
@@ -53,9 +55,9 @@ for fptr in os.listdir(NEW_GRAPHS):
 	rms = None
 
 	try:
-		step = int(last_line[0])
-		energy_data += [float(x) for x in last_line[3:-2]]
-		rms = float(strip_colour(last_line[-2]))
+		step = int(chosen_line[0])
+		energy_data += [float(x) for x in chosen_line[3:-2]]
+		rms = float(strip_colour(chosen_line[-2]))
 
 		best_data_new[data_name] = [step, energy_data, rms]
 	except:
@@ -69,8 +71,8 @@ if OLD_GRAPHS is not None:
 		file_by_line = open(OLD_GRAPHS+fptr,'r').read().split('\n')
 		while len(file_by_line) > 0 and file_by_line[-1] == '': file_by_line = file_by_line[:-1]
 
-		last_line = file_by_line[-1].split()
-		while last_line == [] or not is_int(last_line[0]):
+		chosen_line = file_by_line[-1].split()
+		while chosen_line == [] or not is_int(chosen_line[0]):
 			file_by_line = file_by_line[:-1]
 			if len(file_by_line) == 0:
 				if LOOSE:
@@ -80,7 +82,7 @@ if OLD_GRAPHS is not None:
 				else:
 					raise Exception("Unable to find good last line in %s%s" % (OLD_GRAPHS, fptr))
 
-			last_line = file_by_line[-1].split()
+			chosen_line = file_by_line[-1].split()
 		if LOOSE_FLAG: continue
 		# Parse last line for this data point
 		data_name = fptr.split('_')[0] + '_' + fptr.split('.')[0].split('_')[-1]
@@ -88,9 +90,9 @@ if OLD_GRAPHS is not None:
 		rms = None
 
 		try:
-			step = int(last_line[0])
-			energy_data += [float(x) for x in last_line[3:-2]]
-			rms = float(strip_colour(last_line[-2]))
+			step = int(chosen_line[0])
+			energy_data += [float(x) for x in chosen_line[3:-2]]
+			rms = float(strip_colour(chosen_line[-2]))
 
 			best_data_old[data_name] = [step, energy_data, rms]
 		except:
@@ -99,8 +101,8 @@ if OLD_GRAPHS is not None:
 for geom in TO_GRAPH_GEOM:
 	min_y_list = []
 	max_y_list = []
-	output_file_1 = open("figs/%s_1" % geom,"w")
-	output_file_2 = open("figs/%s_2" % geom,"w")
+	output_file_1 = open("figs2/%s_1" % geom,"w")
+	output_file_2 = open("figs2/%s_2" % geom,"w")
 	out_F_2_data = []
 	out_F_2_str = ""
 	for opt in TO_GRAPH_OPTS:
@@ -150,5 +152,5 @@ for geom in TO_GRAPH_GEOM:
 	plt.title("Isomerization of %s" % geom)
 	fig = plt.gcf()
 
-	plt.savefig("./figs/%s" % (geom), dpi=100, bbox_inches='tight')
+	plt.savefig("./figs2/%s" % (geom), dpi=100, bbox_inches='tight')
 	plt.clf()
