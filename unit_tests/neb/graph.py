@@ -14,7 +14,7 @@ def is_int(x):
 	except: return False
 
 OLD_GRAPHS = None
-#OLD_GRAPHS = './pys_chk/5/'
+OLD_GRAPHS = './pys_chk/5/'
 NEW_GRAPHS = './pys/'
 LOOSE = 1
 TO_GRAPH_OPTS = ['BFGS','LBFGS','SD','QM','FIRE']

@@ -303,7 +303,7 @@ Popen('/fs/europa/g_pc/vmd-1.9 -e tmp.vmd', shell=True)\n''')
 if to_install['jsub']: f.write('complete -F _nbsAutoTab jsub\n\n')
 if to_install['jdel']: f.write('complete -F _jAutoTab jdel\n\n')
 if to_install['chkDFT']:
-	f.write("alias chkDFT='python "+INSTALLDIR+"tools/chkDFT.py'\n")
+	f.write("alias chkDFT='python "+INSTALLDIR+"console_scripts/chkDFT.py'\n")
 	f.write('''alias viewg='function _viewg(){chkDFT $1 -dft g09 -v $@};_viewg'
 alias viewo='function _viewo(){chkDFT $1 -dft orca -v $@};_viewo'
 alias chkg='function _chkg(){chkDFT $1 -dft g09 $@};_chkg'
