@@ -13,6 +13,7 @@ to_install = {
 'jsub':1,
 'jdel':1,
 'chkDFT':1,
+'chkMD':1,
 'scanDFT':1,
 'junest (formerly juju)':0,
 'anaconda':0, 				# a Python 2.7.9 distribution that installs to ~/anaconda
@@ -74,6 +75,7 @@ fi
 os.system('mkdir -p '+INSTALLDIR) # Ensure the install directory is made
 for key in to_install: # Make directories for what we want to install
 	if key == 'chkDFT': continue
+	if key == 'chkMD': continue
 	if key == 'jdel': continue
 	if key == 'jsub': continue
 	if key == 'vmd': continue
@@ -316,6 +318,12 @@ alias ogedit='function _ogedit(){gedit orca/$1/$1.out &};_ogedit'
 alias gedito='ogedit'
 alias otail='function _otail(){tail orca/$1/$1.out $2 $3};_otail'
 alias tailo='otail'\n''')
+if to_install['chkMD']:
+	f.write("alias chkMD='python "+INSTALLDIR+"tools/chkMD.py'\n")
+	f.write('''alias chkl='function _chkg(){chkMD $1 -v $@};_chkg'
+alias viewl='function _viewl(){chkDFT $1 -v $@};_viewl'
+alias lgedit='function _lgedit(){gedit lammps/$1/$1.log &};_lgedit'
+alias geditl='lgedit'\n''')
 if to_install['merlin']: f.write("alias merlin='python -i "+INSTALLDIR+"tools/merlin.py'\n")
 if to_install['scanDFT']: f.write("\nalias scanDFT='python "+INSTALLDIR+"tools/scanDFT.py'\n")
 if to_install['prnt']: f.write('''alias prnt='function _prnt(){ssh asimov "lpr -P hplj4525-365 -o sides=two-sided-long-edge -o InputSlot=Tray2 $PWD/$1;logout";echo "Printed..."};_prnt'\n''')

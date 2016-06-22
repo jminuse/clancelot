@@ -66,7 +66,7 @@ if '-vmd' in sys.argv or '-v' in sys.argv:
 # Read in data
 if md == 'lammps':
 	try:
-		lg, data_trj = lammps_job.read(run_name)
+		lg, data_trj = lammps_job.read(run_name, read_atoms=False, read_timesteps=True, read_num_atoms=False, read_box_bounds=False)
 	except IOError:
 		print("Error - lammps simulation %s does not exist." % run_name)
 		sys.exit()
@@ -77,8 +77,9 @@ else:
 # Get the header information
 head = 'Job Name: %s\n' % run_name
 head += 'MD calculation via %s\n' % md
-body = ''
+body, tail = '', ''
 
+# Check how many timesteps were written to the dump file and what the last timestep is
 try:
 	body += '# of Timesteps: %d, Final Timestep: %d\n' % (len(data_trj.timesteps), data_trj.final_timestep)
 except TypeError:
@@ -87,10 +88,16 @@ except:
 	print("An unexpected error has occurred.")
 	sys.exit()
 
+# Write when the files were last written to
+if lg.last_modified != 'Null':
+	tail += 'Log file last modified: %s\n' % (lg.last_modified)
+if data_trj.last_modified != 'Null':
+	tail += 'Dump file last modified: %s\n' % (data_trj.last_modified)
+
 length = max([len(tmp) for tmp in head.split('\n')] + [len(tmp) for tmp in body.split('\n')] + [len(tmp) for tmp in tail.split('\n')])
 dash = '\n'+''.join(['-']*length)+'\n'
 
-print(head+dash+body)
+print(dash+head+dash+body+dash+tail)
 
 try:
 	if len(data_trj.frames) > 0:
