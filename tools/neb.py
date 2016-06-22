@@ -80,7 +80,7 @@ def orca_results(NEB, step_to_use, i, state):
 
 
 def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queue=None,
-        disp=0, k=0.1837, frigid=True, start_job=None, get_results=None,
+        disp=0, k=0.1837, fit_rigid=True, start_job=None, get_results=None,
         DFT='orca', opt='LBFGS', gtol=1e-3, maxiter=1000,
         alpha=0.1, beta=0.5, tau=1E-3, reset=10, H_reset=True, Nmax=20,
         viscosity=0.1, dtmax=1.0, Nmin=5, finc=1.1, fdec=0.5, astart=0.1, fa=0.99,
@@ -222,7 +222,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             NEB.convergence = 0
 
             fake_states = copy.deepcopy(NEB.states)
-            if frigid:
+            if fit_rigid:
                 full_rotation = utils.procrustes(fake_states, append_in_loop=False)
                 #for m in full_rotation: print m
             sum_spring = 0.0
@@ -266,7 +266,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                         # Sum convergence check
                         NEB.convergence += b.fx**2 + b.fy**2 + b.fz**2
                         
-                        if frigid:
+                        if fit_rigid:
                             R = full_rotation[i-1]
                             R_inv = np.linalg.inv(R)
                             F_spring_parallel = np.dot(F_spring_parallel, R_inv)
@@ -276,7 +276,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                         
             #print 'R_spring =', sum_spring/len(NEB.states)/len(NEB.states[0])
             # Remove net translation forces from the gradient
-            if frigid is not None:
+            if fit_rigid is not None:
                 for state in NEB.states[1:-1]:
                     net_force = np.zeros(3)
                     for a in state:
@@ -406,7 +406,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
     ######################################################################################
     ######################################################################################
 
-    def steepest_descent(f, r, fprime, alpha=0.05, maxiter=1000, gtol=1E-3): #better, but tends to push error up eventually, especially towards endpoints.
+    def steepest_descent(f, r, fprime, alpha=0.05, maxiter=1000, gtol=1E-3, fit_rigid=True): #better, but tends to push error up eventually, especially towards endpoints.
         step = 0
         while (NEB.RMS_force > gtol) and (step < maxiter):
             if NEB.convergence < NEB.convergence_criteria:
@@ -414,10 +414,10 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 sys.exit()
             forces = -fprime(r)
             r += forces*alpha
-            r = align_coordinates(r)
+            if fit_rigid: r = align_coordinates(r)
             step += 1
 
-    def quick_min_optimizer(f, r, nframes, fprime, dt=0.1, step_max=0.1, euler=False, viscosity=0.1, maxiter=1000, gtol=1E-3): # dt = fs, step_max = angstroms, viscosity = 1/fs
+    def quick_min_optimizer(f, r, nframes, fprime, dt=0.1, step_max=0.1, euler=False, viscosity=0.1, maxiter=1000, gtol=1E-3, fit_rigid=True): # dt = fs, step_max = angstroms, viscosity = 1/fs
         v = np.array([0.0 for x in r])
         acc = np.array([0.0 for x in r])
 
@@ -498,12 +498,12 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 v = v_new
                 acc = a_new
             
-            r = align_coordinates(r)
+            if fit_rigid: r = align_coordinates(r)
 
             step += 1
 
     def fire_optimizer(f, r, nframes, fprime, dt = 0.1, dtmax = 1.0, step_max = 0.2, maxiter=1000, gtol=1E-3,
-                        Nmin = 5, finc = 1.1, fdec = 0.5, astart = 0.1, fa = 0.99, euler = True):
+                        Nmin = 5, finc = 1.1, fdec = 0.5, astart = 0.1, fa = 0.99, euler = True, fit_rigid=True):
 
         v = np.array([0.0 for x in r])
         Nsteps = 0
@@ -545,7 +545,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 #move atoms
                 r += v * dt
 
-            r = align_coordinates(r)
+            if fit_rigid: r = align_coordinates(r)
 
             step += 1
 
@@ -568,7 +568,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             print("\tgtol = %lg, max_iterations = %d, MAX_STEP = %lg" % (gradient_tolerance, max_iterations, MAX_STEP))
             print("\t-------------------")
             print("\tMAX_BACKTRACK = %s, reset_step_size = %s, MIN_STEP = %lg, BACKTRACK_EPS = %lg" % (str(MAX_BACKTRACK), str(reset_step_size), MIN_STEP, BACKTRACK_EPS))
-            print("\tfrigid = %s\n" % str(fit_rigid))
+            print("\tfit_rigid = %s\n" % str(fit_rigid))
         def vecnorm(x, ord=2):
             if ord == np.Inf:
                 return np.amax(np.abs(x))
@@ -587,7 +587,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         initial_coordinates = np.asarray(initial_coordinates).flatten()
         if initial_coordinates.ndim == 0:
             initial_coordinates.shape = (1,)
-        current_coordinates = align_coordinates(initial_coordinates)
+        if fit_rigid: current_coordinates = align_coordinates(initial_coordinates)
+        else: current_coordinates = copy.deepcopy(initial_coordinates)
 
         # Initialize stored coordinates and gradients
         stored_coordinates = []
@@ -871,7 +872,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             print("\tgtol = %lg, max_iterations = %d, MAX_STEP = %lg" % (gradient_tolerance, max_iterations, MAX_STEP))
             print("\t-------------------")
             print("\tMAX_BACKTRACK = %s, reset_step_size = %s, MIN_STEP = %lg, BACKTRACK_EPS = %lg" % (str(MAX_BACKTRACK), str(reset_step_size), MIN_STEP, BACKTRACK_EPS))
-            print("\tfrigid = %s\n" % str(fit_rigid))
+            print("\tfit_rigid = %s\n" % str(fit_rigid))
         def vecnorm(x, ord=2):
             if ord == np.Inf:
                 return np.amax(np.abs(x))
@@ -890,7 +891,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         initial_coordinates = np.asarray(initial_coordinates).flatten()
         if initial_coordinates.ndim == 0:
             initial_coordinates.shape = (1,)
-        current_coordinates = align_coordinates(initial_coordinates)
+        if fit_rigid: current_coordinates = align_coordinates(initial_coordinates)
+        else: current_coordinates = copy.deepcopy(initial_coordinates)
 
         # Initialize inv Hess and Identity matrix
         I = np.eye(len(current_coordinates), dtype=int)
@@ -1139,25 +1141,25 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         scipy.optimize.broyden1(NEB.get_gradient, np.array(NEB.coords_start), alpha=float(alpha), verbose=(disp != 0))
     elif opt == 'QM':
         quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, 
-            fprime=NEB.get_gradient, dt=dt, viscosity=viscosity, step_max=step_max, euler=euler, maxiter=maxiter, gtol=gtol)
+            fprime=NEB.get_gradient, dt=dt, viscosity=viscosity, step_max=step_max, euler=euler, maxiter=maxiter, gtol=gtol, fit_rigid=fit_rigid)
     elif opt == 'FIRE':
         fire_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, 
             fprime=NEB.get_gradient, dt=dt, dtmax=dtmax, step_max=step_max,
-            Nmin=Nmin, finc=finc, fdec=fdec, astart=astart, fa=fa, euler=euler, maxiter=maxiter, gtol=gtol)
+            Nmin=Nmin, finc=finc, fdec=fdec, astart=astart, fa=fa, euler=euler, maxiter=maxiter, gtol=gtol, fit_rigid=fit_rigid)
     elif opt == 'BFGS':
         bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.get_gradient,
             step_size=float(alpha), step_size_adjustment=float(beta), armijio_line_search_factor=float(tau), reset_when_in_trouble=H_reset,
-            gradient_tolerance=float(gtol), max_iterations=int(maxiter), fit_rigid=frigid, linesearch=linesearch, reset_step_size=reset,
+            gradient_tolerance=float(gtol), max_iterations=int(maxiter), fit_rigid=fit_rigid, linesearch=linesearch, reset_step_size=reset,
             MAX_STEP=float(step_max), display=disp
             )
     elif opt == 'LBFGS':
         lbfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.get_gradient,
             step_size=float(alpha), step_size_adjustment=float(beta), armijio_line_search_factor=float(tau), reset_when_in_trouble=H_reset,
-            gradient_tolerance=float(gtol), max_iterations=int(maxiter), fit_rigid=frigid, linesearch=linesearch, reset_step_size=reset,
+            gradient_tolerance=float(gtol), max_iterations=int(maxiter), fit_rigid=fit_rigid, linesearch=linesearch, reset_step_size=reset,
             MAX_STEP=float(step_max), max_steps_remembered=Nmax, display=disp
             )
     elif opt == 'SD':
-        steepest_descent(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=alpha, maxiter=maxiter, gtol=gtol)
+        steepest_descent(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=alpha, maxiter=maxiter, gtol=gtol, fit_rigid=fit_rigid)
     else:
         print("\nERROR - %s optimizations method does not exist! Choose from the following:" % str(opt))
         print("\t1. BFGS")

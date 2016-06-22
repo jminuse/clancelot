@@ -16,7 +16,7 @@ queue = 'batch'
 
 print("Using testbench %s" % use_testbench)
 
-frigid = True
+fit_rigid = True
 
 if use_testbench == '1':
 	maxiter, gtol = 10, units.convert('eV/Ang','Ha/Ang',0.1)
@@ -93,7 +93,7 @@ elif use_testbench == '6':
 	DFT = 'orca'
 	mem = 40
 	Nmax = 20
-	frigid = False
+	fit_rigid = False
 elif use_testbench == 'HF3c':
 	maxiter, gtol = 200, units.convert('eV/Ang','Ha/Ang',0.05)
 	route = '! HF-3c Grid3 FinalGrid5'
@@ -135,7 +135,7 @@ opt = '$OPT$'
 route = '$ROUTE$'
 
 run_name = fptr[:fptr.find('.xyz')] + '_' + opt
-neb.neb(run_name, frames, route, opt=opt, maxiter=$MAXITER$, gtol=$GTOL$, DFT='$DFT$', alpha=$ALPHA$, dt=$DT$, mem=$MEM$, Nmax=$NMAX$, frigid=$FRIGID$)'''
+neb.neb(run_name, frames, route, opt=opt, maxiter=$MAXITER$, gtol=$GTOL$, DFT='$DFT$', alpha=$ALPHA$, dt=$DT$, mem=$MEM$, Nmax=$NMAX$, fit_rigid=$FIT_RIGID$)'''
 
 		# Replace with defined test
 		s = s.replace('$FPTR$',fptr)
@@ -149,7 +149,7 @@ neb.neb(run_name, frames, route, opt=opt, maxiter=$MAXITER$, gtol=$GTOL$, DFT='$
 		s = s.replace('$NMAX$',str(Nmax))
 		s = s.replace('$USER$',user)
 		s = s.replace('$DFT$',DFT)
-		s = s.replace('$FRIGID$',str(frigid))
+		s = s.replace('$FIT_RIGID$',str(fit_rigid))
 
 		# Write the python file
 		f = open('pys/'+fptr + '_' + opt+'.py','w')

@@ -11,7 +11,7 @@ USERNAME = getuser()
 dft, u1, u2, scale, out_name, vmd, me = 'g09', 'Ha', 'Ha', 1.0, 'out', False, False
 dft_list = [dft,'orca']
 
-if '-h' in sys.argv or '-help' in sys.argv:
+if '-h' in sys.argv or '-help' in sys.argv or len(sys.argv) < 2:
 	print('''
 chkDFT
 ---------
