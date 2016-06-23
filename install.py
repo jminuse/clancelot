@@ -82,6 +82,7 @@ for key in to_install: # Make directories for what we want to install
 	if key == 'vmd': continue
 	if key == 'view_lmp': continue
 	if key == 'scanDFT': continue
+	if key == 'pysub': continue
 	if key == 'junest (formerly juju)': continue
 	if key == 'python 2.7.10': continue
 	if key == 'numpy': continue
