@@ -50,6 +50,11 @@ def elem_weight(elem):
 	print("Warning - No weight found for %s!" % str(elem))
 	return -1
 
+def elem_sym_from_weight(weight, delta=1e-1):
+	for elem in PERIODIC_TABLE[1:]:
+		if abs(weight-elem['weight']) < delta: return elem['sym']
+	raise Exception("Unable to find element of weight %lg" % weight)
+
 def convert(old,new,val):
 	#print("Converting %lg %s to " % (val,old)),
 

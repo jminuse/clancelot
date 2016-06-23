@@ -92,7 +92,7 @@ INFO   : the flag for use of LIBINT has been found!
 ================================================================================
 NAME = test.orca
 |  1> ! HF-3c MORead
-|  2> %maxcore 1000
+|  2> %maxcore 4000
 |  3> %moinp "previous.gbw"
 |  4> *xyz 0 1
 |  5> H 0.000000 0.000000 0.000000 
@@ -202,9 +202,9 @@ Prescreening statistics:
  # of negligible batches done            ...          0 (  0.0%)
 
 Timings:
- Total evaluation time               ...     0.085 sec (   0.001 min)
- One electron matrix time            ...     0.006 sec (   0.000 min) =  7.6%
- Schwartz matrix evaluation time     ...     0.043 sec (   0.001 min) = 50.1%
+ Total evaluation time               ...     0.079 sec (   0.001 min)
+ One electron matrix time            ...     0.005 sec (   0.000 min) =  5.7%
+ Schwartz matrix evaluation time     ...     0.042 sec (   0.001 min) = 53.7%
  Repulsion integral time             ...     0.000 sec (   0.000 min) =  0.0%
 
 -------------------------------------------------------------------------------
@@ -273,8 +273,8 @@ Smallest eigenvalue                        ... 5.111e-01
 Time for diagonalization                   ...    0.000 sec
 Threshold for overlap eigenvalues          ... 1.000e-08
 Number of eigenvalues below threshold      ... 0
-Time for construction of square roots      ...    0.003 sec
-Total time needed                          ...    0.003 sec
+Time for construction of square roots      ...    0.002 sec
+Total time needed                          ...    0.002 sec
 
 -----------------------------------------
 INITIAL GUESS: POLARIZED ATOMIC DENSITIES
@@ -292,7 +292,7 @@ Initial density was built
                       ------------------
 
  InCore treatment chosen:
-   Memory dedicated               ...    1000 MB
+   Memory dedicated               ...    4000 MB
    Memory needed                  ...      0 MB
    Number of tiny    integrals    ...       0
    Number of small   integrals    ...       0
@@ -415,18 +415,18 @@ TIMINGS
 
 Total SCF time: 0 days 0 hours 0 min 0 sec 
 
-Total time                  ....       0.032 sec
-Sum of individual times     ....       0.015 sec  ( 46.2%)
+Total time                  ....       0.024 sec
+Sum of individual times     ....       0.012 sec  ( 51.2%)
 
-Fock matrix formation       ....       0.007 sec  ( 22.7%)
-Diagonalization             ....       0.000 sec  (  0.0%)
+Fock matrix formation       ....       0.007 sec  ( 30.1%)
+Diagonalization             ....       0.000 sec  (  0.8%)
 Density matrix formation    ....       0.000 sec  (  0.0%)
-Population analysis         ....       0.005 sec  ( 15.6%)
-Initial guess               ....       0.000 sec  (  0.7%)
+Population analysis         ....       0.004 sec  ( 15.7%)
+Initial guess               ....       0.000 sec  (  0.9%)
 Orbital Transformation      ....       0.000 sec  (  0.0%)
 Orbital Orthonormalization  ....       0.000 sec  (  0.0%)
 DIIS solution               ....       0.000 sec  (  0.0%)
-SOSCF solution              ....       0.002 sec  (  7.2%)
+SOSCF solution              ....       0.001 sec  (  3.6%)
 
 Entering the calculation of the dispersion correction...
 
@@ -515,8 +515,8 @@ Magnitude (Debye)      :      0.00000
 
 Timings for individual modules:
 
-Sum of individual times         ...        0.174 sec (=   0.003 min)
-GTO integral calculation        ...        0.123 sec (=   0.002 min)  70.5 %
-SCF iterations                  ...        0.051 sec (=   0.001 min)  29.5 %
+Sum of individual times         ...        0.157 sec (=   0.003 min)
+GTO integral calculation        ...        0.116 sec (=   0.002 min)  73.5 %
+SCF iterations                  ...        0.042 sec (=   0.001 min)  26.5 %
                              ****ORCA TERMINATED NORMALLY****
-TOTAL RUN TIME: 0 days 0 hours 0 minutes 0 seconds 516 msec
+TOTAL RUN TIME: 0 days 0 hours 0 minutes 0 seconds 291 msec

@@ -1,6 +1,8 @@
 import os, re
 import xml.etree.ElementTree as xml
 import utils
+import datetime
+from warnings import warn
 
 # Read the Chemical Markup Language (CML)
 def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, test_charges=True, allow_errors=False):
@@ -105,17 +107,22 @@ def write_cml(atoms_or_molecule_or_system, bonds=[], name=None):
 	f.write(' </bondArray>\n</molecule>')
 
 # Imports the atom style dump file from lammps. VMD automatically reads this when labelled as .lammpstrj
-def read_lammpstrj(name):
+# Default is to import everything but you will get better performance if you turn off the data you do not need
+def read_lammpstrj(name, read_atoms=True, read_timesteps=True, read_num_atoms=True, read_box_bounds=True):
 	if not name.endswith('.lammpstrj') and '.' not in name:
 		name += '.lammpstrj'
 
-	data = open(name,'r').read()
-	data_lines = data.splitlines()
+	# If file does not exist, return empty lammpstrj object
+	if not os.path.isfile(name):
+		warn('Expected lammps trajectory file does not exist at %s' % (name))
+		data = ''
+	else:
+		data = open(name,'r').read()
 
 	# Get all the positions
 	section, frames = data, []
 	s = 'ITEM: ATOMS id type x y z'
-	while s in section:
+	while read_atoms and (s in section):
 		section = section[section.find(s)+len(s):]
 		atom_block = section[:section.find('\nITEM: TIMESTEP')].split('\n')[1:]
 		frame = []
@@ -127,7 +134,7 @@ def read_lammpstrj(name):
 				frame.append(utils.Atom(a[1],float(a[2]),float(a[3]),float(a[4]),index=a[0]))
 			else:
 				print('Atom skipped due to missing information')
-				
+
 		frames.append(frame)
 
 	if frames:
@@ -138,7 +145,7 @@ def read_lammpstrj(name):
 	# Get all timesteps
 	section, timesteps = data, []
 	s = 'ITEM: TIMESTEP'
-	while s in section:
+	while read_timesteps and (s in section):
 		section = section[section.find(s)+len(s):]
 		tmp = section[:section.find('\nITEM: NUMBER OF ATOMS')].split('\n')[1:]
 		for line in tmp:
@@ -153,7 +160,7 @@ def read_lammpstrj(name):
 	# Get number of atoms. Useful if number of atoms change during simulation, such as during a deposition
 	section, atom_counts = data, []
 	s = 'ITEM: NUMBER OF ATOMS'
-	while s in section:
+	while read_num_atoms and (s in section):
 		section = section[section.find(s)+len(s):]
 		tmp = section[:section.find('\nITEM: BOX BOUNDS')].split('\n')[1:]
 		for line in tmp:
@@ -169,9 +176,9 @@ def read_lammpstrj(name):
 	# Currently only imports orthorhombic crystal information aka all angles = 90 degrees
 	section, box_bounds_list = data, []
 	s = 'ITEM: BOX BOUNDS'
-	while s in section:
+	while read_box_bounds and (s in section):
 		section = section[section.find(s)+len(s):]
-		tmp = section[:section.find('\nTEM: ATOMS')].split('\n')[1:]
+		tmp = section[:section.find('\nITEM: ATOMS')].split('\n')[1:]
 		box_bounds = utils.Struct(xlo=None, xhi=None, ylo=None, yhi=None, zlo=None, zhi=None)
 
 		for line in tmp:
@@ -205,6 +212,7 @@ def read_lammpstrj(name):
 	data.atom_count = atom_count
 	data.box_bounds_list = box_bounds_list
 	data.box_bounds = box_bounds
+	data.last_modified = 'Null' # Stores when lammpstrj was last modified in seconds
 
 	return data
 
@@ -532,3 +540,12 @@ def inp_to_xyz(name, write=False, outName=None):
 		atoms.append(utils.Atom(element=d[0], x=float(d[1]), y=float(d[2]), z=float(d[3]), index=i))
 
 	return atoms
+
+# Returns the last time a file was modified in seconds
+def last_modified(name):
+	if not os.path.isfile(name):
+		warn('Expected file does not exist at %s' % (name))
+		return 0
+
+	statinfo = os.stat(name)
+	return datetime.datetime.fromtimestamp(statinfo.st_mtime)

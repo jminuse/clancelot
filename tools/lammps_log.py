@@ -54,6 +54,7 @@ l.write("file.txt","Time","PE",...)  write listed vectors to a file
 # Imports and external programs
 import sys, re, glob
 from os import popen
+from files import last_modified
 
 try: tmp = PIZZA_GUNZIP
 except: PIZZA_GUNZIP = "gunzip"
@@ -68,6 +69,7 @@ class lammps_log:
 		self.names = []
 		self.ptr = {}
 		self.data = []
+		self.last_modified = 'Null' # Stores when log file was last modified in seconds
 
 		# flist = list of all log file names
 
@@ -94,14 +96,14 @@ class lammps_log:
 
 		# read all files
 		for file in self.flist:
-			print('Reading %s' % (file))
+			#print('Reading %s' % (file))
 			self.read_one(file)
 
 		# sort entries by timestep, cull duplicates
 		self.data.sort(self.compare)
 		self.cull()
 		self.nlen = len(self.data)
-		print('read %d log entries' % (self.nlen))
+		#print('read %d log entries' % (self.nlen))
 
 	# --------------------------------------------------------------------
 	def next(self):
@@ -347,7 +349,7 @@ class lammps_log:
 					self.data.append(map(float,words))
 
 			# print last timestep of chunk
-			print('Final timestep in chunk: %d' % (int(self.data[len(self.data)-1][0])) )
+			#print('Final timestep in chunk: %d' % (int(self.data[len(self.data)-1][0])) )
 			sys.stdout.flush()
 
 		return eof
