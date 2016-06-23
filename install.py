@@ -14,6 +14,7 @@ to_install = {
 'jdel':1,
 'chkDFT':1,
 'chkMD':1,
+'view_lmp':1,
 'scanDFT':1,
 'junest (formerly juju)':0,
 'anaconda':0, 				# a Python 2.7.9 distribution that installs to ~/anaconda
@@ -79,6 +80,7 @@ for key in to_install: # Make directories for what we want to install
 	if key == 'jdel': continue
 	if key == 'jsub': continue
 	if key == 'vmd': continue
+	if key == 'view_lmp': continue
 	if key == 'scanDFT': continue
 	if key == 'junest (formerly juju)': continue
 	if key == 'python 2.7.10': continue
@@ -341,6 +343,7 @@ alias viewl='function _viewl(){chkDFT $1 -v $@};_viewl'
 alias lgedit='function _lgedit(){gedit lammps/$1/$1.log &};_lgedit'
 alias geditl='lgedit'\n''')
 if to_install['merlin']: f.write("alias merlin='python -i "+INSTALLDIR+"tools/merlin.py'\n")
+if to_install['view_lmp']: f.write("alias view_lmp='python "+INSTALLDIR+"console_scripts/view_lmp.py'\n")
 if to_install['scanDFT']: f.write("\nalias scanDFT='python "+INSTALLDIR+"console_scripts/scanDFT.py'\n")
 if to_install['prnt']: f.write('''alias prnt='function _prnt(){ssh asimov "lpr -P hplj4525-365 -o sides=two-sided-long-edge -o InputSlot=Tray2 $PWD/$1;logout";echo "Printed..."};_prnt'\n''')
 f.write('''\n###############################################################
