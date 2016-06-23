@@ -83,6 +83,7 @@ for key in to_install: # Make directories for what we want to install
 	if key == 'view_lmp': continue
 	if key == 'scanDFT': continue
 	if key == 'pysub': continue
+	if key == 'gcube': continue
 	if key == 'junest (formerly juju)': continue
 	if key == 'python 2.7.10': continue
 	if key == 'numpy': continue
@@ -261,12 +262,12 @@ system('jsub ' + job_name + '.nbs')
 	g.close()
 	os.system('chmod 755 '+INSTALLDIR+'console_scripts/pysub.sh')
 if to_install['gcube']:
-	f.write("alias gcube='"+INSTALLDIR+"gcube/cube.sh'\n")
-	f.write('complete -F _gaussAutoTab '+INSTALLDIR+'gcube/cube.sh\n\n')
-	g = open(INSTALLDIR+'gcube/cube.sh','w')
-	g.write('python '+INSTALLDIR+'''gcube/cube.py $PWD'/' $@''')
+	f.write("alias gcube='"+INSTALLDIR+"console_scripts/gcube.sh'\n")
+	f.write('complete -F _gaussAutoTab '+INSTALLDIR+'console_scripts/gcube.sh\n\n')
+	g = open(INSTALLDIR+'console_scripts/gcube.sh','w')
+	g.write('python '+INSTALLDIR+'''console_scripts/gcube.py $PWD'/' $@''')
 	g.close()
-	g = open(INSTALLDIR+'gcube/cube.py','w')
+	g = open(INSTALLDIR+'console_scripts/gcube.py','w')
 	g.write('''from merlin import *
 from subprocess import Popen
 
@@ -320,7 +321,7 @@ f.close()
 
 Popen('/fs/europa/g_pc/vmd-1.9 -e tmp.vmd', shell=True)\n''')
 	g.close()
-	os.system('chmod 755 '+INSTALLDIR+'gcube/cube.sh')
+	os.system('chmod 755 '+INSTALLDIR+'console_scripts/gcube.sh')
 if to_install['jsub']: f.write('complete -F _nbsAutoTab jsub\n\n')
 if to_install['jdel']: f.write('complete -F _jAutoTab jdel\n\n')
 if to_install['chkDFT']:
