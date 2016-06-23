@@ -1,4 +1,5 @@
 import sys, os
+from units import elem_sym_from_weight
 
 run_name = sys.argv[1]
 data = open(run_name+'.data').read()
@@ -9,13 +10,12 @@ try:
 except:
 	end = data.index('Bond Coeffs')
 
-elements_by_mass = {12:'C', 14:'N', 1:'H', 16:'O', 32:'S', 35:'Cl', 207:'Pb'}
 elements_by_index = {}
 
 for line in data[start:end].splitlines():
 	if line and line[0].isdigit():
 		index, mass = line.split()
-		elements_by_index[index] = elements_by_mass[int(round(float(mass)))]
+		elements_by_index[index] = elem_sym_from_weight(float(mass))
 
 f = open('out.xyz', 'w')
 for line in open(run_name+'.xyz'):
