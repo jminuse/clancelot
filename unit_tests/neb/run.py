@@ -17,6 +17,7 @@ queue = 'batch'
 print("Using testbench %s" % use_testbench)
 
 fit_rigid = True
+linesearch = 'backtrack'
 
 if use_testbench == '1':
 	maxiter, gtol = 10, units.convert('eV/Ang','Ha/Ang',0.1)
@@ -94,6 +95,20 @@ elif use_testbench == '6':
 	mem = 40
 	Nmax = 20
 	fit_rigid = False
+elif use_testbench == '7':
+	maxiter, gtol = 1000, units.convert('eV/Ang','Ha/Ang',0.05)
+	route = '! RI-B2PLYP D3BJ def2-TZVP def2-TZVP/C Grid3 FinalGrid5'
+	opts = ['QM','SD','FIRE','BFGS','LBFGS']
+	xyzs = ['CNH_HCN','CNLi_LiCN','CNNa_NaCN','CNK_KCN','BOH_HBO','BOLi_LiBO','BONa_NaBO','BOK_KBO']
+
+	## Ensure you maintain similarities between optimization methods
+	queue = 'long'
+	alpha = 0.1
+	dt = 0.1
+	DFT = 'orca'
+	mem = 40
+	Nmax = 20
+	linesearch = 'armijo'
 elif use_testbench == 'HF3c':
 	maxiter, gtol = 200, units.convert('eV/Ang','Ha/Ang',0.05)
 	route = '! HF-3c Grid3 FinalGrid5'
@@ -135,7 +150,7 @@ opt = '$OPT$'
 route = '$ROUTE$'
 
 run_name = fptr[:fptr.find('.xyz')] + '_' + opt
-neb.neb(run_name, frames, route, opt=opt, maxiter=$MAXITER$, gtol=$GTOL$, DFT='$DFT$', alpha=$ALPHA$, dt=$DT$, mem=$MEM$, Nmax=$NMAX$, fit_rigid=$FIT_RIGID$)'''
+neb.neb(run_name, frames, route, opt=opt, maxiter=$MAXITER$, gtol=$GTOL$, DFT='$DFT$', alpha=$ALPHA$, dt=$DT$, mem=$MEM$, Nmax=$NMAX$, fit_rigid=$FIT_RIGID$, linesearch='$LINESEARCH$')'''
 
 		# Replace with defined test
 		s = s.replace('$FPTR$',fptr)
@@ -150,6 +165,7 @@ neb.neb(run_name, frames, route, opt=opt, maxiter=$MAXITER$, gtol=$GTOL$, DFT='$
 		s = s.replace('$USER$',user)
 		s = s.replace('$DFT$',DFT)
 		s = s.replace('$FIT_RIGID$',str(fit_rigid))
+		s = s.replace('$LINESEARCH$',linesearch)
 
 		# Write the python file
 		f = open('pys/'+fptr + '_' + opt+'.py','w')
