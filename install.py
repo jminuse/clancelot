@@ -208,37 +208,53 @@ f.write('\n\n')
 
 if to_install['vmd']: f.write("alias vmd='/fs/europa/g_pc/vmd/bin/vmd'\n\n")
 if to_install['pysub']:
-	f.write("alias pysub='"+INSTALLDIR+"pysub/pysub.sh'\n")
-	f.write('complete -F _pyAutoTab '+INSTALLDIR+'pysub/pysub.sh\n\n')
-	g = open(INSTALLDIR+'pysub/pysub.sh','w')
-	g.write('python '+INSTALLDIR+'''pysub/pysub.py $PWD'/' $@''')
+	f.write("alias pysub='"+INSTALLDIR+"console_scripts/pysub.sh'\n")
+	f.write('complete -F _pyAutoTab '+INSTALLDIR+'console_scripts/pysub.sh\n\n')
+	g = open(INSTALLDIR+'console_scripts/pysub.sh','w')
+	g.write('python '+INSTALLDIR+'''console_scripts/pysub.py $PWD'/' $@''')
 	g.close()
-	g = open(INSTALLDIR+'pysub/pysub.py','w')
-	g.write('''import os, sys
-from time import sleep
+	g = open(INSTALLDIR+'console_scripts/pysub.py','w')
 
-s_hold = \'\'\'#!/bin/bash
-##NBS-name: "$$$$$$"
-##NBS-nproc: 1
-##NBS-queue: "batch"
+        g.write('''#!/usr/bin/env python
+from sys import argv
+from os import system
 
-rm ^^^^^^^$$$$$$.log
+# Parse Arguments
+nprocs = '1'
+queue = 'batch'
+path = argv[1]
+job_name = argv[2]
+if ".py" in job_name: job_name = job_name.split(".py")[0]
+
+if "-n" in argv[2:]: nprocs = argv[argv.index('-n')+1]
+if "-q" in argv[2:]: queue = argv[argv.index('-q')+1]
+
+# Setup nbs script
+NBS = \'\'\'##NBS-name: "$JOB_NAME$"
+##NBS-nproc: $NPROCS$
+##NBS-queue: "$QUEUE$"
 
 source '''+HOMEDIR+'''/.zshrc
 
-'''+HOMEDIR+'''/anaconda/bin/python2.7 -u ^^^^^^^$$$$$$.py >> ^^^^^^^$$$$$$.log 2>&1
+'''+HOMEDIR+'''/anaconda/bin/python2.7 -u $PY_NAME1$.py >> $PY_NAME2$.log 2>&1
 \'\'\'
-for i,s in enumerate(sys.argv):
-	if i == 0: continue
-	if i == 1: continue
-	f=open('pysub.nbs','w')
-	f.write(s_hold.replace('$$$$$$',s[:-3]).replace('^^^^^^^',sys.argv[1][:sys.argv[1].rfind('/')+1]))
-	f.close()
-	os.system('jsub pysub.nbs')
 
-os.system('rm pysub.nbs')''')
+NBS = NBS.replace("$JOB_NAME$",job_name)
+NBS = NBS.replace("$NPROCS$",nprocs)
+NBS = NBS.replace("$QUEUE$",queue)
+NBS = NBS.replace("$PY_NAME1$",path + job_name)
+NBS = NBS.replace("$PY_NAME2$",path + job_name)
+
+NBS_fptr = open(job_name+".nbs",'w')
+NBS_fptr.write(NBS)
+NBS_fptr.close()
+
+# Submit job
+system('jsub ' + job_name + '.nbs')
+
+''')
 	g.close()
-	os.system('chmod 755 '+INSTALLDIR+'pysub/pysub.sh')
+	os.system('chmod 755 '+INSTALLDIR+'console_scripts/pysub.sh')
 if to_install['gcube']:
 	f.write("alias gcube='"+INSTALLDIR+"gcube/cube.sh'\n")
 	f.write('complete -F _gaussAutoTab '+INSTALLDIR+'gcube/cube.sh\n\n')
