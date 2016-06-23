@@ -1,5 +1,5 @@
 import constants
-from constants import ENERGY, DISTANCE, PERIODIC_TABLE
+from constants import ENERGY, PRESSURE, DISTANCE, PERIODIC_TABLE
 
 def convert_energy(e0, e1, e_val):
 	#print("Converting %lg %s to " % (e_val,e0)),
@@ -17,16 +17,27 @@ def convert_energy(e0, e1, e_val):
 
 	return val/ENERGY[e1] # This many of unit e1
 
+def convert_pressure(p0, p1, p_val):
+	#print("Converting %lg %s to " % (p_val,p0)),
+
+	if p_val == 0: return 0
+	if p0 == p1: return p_val
+	val = p_val * PRESSURE[p0] # This many atm
+
+	#print("%lg %s.\n" % (val/PRESSURE[p1],p1))
+
+	return val/PRESSURE[p1] # This many of unit p1
+
 def convert_dist(d0, d1, d_val):
 	#print("Converting %lg %s to " % (d_val,d0)),
 
 	if d_val == 0: return 0
 	if d0 == d1: return d_val
-	val = d_val * DISTANCE[d0] # This many joules
+	val = d_val * DISTANCE[d0] # This many angstroms
 
 	#print("%lg %s.\n" % (val/DISTANCE[d1],d1))
 
-	return val/DISTANCE[d1] # This many of unit e1
+	return val/DISTANCE[d1] # This many of unit d1
 
 def elem_i2s(elem_int):
 	try: i = int(elem_int) # Check if it's already a symbol, if so return it

@@ -1,6 +1,11 @@
 import math
 # Everything is converted to Joules
+# i.e. 1 Ha = 4.359y44E-18 Joules
 ENERGY = {'Ha':4.359744E-18,'eV':1.602E-19,'J':1.,'kcal':4184./6.022E23,'kcal/mol':4184./6.022E23,'kJ/mol':1000./6.022E23,'kT_300':4.14195E-21,'Ry':2.1798741e-18}
+
+# Everything is converted to atm
+# i.e. 1 GPa =  9869.23 atm
+PRESSURE = {'atm':1., 'bar':0.986923, 'Pa':9.86923E-6, 'GPa':9869.23}
 
 K_b = 1.38064852E-23 # Boltzmann's Constant in J
 h = 6.62607004E-34 # Plank's Constant (from NIST) in J*s
@@ -11,6 +16,7 @@ hbar = h/(2.0*pi)
 c = 299792458.0 # Speed of light (from NIST) in m/s
 
 # Everything is converted to Angstroms
+# 1.e. 1 Bohr = 0.529177 Angstrom
 DISTANCE = {'Bohr':0.529177, 'Ang':1.0, 'Angstrom':1.0}
 
 # Periodic Table data from http://www.science.co.il/PTelements.asp

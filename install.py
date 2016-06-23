@@ -319,7 +319,7 @@ alias gedito='ogedit'
 alias otail='function _otail(){tail orca/$1/$1.out $2 $3};_otail'
 alias tailo='otail'\n''')
 if to_install['chkMD']:
-	f.write("alias chkMD='python "+INSTALLDIR+"tools/chkMD.py'\n")
+	f.write("alias chkMD='python "+INSTALLDIR+"console_scripts/chkMD.py'\n")
 	f.write('''alias chkl='function _chkg(){chkMD $1 -v $@};_chkg'
 alias viewl='function _viewl(){chkDFT $1 -v $@};_viewl'
 alias lgedit='function _lgedit(){gedit lammps/$1/$1.log &};_lgedit'
