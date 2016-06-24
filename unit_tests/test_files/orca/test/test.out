@@ -203,7 +203,7 @@ Prescreening statistics:
 
 Timings:
  Total evaluation time               ...     0.082 sec (   0.001 min)
- One electron matrix time            ...     0.005 sec (   0.000 min) =  5.8%
+ One electron matrix time            ...     0.005 sec (   0.000 min) =  5.6%
  Schwartz matrix evaluation time     ...     0.042 sec (   0.001 min) = 51.0%
  Repulsion integral time             ...     0.000 sec (   0.000 min) =  0.0%
 
@@ -418,15 +418,15 @@ Total SCF time: 0 days 0 hours 0 min 0 sec
 Total time                  ....       0.025 sec
 Sum of individual times     ....       0.013 sec  ( 51.0%)
 
-Fock matrix formation       ....       0.008 sec  ( 30.8%)
-Diagonalization             ....       0.000 sec  (  0.8%)
+Fock matrix formation       ....       0.008 sec  ( 29.9%)
+Diagonalization             ....       0.000 sec  (  1.0%)
 Density matrix formation    ....       0.000 sec  (  0.0%)
-Population analysis         ....       0.004 sec  ( 14.9%)
+Population analysis         ....       0.004 sec  ( 15.9%)
 Initial guess               ....       0.000 sec  (  0.9%)
 Orbital Transformation      ....       0.000 sec  (  0.0%)
 Orbital Orthonormalization  ....       0.000 sec  (  0.0%)
 DIIS solution               ....       0.000 sec  (  0.0%)
-SOSCF solution              ....       0.001 sec  (  3.5%)
+SOSCF solution              ....       0.001 sec  (  3.2%)
 
 Entering the calculation of the dispersion correction...
 
@@ -515,8 +515,8 @@ Magnitude (Debye)      :      0.00000
 
 Timings for individual modules:
 
-Sum of individual times         ...        0.163 sec (=   0.003 min)
+Sum of individual times         ...        0.162 sec (=   0.003 min)
 GTO integral calculation        ...        0.120 sec (=   0.002 min)  73.7 %
 SCF iterations                  ...        0.043 sec (=   0.001 min)  26.3 %
                              ****ORCA TERMINATED NORMALLY****
-TOTAL RUN TIME: 0 days 0 hours 0 minutes 0 seconds 302 msec
+TOTAL RUN TIME: 0 days 0 hours 0 minutes 0 seconds 298 msec
