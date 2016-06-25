@@ -277,6 +277,19 @@ class Molecule():
 		rand_m = rand_rotation()
 		self.rotate(rand_m)
 
+	def get_com(self, skip_H=True):
+		if skip_H: n = float(len([a for a in self.atoms if a.element != "H"]))
+		else: n = float(len(self.atoms))
+		if skip_H:
+			x = sum([a.x for a in self.atoms if a.element != "H"])/n
+			y = sum([a.y for a in self.atoms if a.element != "H"])/n
+			z = sum([a.z for a in self.atoms if a.element != "H"])/n
+		else:
+			x = sum([a.x for a in self.atoms])/n
+			y = sum([a.y for a in self.atoms])/n
+			z = sum([a.z for a in self.atoms])/n
+		return (x,y,z)
+
 	# Print all atoms
 	def to_string(self):
 		text = ''
