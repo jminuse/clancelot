@@ -9,6 +9,7 @@ INSTALL_EVERYTHING=False
 to_install = {
 'vmd':1,
 'pysub':1,
+'qwatch':1,
 'gcube':1,
 'jsub':1,
 'jdel':1,
@@ -83,6 +84,7 @@ for key in to_install: # Make directories for what we want to install
 	if key == 'view_lmp': continue
 	if key == 'scanDFT': continue
 	if key == 'pysub': continue
+	if key == 'qwatch': continue
 	if key == 'gcube': continue
 	if key == 'junest (formerly juju)': continue
 	if key == 'python 2.7.10': continue
@@ -213,6 +215,7 @@ f = open(ZSH_CLANCELOT,'a')
 f.write('\n\n')
 
 if to_install['vmd']: f.write("alias vmd='/fs/europa/g_pc/vmd/bin/vmd'\n\n")
+if to_install['qwatch']: f.write("alias qwatch='python "+INSTALLDIR+"console_scripts/qwatch.py'\n\n")
 if to_install['pysub']:
 	f.write("alias pysub='"+INSTALLDIR+"console_scripts/pysub.sh'\n")
 	f.write('complete -F _pyAutoTab '+INSTALLDIR+'console_scripts/pysub.sh\n\n')

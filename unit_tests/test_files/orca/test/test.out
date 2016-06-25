@@ -203,8 +203,8 @@ Prescreening statistics:
 
 Timings:
  Total evaluation time               ...     0.081 sec (   0.001 min)
- One electron matrix time            ...     0.004 sec (   0.000 min) =  5.4%
- Schwartz matrix evaluation time     ...     0.041 sec (   0.001 min) = 50.5%
+ One electron matrix time            ...     0.005 sec (   0.000 min) =  5.6%
+ Schwartz matrix evaluation time     ...     0.041 sec (   0.001 min) = 50.7%
  Repulsion integral time             ...     0.000 sec (   0.000 min) =  0.0%
 
 -------------------------------------------------------------------------------
@@ -416,17 +416,17 @@ TIMINGS
 Total SCF time: 0 days 0 hours 0 min 0 sec 
 
 Total time                  ....       0.024 sec
-Sum of individual times     ....       0.013 sec  ( 51.8%)
+Sum of individual times     ....       0.012 sec  ( 50.6%)
 
-Fock matrix formation       ....       0.008 sec  ( 31.2%)
-Diagonalization             ....       0.000 sec  (  0.7%)
+Fock matrix formation       ....       0.007 sec  ( 29.9%)
+Diagonalization             ....       0.000 sec  (  0.8%)
 Density matrix formation    ....       0.000 sec  (  0.0%)
 Population analysis         ....       0.004 sec  ( 15.6%)
-Initial guess               ....       0.000 sec  (  0.9%)
+Initial guess               ....       0.000 sec  (  1.0%)
 Orbital Transformation      ....       0.000 sec  (  0.0%)
 Orbital Orthonormalization  ....       0.000 sec  (  0.0%)
 DIIS solution               ....       0.000 sec  (  0.0%)
-SOSCF solution              ....       0.001 sec  (  3.3%)
+SOSCF solution              ....       0.001 sec  (  3.2%)
 
 Entering the calculation of the dispersion correction...
 
@@ -516,7 +516,7 @@ Magnitude (Debye)      :      0.00000
 Timings for individual modules:
 
 Sum of individual times         ...        0.161 sec (=   0.003 min)
-GTO integral calculation        ...        0.119 sec (=   0.002 min)  73.7 %
-SCF iterations                  ...        0.042 sec (=   0.001 min)  26.3 %
+GTO integral calculation        ...        0.119 sec (=   0.002 min)  74.0 %
+SCF iterations                  ...        0.042 sec (=   0.001 min)  26.0 %
                              ****ORCA TERMINATED NORMALLY****
-TOTAL RUN TIME: 0 days 0 hours 0 minutes 0 seconds 297 msec
+TOTAL RUN TIME: 0 days 0 hours 0 minutes 0 seconds 302 msec
