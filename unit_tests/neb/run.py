@@ -109,6 +109,18 @@ elif use_testbench == '7':
 	mem = 40
 	Nmax = 20
 	linesearch = 'armijo'
+elif use_testbench == '8':
+	maxiter, gtol = 20, units.convert('eV/Ang','Ha/Ang',0.1)
+	route = '#p HF/6-31g* force'
+	opts = ['BFGS']
+	xyzs = ['CNH_HCN']
+
+	## Ensure you maintain similarities between optimization methods
+	alpha = 0.1
+	dt = 0.1
+	DFT = 'g09'
+	mem = 40
+	Nmax = 20
 elif use_testbench == 'HF3c':
 	maxiter, gtol = 200, units.convert('eV/Ang','Ha/Ang',0.05)
 	route = '! HF-3c Grid3 FinalGrid5'

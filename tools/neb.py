@@ -169,10 +169,12 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             NEB.extra_section = extra_section
             NEB.k = k
             NEB.prv_RMS = None
+            NEB.prv_MAX = None
             NEB.convergence_criteria = gtol
             NEB.convergence = float('inf')
             NEB.nframes = len(states)
             NEB.RMS_force = float('inf')
+            NEB.MAX_force = float('inf')
 
             utils.procrustes(NEB.states) # In all cases, optimize the path via rigid rotations first
             
@@ -299,6 +301,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             force_mags = [(a.fx**2+a.fy**2+a.fz**2)**0.5 for state in states[1:-1] for a in state]
             RMS_force = (sum([f**2 for f in force_mags])/float(len(force_mags)))**0.5
             NEB.RMS_force = RMS_force
+            MAX_force = max(force_mags)
+            NEB.MAX_force = MAX_force
                         
             # Print data
             V = V[:1] + [ units.convert_energy("Ha","kT_300",e-V[0]) for e in V[1:] ]
@@ -306,10 +310,17 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 rms = utils.color_set(float("%.4f" % RMS_force),'GREEN')
             else:
                 rms = utils.color_set(float("%.4f" % RMS_force),'RED')
-            print NEB.step, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:]), rms, 'Ha/Ang'
+            if NEB.prv_MAX == None or NEB.prv_MAX > MAX_force:
+                max_f = utils.color_set(float("%.4f" % MAX_force),'GREEN')
+            else:
+                max_f = utils.color_set(float("%.4f" % MAX_force),'RED')
+            print NEB.step, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:]), rms, 'Ha/Ang', max_f, 'Ha/Ang'
             
             if NEB.prv_RMS is None: NEB.prv_RMS = RMS_force
             NEB.prv_RMS = min(RMS_force, NEB.prv_RMS)
+
+            if NEB.prv_MAX is None: NEB.prv_MAX = MAX_force
+            NEB.prv_MAX = min(MAX_force, NEB.prv_MAX)
 
             # Set error
             #NEB.error = max(V)
