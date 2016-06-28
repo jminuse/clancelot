@@ -5,7 +5,7 @@ import datetime
 from warnings import warn
 
 # Read the Chemical Markup Language (CML)
-def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, test_charges=True, allow_errors=False):
+def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, test_charges=True, allow_errors=False, pair_style='lj/cut'):
 	if not name.endswith('.cml'):
 		name += '.cml'
 	tree = xml.parse(name)
@@ -43,7 +43,7 @@ def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, test_charge
 			angles, dihedrals = utils.get_angles_and_dihedrals(atoms)
 
 	if parameter_file:
-		atoms, bonds, angles, dihedrals = set_forcefield_parameters(atoms, bonds=bonds, angles=angles, dihedrals=dihedrals, name=name, parameter_file=parameter_file, extra_parameters=extra_parameters, test_charges=test_charges, allow_errors=allow_errors)
+		atoms, bonds, angles, dihedrals = set_forcefield_parameters(atoms, bonds=bonds, angles=angles, dihedrals=dihedrals, name=name, parameter_file=parameter_file, extra_parameters=extra_parameters, test_charges=test_charges, allow_errors=allow_errors, pair_style=pair_style)
 
 	return atoms, bonds, angles, dihedrals
 
@@ -267,7 +267,7 @@ def write_xyz(frames_or_system, name_or_file=None, ID='Atoms'):
 	if type(name_or_file)==str: #close file if we opened it
 		f.close()
 
-def read_opls_parameters(parameter_file='oplsaa.prm'):
+def read_opls_parameters(parameter_file='oplsaa.prm', pair_style='lj/cut'):
 	if read_opls_parameters.atom_types is None:
 		elements = {}; atom_types = []; bond_types = []; angle_types = []; dihedral_types = []
 		for line in open(parameter_file):
@@ -275,7 +275,7 @@ def read_opls_parameters(parameter_file='oplsaa.prm'):
 			if not columns: continue
 			if columns[0]=='atom':
 				m = re.match('atom +(\d+) +(\d+) +(\S+) +"([^"]+)" +(\d+) +(\S+) +(\d+)', line)
-				atom_type = utils.Struct(index=int(m.group(1)), index2=int(m.group(2)), element_name=m.group(3), notes=m.group(4), element=int(m.group(5)), mass=float(m.group(6)), bond_count=int(m.group(7) ) )
+				atom_type = utils.Struct(index=int(m.group(1)), index2=int(m.group(2)), element_name=m.group(3), notes=m.group(4), element=int(m.group(5)), mass=float(m.group(6)), bond_count=int(m.group(7) ), style=pair_style )
 				if atom_type.element not in elements: elements[atom_type.element] = []
 				elements[atom_type.element].append(atom_type)
 				if '(UA)' in atom_type.notes:
@@ -287,11 +287,11 @@ def read_opls_parameters(parameter_file='oplsaa.prm'):
 			elif columns[0]=='charge':
 				atom_types[int(columns[1])-1].charge = float(columns[2])
 			elif columns[0]=='bond':
-				bond_types.append( utils.Struct(index2s=tuple([int(s) for s in columns[1:3]]),e=float(columns[3]),r=float(columns[4])) )
+				bond_types.append( utils.Struct(index2s=tuple([int(s) for s in columns[1:3]]),e=float(columns[3]),r=float(columns[4]),style='harmonic') )
 			elif columns[0]=='angle':
-				angle_types.append( utils.Struct(index2s=tuple([int(s) for s in columns[1:4]]),e=float(columns[4]),angle=float(columns[5])) )
+				angle_types.append( utils.Struct(index2s=tuple([int(s) for s in columns[1:4]]),e=float(columns[4]),angle=float(columns[5]),style='harmonic') )
 			elif columns[0]=='torsion':
-				dihedral_types.append( utils.Struct(index2s=tuple([int(s) for s in columns[1:5]]),e=tuple([float(s) for s in columns[5::3]])) )
+				dihedral_types.append( utils.Struct(index2s=tuple([int(s) for s in columns[1:5]]),e=tuple([float(s) for s in columns[5::3]]),style='opls') )
 				if len(dihedral_types[-1].e)==3:
 					dihedral_types[-1].e = dihedral_types[-1].e + (0.,)
 		read_opls_parameters.elements = elements
@@ -308,22 +308,31 @@ read_opls_parameters.bond_types = None
 read_opls_parameters.angle_types = None
 read_opls_parameters.dihedral_types = None
 
-def set_forcefield_parameters(atoms, bonds=[], angles=[], dihedrals=[], parameter_file='oplsaa.prm', name='unnamed', extra_parameters={}, test_consistency=True, test_charges=True, allow_errors=False):
+def set_forcefield_parameters(atoms, bonds=[], angles=[], dihedrals=[], parameter_file='oplsaa.prm', name='unnamed', extra_parameters={}, test_consistency=True, test_charges=True, allow_errors=False, pair_style='lj/cut'):
 	elements, atom_types, bond_types, angle_types, dihedral_types = [], [], [], [], []
 
 	# If parameter_file=None, only extra parameters will be passed.
 	if parameter_file:
-		elements, atom_types, bond_types, angle_types, dihedral_types = read_opls_parameters(parameter_file)
+		elements, atom_types, bond_types, angle_types, dihedral_types = read_opls_parameters(parameter_file, pair_style=pair_style)
 
 	#add extra parameters, if any
 	for index2s,params in extra_parameters.items():
 		if type(index2s)==int: continue #skip these
 		if len(index2s)==2:
-			bond_types.append( utils.Struct(index2s=index2s, e=params[0], r=params[1]) )
+			if len(params) == 3:
+				bond_types.append( utils.Struct(index2s=index2s, e=params[0], r=params[1], style=params[2]) )
+			else:
+				bond_types.append( utils.Struct(index2s=index2s, e=params[0], r=params[1], style='harmonic') )
 		elif len(index2s)==3:
-			angle_types.append( utils.Struct(index2s=index2s, e=params[0], angle=params[1]) )
+			if len(params) == 3:
+				angle_types.append( utils.Struct(index2s=index2s, e=params[0], angle=params[1], style=params[2]) )
+			else:
+				angle_types.append( utils.Struct(index2s=index2s, e=params[0], angle=params[1], style='harmonic') )
 		elif len(index2s)==4:
-			dihedral_types.append( utils.Struct(index2s=index2s, e=tuple(params)) )
+			if len(params) == 5:
+				dihedral_types.append( utils.Struct(index2s=index2s, e=tuple(params[0], params[1], params[2], params[3]), style=params[4]) )
+			else:
+				dihedral_types.append( utils.Struct(index2s=index2s, e=tuple(params), style='opls') )
 
 	#set atom types
 	for a in atoms:
@@ -399,14 +408,14 @@ def check_consistency(atoms, bonds, angles, dihedrals, name='', allow_errors=Fal
 			else: print 'Exit'; exit()
 
 #@profile
-def write_lammps_data(system, pair_coeffs_included=False):
+def write_lammps_data(system, pair_coeffs_included=False, hybrid_angle=False):
 	#unpack values from system
 	atoms, bonds, angles, dihedrals, box_size, box_angles, run_name = system.atoms, system.bonds, system.angles, system.dihedrals, system.box_size, system.box_angles, system.name
 	#unpack lammps box parameters from system
 	xlo, ylo, zlo, xhi, yhi, zhi, xy, xz, yz = system.xlo, system.ylo, system.zlo, system.xhi, system.yhi, system.zhi, system.xy, system.xz, system.yz
 
-	#ignore angles with no energy
-	angles = [ang for ang in angles if ang.type.e > 0]
+	#ignore angles with no energy (~0 energy)
+	angles = [ang for ang in angles if (ang.type.e > 1 or ang.type.e < -1)]
 	#ignore dihedrals with no energy
 	dihedrals = [d for d in dihedrals if any(d.type.e)]
 
@@ -427,6 +436,7 @@ def write_lammps_data(system, pair_coeffs_included=False):
 		#print(t.lammps_type)
 		t.lammps_type = i+1
 	for i,t in enumerate(dihedral_types): t.lammps_type = i+1
+
 	#start writing file
 	f = open(run_name+'.data', 'w')
 	f.write('LAMMPS Description\n\n%d atoms\n%d bonds\n%d angles\n%d dihedrals\n0  impropers\n\n' % (len(atoms), len(bonds), len(angles), len(dihedrals)) )
@@ -446,7 +456,11 @@ Masses
 	if pair_coeffs_included: f.write('\nPair Coeffs\n\n'+('\n'.join(["%d\t%f\t%f" % (t.lammps_type, t.vdw_e, t.vdw_r) for t in atom_types])) )
 
 	if bonds: f.write("\n\nBond Coeffs\n\n"+'\n'.join(["%d\t%f\t%f" % (t.lammps_type, t.e, t.r) for t in bond_types]))
-	if angles: f.write("\n\nAngle Coeffs\n\n"+'\n'.join(["%d\t%f\t%f" % (t.lammps_type, t.e, t.angle) for t in angle_types]))
+	if angles: 
+		if hybrid_angle:
+			f.write("\n\nAngle Coeffs\n\n"+'\n'.join(["%d\t%s\t%f\t%f" % (t.lammps_type, t.style, t.e, t.angle) for t in angle_types]))
+		else:
+			f.write("\n\nAngle Coeffs\n\n"+'\n'.join(["%d\t%f\t%f" % (t.lammps_type, t.e, t.angle) for t in angle_types]))
 	if dihedrals: f.write("\n\nDihedral Coeffs\n\n"+'\n'.join(["%d\t%f\t%f\t%f\t%f" % ((t.lammps_type,)+tuple(t.e)+((0.0,) if len(t.e)==3 else ()) ) for t in dihedral_types]))
 
 	f.write("\n\nAtoms\n\n"+'\n'.join( ['\t'.join( [str(q) for q in [a.index, a.molecule_index, a.type.lammps_type, a.type.charge, a.x, a.y, a.z]] ) for a in atoms]) ) #atom (molecule type charge x y z)
