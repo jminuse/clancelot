@@ -307,14 +307,14 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             # Print data
             V = V[:1] + [ units.convert_energy("Ha","kT_300",e-V[0]) for e in V[1:] ]
             if NEB.prv_RMS == None or NEB.prv_RMS > RMS_force:
-                rms = utils.color_set(float("%.4f" % RMS_force),'GREEN')
+                rms = utils.color_set(float("%.4f" % units.convert_energy("Ha","eV",RMS_force)),'GREEN')
             else:
-                rms = utils.color_set(float("%.4f" % RMS_force),'RED')
+                rms = utils.color_set(float("%.4f" % units.convert_energy("Ha","eV",RMS_force)),'RED')
             if NEB.prv_MAX == None or NEB.prv_MAX > MAX_force:
-                max_f = utils.color_set(float("%.4f" % MAX_force),'GREEN')
+                max_f = utils.color_set(float("%.4f" % units.convert_energy("Ha","eV",MAX_force)),'GREEN')
             else:
-                max_f = utils.color_set(float("%.4f" % MAX_force),'RED')
-            print NEB.step, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:]), rms, 'Ha/Ang', max_f, 'Ha/Ang'
+                max_f = utils.color_set(float("%.4f" % units.convert_energy("Ha","eV",MAX_force)),'RED')
+            print NEB.step, '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:]), rms, 'eV/Ang', max_f, 'eV/Ang'
             
             if NEB.prv_RMS is None: NEB.prv_RMS = RMS_force
             NEB.prv_RMS = min(RMS_force, NEB.prv_RMS)
@@ -325,7 +325,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             # Set error
             #NEB.error = max(V)
             NEB.error = RMS_force
-            #NEB.error = max(force_mags)
+            #NEB.error = MAX_force
             #NEB.error = 0.2*max(V) + 0.8*RMS_force
 
             #NEB.error = 0.5*sum([a.fx**2+a.fy**2+a.fz**2 for state in states[1:-1] for a in state]) # Max(V) # Sum(energies)

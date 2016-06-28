@@ -51,21 +51,21 @@ TotEng   =        10.3644 KinEng   =        55.5422 Temp     =       209.3624
 PotEng   =       -45.1778 E_bond   =        13.8881 E_angle  =        26.9889 
 E_dihed  =        10.3858 E_impro  =         0.0000 E_vdwl   =         3.1205 
 E_coul   =       -99.5611 E_long   =         0.0000 Press    =       671.5992 
-Loop time of 0.00139713 on 1 procs for 10 steps with 90 atoms
+Loop time of 0.001405 on 1 procs for 10 steps with 90 atoms
 
-Performance: 618.409 ns/day, 0.039 hours/ns, 7157.515 timesteps/s
-71.6% CPU use with 1 MPI tasks x no OpenMP threads
+Performance: 614.946 ns/day, 0.039 hours/ns, 7117.434 timesteps/s
+142.3% CPU use with 1 MPI tasks x no OpenMP threads
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
-Pair    | 0.0010855  | 0.0010855  | 0.0010855  |   0.0 | 77.70
-Bond    | 0.00024271 | 0.00024271 | 0.00024271 |   0.0 | 17.37
+Pair    | 0.0010924  | 0.0010924  | 0.0010924  |   0.0 | 77.75
+Bond    | 0.00024366 | 0.00024366 | 0.00024366 |   0.0 | 17.34
 Neigh   | 0          | 0          | 0          |   0.0 |  0.00
-Comm    | 2.7895e-05 | 2.7895e-05 | 2.7895e-05 |   0.0 |  2.00
-Output  | 8.1062e-06 | 8.1062e-06 | 8.1062e-06 |   0.0 |  0.58
-Modify  | 2.2411e-05 | 2.2411e-05 | 2.2411e-05 |   0.0 |  1.60
-Other   |            | 1.049e-05  |            |       |  0.75
+Comm    | 3.1233e-05 | 3.1233e-05 | 3.1233e-05 |   0.0 |  2.22
+Output  | 7.8678e-06 | 7.8678e-06 | 7.8678e-06 |   0.0 |  0.56
+Modify  | 2.1935e-05 | 2.1935e-05 | 2.1935e-05 |   0.0 |  1.56
+Other   |            | 7.868e-06  |            |       |  0.56
 
 Nlocal:    90 ave 90 max 90 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
