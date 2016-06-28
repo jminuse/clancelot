@@ -50,7 +50,7 @@ velocity all create 300.0 1 rot yes dist gaussian
 fix motion all nvt temp 300.0 300.0 100.0
 run 10''')
 	output.close()
-	os.system('/fs/home/jms875/build/lammps/lammps-7Dec15/src/lmp_serial -in %s.in -log %s.log > /dev/null' % (system.name,system.name))
+	os.system('/fs/home/hch54/lammps/lammps-7Dec15/src/lmp_serial -in %s.in -log %s.log > /dev/null' % (system.name,system.name))
 	logfile = open(system.name+'.log').read()
 	energies = re.findall('TotEng += +(\S+)', logfile)
 	target_energies = ['8.4933', '10.3644']
