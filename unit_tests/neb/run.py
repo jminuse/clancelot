@@ -72,6 +72,8 @@ elif use_testbench == '5':
 	maxiter, gtol = 1000, units.convert('eV/Ang','Ha/Ang',0.05)
 	route = '! RI-B2PLYP D3BJ def2-TZVP def2-TZVP/C Grid3 FinalGrid5'
 	opts = ['QM','SD','FIRE','BFGS','LBFGS']
+	#xyzs = ['CNH_HCN']
+	#xyzs = ['CNH_HCN','CNLi_LiCN','CNNa_NaCN','CNK_KCN']
 	xyzs = ['CNH_HCN','CNLi_LiCN','CNNa_NaCN','CNK_KCN','BOH_HBO','BOLi_LiBO','BONa_NaBO','BOK_KBO']
 
 	## Ensure you maintain similarities between optimization methods

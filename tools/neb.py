@@ -219,7 +219,9 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             # V = potential energy from DFT. energies = V+springs
             V = copy.deepcopy(energies) 
 
-            fake_states = copy.deepcopy(NEB.states)            
+            fake_states = copy.deepcopy(NEB.states)
+            if fit_rigid: full_rotation = utils.procrustes(fake_states, append_in_loop=False)
+
             # Add spring forces to atoms
             for i,state in enumerate(NEB.states):
                 if i==0 or i==len(NEB.states)-1: continue # Don't change first or last state
@@ -252,9 +254,14 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                         energies[i] += units.convert_energy('Ha','kcal/mol', E_hartree)
                     
                         # Find DFT forces perpendicular to tangent
-                        real_force = np.array( [b.fx,b.fy,b.fz] )
+                        real_force = np.array( [bb.fx,bb.fy,bb.fz] )
                         F_real_perpendicular = real_force - np.dot(real_force, tangent)*tangent
-                                            
+
+                        if fit_rigid:
+                            R = full_rotation[i-1]
+                            R_inv = np.linalg.inv(R)
+                            F_spring_parallel = np.dot(F_spring_parallel, R_inv)
+
                         # Set NEB forces
                         bb.fx, bb.fy, bb.fz = F_spring_parallel + F_real_perpendicular
 
