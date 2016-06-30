@@ -156,7 +156,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         print("\t6. BROYDEN_ROOT\n")
         sys.exit()
 
-    print("Spring Constant for NEB: %lg Ha/Ang" % k)
+    print("Spring Constant for NEB: %lg Ha/Ang = %lg eV/Ang" % (k, units.convert_energy("Ha","eV",k)))
     print("Convergence Criteria: gtol = %lg (Ha/Ang)" % gtol)
     print("Run_Name = %s" % str(name))
     print("DFT Package = %s" % DFT)
@@ -183,7 +183,9 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             NEB.MAX_energy = float('inf')
             NEB.FMAX = fmax
 
-            utils.procrustes(NEB.states) # In all cases, optimize the path via rigid rotations first
+            # In all cases, optimize the path via rigid rotations first
+            # Set to only if fit_rigid for comparison purposes
+            if fit_rigid: utils.procrustes(NEB.states) 
             
             # Load initial coordinates into flat array for optimizer
             NEB.coords_start = []
@@ -224,11 +226,21 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 energies.append(new_energy)
 
             # V = potential energy from DFT. energies = V+springs
-            V = copy.deepcopy(energies) 
+            V = copy.deepcopy(energies)
 
             fake_states = copy.deepcopy(NEB.states)
             if fit_rigid: full_rotation = utils.procrustes(fake_states, append_in_loop=False)
 
+            # DEBUGGING CODE HERE
+            #f_chk = []
+            #for state in NEB.states[1:-1]:
+                #for a in state:
+                    #f_chk += [a.fx, a.fy, a.fz]
+            #for i,f in enumerate(f_chk): f_chk[i] = units.convert_energy("Ha","eV",f)
+            #f_chk = np.array(f_chk).reshape((-1,3))
+            #e_chk = [units.convert_energy("Ha","eV",e) for e in energies]
+            #print "Check 1: Force, Energy = ", f_chk[3], ", ", e_chk[:5]
+            
             # Add spring forces to atoms
             for i,state in enumerate(NEB.states):
                 if i==0 or i==len(NEB.states)-1: continue # Don't change first or last state
@@ -242,9 +254,9 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                         dVmin = min(abs(V[i+1]-V[i]), abs(V[i-1]-V[i]))
                         dVmax = max(abs(V[i+1]-V[i]), abs(V[i-1]-V[i]))
                         if V[i+1]>V[i] and V[i]>V[i-1]: # Not at an extremum, trend of V is up
-                            tangent = tplus
+                            tangent = tplus.copy()
                         elif V[i+1]<V[i] and V[i]<V[i-1]: # Not at an extremum, trend of V is down
-                            tangent = tminus
+                            tangent = tminus.copy()
                         elif V[i+1]>V[i-1]: # At local extremum, next V is higher
                             tangent = tplus*dVmax + tminus*dVmin
                         else: # At local extremum, previous V is higher
@@ -257,6 +269,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                         # Find spring forces parallel to tangent
                         F_spring_parallel = NEB.k*( utils.dist(c,b) - utils.dist(b,a) ) * tangent
                         
+                        # I don't think this is used
                         E_hartree = 0.5*NEB.k*( utils.dist_squared(c,b) + utils.dist_squared(b,a) )
                         energies[i] += units.convert_energy('Ha','kcal/mol', E_hartree)
                     
@@ -294,6 +307,16 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             for state in NEB.states[1:-1]:
                 for a in state:
                     NEB.gradient += [-a.fx, -a.fy, -a.fz] # Gradient of NEB.error
+
+            # DEBUGGING CODE HERE
+            #f_chk = []
+            #for state in NEB.states[1:-1]:
+                #for a in state:
+                    #f_chk += [a.fx, a.fy, a.fz]
+            #for i,f in enumerate(f_chk): f_chk[i] = units.convert_energy("Ha","eV",f)
+            #f_chk = np.array(f_chk).reshape((-1,3))
+            #print "Force Check 2", f_chk[3]
+            #sys.exit()
 
             # Calculate RMS Force and Max force
             force_mags = [(a.fx**2+a.fy**2+a.fz**2)**0.5 for state in states[1:-1] for a in state]
@@ -424,16 +447,20 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         step = 0
         while (NEB.RMS_force > gtol) and (step < maxiter):
             if NEB.FMAX is not None and NEB.MAX_force < NEB.FMAX: return FMAX_CONVERGENCE
-            forces = -fprime(r)
-            max_step_length = np.sqrt((np.array(forces).reshape((-1,3))**2).sum(axis=1).max())
+
+            f = np.array(-fprime(r)).reshape((-1,3))
+
+            max_step_length = np.sqrt(((f)**2).sum(axis=1).max())
             # Scale if largest step to be taken will become larger than alpha:
-            if max_step_length*alpha > alpha:
-                dr = np.array(forces).reshape((-1,3)) * alpha / max_step_length
+            if max_step_length > 1.0:
+                dr = f * alpha / max_step_length
             else:
-                dr = np.array(forces).reshape((-1,3)) * alpha
+                dr = f * alpha
+
             r += dr.flatten()
             if fit_rigid: r = align_coordinates(r)
             step += 1
+
         if NEB.RMS_force > gtol: return GTOL_CONVERGENCE
         if step < maxiter: return MAXITER_CONVERGENCE
         return FAIL_CONVERGENCE
