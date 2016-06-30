@@ -24,6 +24,12 @@ import numpy as np
 ##########################################################################
 ##########################################################################
 
+FAIL_CONVERGENCE = -1
+MAXITER_CONVERGENCE = 0
+FMAX_CONVERGENCE = 1
+GTOL_CONVERGENCE = 2
+
+
 def g09_start_job(NEB, i, state, procs, queue, force, initial_guess, extra_section, mem):
     if NEB.step>0:
         guess = ' Guess=Read'
@@ -84,7 +90,7 @@ def orca_results(NEB, step_to_use, i, state):
 
 def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queue=None,
         disp=0, k=0.1837, fit_rigid=True, start_job=None, get_results=None,
-        DFT='orca', opt='LBFGS', gtol=1e-3, maxiter=1000,
+        DFT='orca', opt='LBFGS', gtol=1e-3, fmax=None, maxiter=1000,
         alpha=0.1, beta=0.5, tau=1E-3, reset=10, H_reset=True, Nmax=20,
         viscosity=0.1, dtmax=1.0, Nmin=5, finc=1.1, fdec=0.5, astart=0.1, fa=0.99,
         step_min=1E-8, step_max=0.2, bt_max=None, linesearch='backtrack', L2norm=True, bt_eps=1E-3,
@@ -162,7 +168,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         name, states, theory, k = None, None, None, None
         error, gradient = None, None
         step = 0
-        def __init__(self, name, states, theory, extra_section='', k=0.1837):
+        def __init__(self, name, states, theory, extra_section='', k=0.1837, fmax=None):
             NEB.name = name
             NEB.states = states
             NEB.theory = theory
@@ -175,6 +181,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             NEB.RMS_force = float('inf')
             NEB.MAX_force = float('inf')
             NEB.MAX_energy = float('inf')
+            NEB.FMAX = fmax
 
             utils.procrustes(NEB.states) # In all cases, optimize the path via rigid rotations first
             
@@ -267,17 +274,20 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
 
             # Remove net translation forces from the gradient
             #if fit_rigid is not None:
-            net_translation_force = []
-            for state in NEB.states[1:-1]:
-                net_force = np.zeros(3)
-                for a in state:
-                    net_force += (a.fx, a.fy, a.fz)
-                net_translation_force.append(np.sqrt((net_force**2).sum()) / len(state))
-                for a in state:
-                    a.fx -= net_force[0] / len(state)
-                    a.fy -= net_force[1] / len(state)
-                    a.fz -= net_force[2] / len(state)
-            max_translation_force = units.convert("Ha/Ang","eV/Ang",max(net_translation_force))
+            if fit_rigid:
+                net_translation_force = []
+                for state in NEB.states[1:-1]:
+                    net_force = np.zeros(3)
+                    for a in state:
+                        net_force += (a.fx, a.fy, a.fz)
+                    net_translation_force.append(np.sqrt((net_force**2).sum()) / len(state))
+                    for a in state:
+                        a.fx -= net_force[0] / len(state)
+                        a.fy -= net_force[1] / len(state)
+                        a.fz -= net_force[2] / len(state)
+                max_translation_force = units.convert("Ha/Ang","eV/Ang",max(net_translation_force))
+            else:
+                max_translation_force = 0
             
             # Set gradient
             NEB.gradient = []
@@ -413,10 +423,20 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
     def steepest_descent(f, r, fprime, alpha=0.05, maxiter=1000, gtol=1E-3, fit_rigid=True): #better, but tends to push error up eventually, especially towards endpoints.
         step = 0
         while (NEB.RMS_force > gtol) and (step < maxiter):
+            if NEB.FMAX is not None and NEB.MAX_force < NEB.FMAX: return FMAX_CONVERGENCE
             forces = -fprime(r)
-            r += forces*alpha
+            max_step_length = np.sqrt((np.array(forces).reshape((-1,3))**2).sum(axis=1).max())
+            # Scale if largest step to be taken will become larger than alpha:
+            if max_step_length*alpha > alpha:
+                dr = np.array(forces).reshape((-1,3)) * alpha / max_step_length
+            else:
+                dr = np.array(forces).reshape((-1,3)) * alpha
+            r += dr.flatten()
             if fit_rigid: r = align_coordinates(r)
             step += 1
+        if NEB.RMS_force > gtol: return GTOL_CONVERGENCE
+        if step < maxiter: return MAXITER_CONVERGENCE
+        return FAIL_CONVERGENCE
 
     def quick_min_optimizer(f, r, nframes, fprime, dt=0.1, step_max=0.1, euler=False, viscosity=0.1, maxiter=1000, gtol=1E-3, fit_rigid=True): # dt = fs, step_max = angstroms, viscosity = 1/fs
         v = np.array([0.0 for x in r])
@@ -431,6 +451,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
 
         step = 0
         while (NEB.RMS_force > gtol) and (step < maxiter):
+            if NEB.FMAX is not None and NEB.MAX_force < NEB.FMAX: return FMAX_CONVERGENCE
             forces = -fprime(r) # Get the forces
 
             # Get the parallel velocity if it's in the same direction as the force
@@ -498,6 +519,9 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             if fit_rigid: r = align_coordinates(r)
 
             step += 1
+        if NEB.RMS_force > gtol: return GTOL_CONVERGENCE
+        if step < maxiter: return MAXITER_CONVERGENCE
+        return FAIL_CONVERGENCE
 
     def fire_optimizer(f, r, nframes, fprime, dt = 0.1, dtmax = 1.0, step_max = 0.2, maxiter=1000, gtol=1E-3,
                         Nmin = 5, finc = 1.1, fdec = 0.5, astart = 0.1, fa = 0.99, euler = True, fit_rigid=True):
@@ -508,7 +532,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
 
         step = 0
         while (NEB.RMS_force > gtol) and (step < maxiter):
-
+            if NEB.FMAX is not None and NEB.MAX_force < NEB.FMAX: return FMAX_CONVERGENCE
             # Get forces and number of atoms
             forces = -fprime(r)
             natoms = len(v)/(3*(nframes-2))
@@ -543,6 +567,9 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
 
             step += 1
 
+        if NEB.RMS_force > gtol: return GTOL_CONVERGENCE
+        if step < maxiter: return MAXITER_CONVERGENCE
+        return FAIL_CONVERGENCE
 
     def lbfgs_optimizer(target_function, initial_coordinates, target_gradient,
             step_size=0.1, step_size_adjustment=0.5, armijio_line_search_factor=1E-4, reset_when_in_trouble=True, linesearch='armijo',
@@ -551,7 +578,6 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             display=0, callback=None, max_steps_remembered=Nmax):
 
         # These are values deemed good for DFT NEB and removed from parameter space for simplification
-        MAX_BACKTRACK=None
         MIN_STEP=1E-8
         BACKTRACK_EPS=1E-3
 
@@ -560,7 +586,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             print("\tstep size = %lg, step size adjustment = %lg, reset_when_in_trouble = %s" % (step_size, step_size_adjustment, str(reset_when_in_trouble)))
             print("\tgtol = %lg, max_iterations = %d, MAX_STEP = %lg" % (gradient_tolerance, max_iterations, MAX_STEP))
             print("\t-------------------")
-            print("\tMAX_BACKTRACK = %s, reset_step_size = %s, MIN_STEP = %lg, BACKTRACK_EPS = %lg" % (str(MAX_BACKTRACK), str(reset_step_size), MIN_STEP, BACKTRACK_EPS))
+            print("\treset_step_size = %s, MIN_STEP = %lg, BACKTRACK_EPS = %lg" % (str(reset_step_size), MIN_STEP, BACKTRACK_EPS))
             print("\tfit_rigid = %s\n" % str(fit_rigid))
        
         function_call_counter = 0
@@ -603,9 +629,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
 
         backtrack, loop_counter, warnflag = 0, 0, 0
         while (NEB.RMS_force > gradient_tolerance) and (function_call_counter < max_iterations):
-            if MAX_BACKTRACK is not None and backtrack > MAX_BACKTRACK:
-                warnflag = 2
-                break
+            if NEB.FMAX is not None and NEB.MAX_force < NEB.FMAX: return FMAX_CONVERGENCE
 
             if display > 1:
                 print("Step %d, " % loop_counter),
@@ -897,6 +921,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
 
         backtrack, loop_counter, warnflag = 0, 0, 0
         while (NEB.RMS_force > gradient_tolerance) and (function_call_counter < max_iterations):
+            if NEB.FMAX is not None and NEB.MAX_force < NEB.FMAX: return FMAX_CONVERGENCE
 
             if display > 1:
                 print("Trace of current_Hessian = %lg" % float(np.matrix.trace(current_Hessian)))
@@ -1051,6 +1076,10 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 print("         Iterations: %d" % loop_counter)
                 print("         Function evaluations: %d" % function_call_counter)
 
+        if NEB.RMS_force > gtol: return GTOL_CONVERGENCE
+        if step < maxiter: return MAXITER_CONVERGENCE
+        return FAIL_CONVERGENCE
+
 ######################################################################################################
 ######################################################################################################
 ######################################################################################################
@@ -1070,32 +1099,32 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
     #######################################################################################################################
     #######################################################################################################################
 
-    n = NEB(name, states, theory, extra_section, k)
+    n = NEB(name, states, theory, extra_section, k, fmax)
 
     # Output for user
     if opt == 'BROYDEN_ROOT':
         scipy.optimize.broyden1(NEB.get_gradient, np.array(NEB.coords_start), alpha=float(alpha), verbose=(disp != 0))
     elif opt == 'QM':
-        quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, 
+        conv_flag = quick_min_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, 
             fprime=NEB.get_gradient, dt=dt, viscosity=viscosity, step_max=step_max, euler=euler, maxiter=maxiter, gtol=gtol, fit_rigid=fit_rigid)
     elif opt == 'FIRE':
-        fire_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, 
+        conv_flag = fire_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.nframes, 
             fprime=NEB.get_gradient, dt=dt, dtmax=dtmax, step_max=step_max,
             Nmin=Nmin, finc=finc, fdec=fdec, astart=astart, fa=fa, euler=euler, maxiter=maxiter, gtol=gtol, fit_rigid=fit_rigid)
     elif opt == 'BFGS':
-        bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.get_gradient,
+        conv_flag = bfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.get_gradient,
             step_size=float(alpha), step_size_adjustment=float(beta), armijio_line_search_factor=float(tau), reset_when_in_trouble=H_reset,
             gradient_tolerance=float(gtol), max_iterations=int(maxiter), fit_rigid=fit_rigid, linesearch=linesearch, reset_step_size=reset,
             MAX_STEP=float(step_max), display=disp
             )
     elif opt == 'LBFGS':
-        lbfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.get_gradient,
+        conv_flag = lbfgs_optimizer(NEB.get_error, np.array(NEB.coords_start), NEB.get_gradient,
             step_size=float(alpha), step_size_adjustment=float(beta), armijio_line_search_factor=float(tau), reset_when_in_trouble=H_reset,
             gradient_tolerance=float(gtol), max_iterations=int(maxiter), fit_rigid=fit_rigid, linesearch=linesearch, reset_step_size=reset,
             MAX_STEP=float(step_max), max_steps_remembered=Nmax, display=disp
             )
     elif opt == 'SD':
-        steepest_descent(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=alpha, maxiter=maxiter, gtol=gtol, fit_rigid=fit_rigid)
+        conv_flag = steepest_descent(NEB.get_error, np.array(NEB.coords_start), fprime=NEB.get_gradient, alpha=alpha, maxiter=maxiter, gtol=gtol, fit_rigid=fit_rigid)
     else:
         print("\nERROR - %s optimizations method does not exist! Choose from the following:" % str(opt))
         print("\t1. BFGS")
@@ -1105,3 +1134,12 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         print("\t5. FIRE")
         print("\t6. BROYDEN_ROOT\n")
         sys.exit()
+
+    if conv_flag == FAIL_CONVERGENCE:
+        print("\nNEB failed to converge.")
+    elif conv_flag == MAXITER_CONVERGENCE:
+        print("\nNEB quit after reaching the specified maximum number of iterations.")
+    elif conv_flag == FMAX_CONVERGENCE:
+        print("\nNEB converged the maximum force.")
+    elif conv_flag == GTOL_CONVERGENCE:
+        print("\nNEB converged the RMS force.")
