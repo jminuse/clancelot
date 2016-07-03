@@ -266,45 +266,22 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 dVmin = min( abs(V[i+1] - V[i]), abs(V[i-1]-V[i]) )
                 dVmax = max( abs(V[i+1] - V[i]), abs(V[i-1]-V[i]) )
 
-                improved_tangent = True
-                # Determine what method to use for getting tangent
-                if improved_tangent:
-                    if V[i+1] > V[i] and V[i] > V[i-1]:
-                        tangent = tplus.copy()
-                    elif V[i+1] < V[i] and V[i] < V[i-1]:
-                        tangent = tminus.copy()
-                    elif V[i+1] > V[i-1]:
-                        tangent = tplus*dVmax + tminus*dVmin
-                    else:
-                        tangent = tplus*dVmin + tminus*dVmax
+                if V[i+1] > V[i] and V[i] > V[i-1]:
+                    tangent = tplus.copy()
+                elif V[i+1] < V[i] and V[i] < V[i-1]:
+                    tangent = tminus.copy()
+                elif V[i+1] > V[i-1]:
+                    tangent = tplus*dVmax + tminus*dVmin
                 else:
-                    imax = np.argsort(V)[-1]
-                    if i < imax:
-                        tangent = tplus.copy()
-                    elif i > imax:
-                        tangent = tminus.copy()
-                    else:
-                        tangent = tplus + tminus
+                    tangent = tplus*dVmin + tminus*dVmax
 
                 # Normalize tangent
                 tangent_norm = np.sqrt(np.vdot(tangent,tangent))
                 if tangent_norm != 0: tangent /= tangent_norm
 
-                # Old method, full tangent of image is not normalized to 1, but instead every row is
-                #for j,t in enumerate(tangent):
-                    #if np.linalg.norm(t) == 0: pass
-                    #else: tangent[j] = t / np.linalg.norm(t)
-
-                # Find spring forces parallel to tangent               
-                # Improved tangent method
-                if improved_tangent:
-                    F_spring_parallel = k * (np.linalg.norm(tplus) - np.linalg.norm(tminus)) * tangent 
-                else:
-                    F_spring_parallel = k * np.vdot(tplus - tminus, tangent) * tangent
-
-                F_real_parallel = (np.vdot(real_force,tangent)*tangent).reshape((-1,3))
-
-                F_real_perpendicular = real_force - F_real_parallel
+                F_spring_parallel = k * (np.linalg.norm(tplus) - np.linalg.norm(tminus)) * tangent 
+                
+                F_real_perpendicular = real_force - (np.vdot(real_force,tangent)*tangent).reshape((-1,3))
 
                 # Set NEB forces
                 forces = F_spring_parallel + F_real_perpendicular
