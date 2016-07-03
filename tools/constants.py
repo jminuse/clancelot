@@ -1,6 +1,6 @@
 import math
 # Everything is converted to Joules
-# i.e. 1 Ha = 4.359y44E-18 Joules
+# i.e. 1 Ha = 4.359744E-18 Joules
 ENERGY = {'Ha':4.359744E-18,'eV':1.602E-19,'J':1.,'kcal':4184./6.022E23,'kcal/mol':4184./6.022E23,'kJ/mol':1000./6.022E23,'kT_300':4.14195E-21,'Ry':2.1798741e-18}
 
 # Everything is converted to atm
@@ -13,6 +13,7 @@ pi = math.pi
 PI = pi
 Pi = pi
 hbar = h/(2.0*pi)
+amu = 1.661E-27 # Kg
 c = 299792458.0 # Speed of light (from NIST) in m/s
 
 # Everything is converted to Angstroms

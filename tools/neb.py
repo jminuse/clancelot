@@ -241,49 +241,77 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             #e_chk = [units.convert_energy("Ha","eV",e) for e in energies]
             #print "Check 1: Force, Energy = ", f_chk[3], ", ", e_chk[:5]
             
+            # Get positions in a flat array
+            def get_positions(image):
+                pos = np.array([np.empty([3]) for j in image])
+                for j,atom in enumerate(image):
+                    if j not in spring_atoms: continue
+                    pos[j] = np.array([atom.x, atom.y, atom.z])
+                return pos
+            
             # Add spring forces to atoms
-            for i,state in enumerate(NEB.states):
-                if i==0 or i==len(NEB.states)-1: continue # Don't change first or last state
-                for j,bb in enumerate(state):
-                    if j in spring_atoms:
-                        a,b,c = [fake_states[i+d][j] for d in [-1,0,1]]
-                    
-                        # Find tangent
-                        tplus = np.array( [ c.x-b.x, c.y-b.y, c.z-b.z ] )
-                        tminus = np.array( [ b.x-a.x, b.y-a.y, b.z-a.z ] )
-                        dVmin = min(abs(V[i+1]-V[i]), abs(V[i-1]-V[i]))
-                        dVmax = max(abs(V[i+1]-V[i]), abs(V[i-1]-V[i]))
-                        if V[i+1]>V[i] and V[i]>V[i-1]: # Not at an extremum, trend of V is up
-                            tangent = tplus.copy()
-                        elif V[i+1]<V[i] and V[i]<V[i-1]: # Not at an extremum, trend of V is down
-                            tangent = tminus.copy()
-                        elif V[i+1]>V[i-1]: # At local extremum, next V is higher
-                            tangent = tplus*dVmax + tminus*dVmin
-                        else: # At local extremum, previous V is higher
-                            tangent = tplus*dVmin + tminus*dVmax
-                        
-                        # Normalize tangent
-                        if np.linalg.norm(tangent) == 0: pass
-                        else: tangent /= np.linalg.norm(tangent)
-                    
-                        # Find spring forces parallel to tangent
-                        F_spring_parallel = NEB.k*( utils.dist(c,b) - utils.dist(b,a) ) * tangent
-                        
-                        # I don't think this is used
-                        E_hartree = 0.5*NEB.k*( utils.dist_squared(c,b) + utils.dist_squared(b,a) )
-                        energies[i] += units.convert_energy('Ha','kcal/mol', E_hartree)
-                    
-                        # Find DFT forces perpendicular to tangent
-                        real_force = np.array( [bb.fx,bb.fy,bb.fz] )
-                        F_real_perpendicular = real_force - np.dot(real_force, tangent)*tangent
+            for i in range(1, len(NEB.states)-1):
+                a = get_positions(NEB.states[i-1])
+                b = get_positions(NEB.states[i])
+                c = get_positions(NEB.states[i+1])
+                
+                real_force = np.array([np.empty([3]) for j in NEB.states[i]])
+                for j,atom in enumerate(NEB.states[i]):
+                    if j not in spring_atoms: continue
+                    real_force[j] = np.array( [atom.fx,atom.fy,atom.fz] )
 
-                        if fit_rigid:
-                            R = full_rotation[i-1]
-                            R_inv = np.linalg.inv(R)
-                            F_spring_parallel = np.dot(F_spring_parallel, R_inv)
+                # Find tangent
+                tplus = c - b
+                tminus = b - a
+                dVmin = min( abs(V[i+1] - V[i]), abs(V[i-1]-V[i]) )
+                dVmax = max( abs(V[i+1] - V[i]), abs(V[i-1]-V[i]) )
 
-                        # Set NEB forces
-                        bb.fx, bb.fy, bb.fz = F_spring_parallel + F_real_perpendicular
+                improved_tangent = True
+                # Determine what method to use for getting tangent
+                if improved_tangent:
+                    if V[i+1] > V[i] and V[i] > V[i-1]:
+                        tangent = tplus.copy()
+                    elif V[i+1] < V[i] and V[i] < V[i-1]:
+                        tangent = tminus.copy()
+                    elif V[i+1] > V[i-1]:
+                        tangent = tplus*dVmax + tminus*dVmin
+                    else:
+                        tangent = tplus*dVmin + tminus*dVmax
+                else:
+                    imax = np.argsort(V)[-1]
+                    if i < imax:
+                        tangent = tplus.copy()
+                    elif i > imax:
+                        tangent = tminus.copy()
+                    else:
+                        tangent = tplus + tminus
+
+                # Normalize tangent
+                tangent_norm = np.sqrt(np.vdot(tangent,tangent))
+                if tangent_norm != 0: tangent /= tangent_norm
+
+                # Old method, full tangent of image is not normalized to 1, but instead every row is
+                #for j,t in enumerate(tangent):
+                    #if np.linalg.norm(t) == 0: pass
+                    #else: tangent[j] = t / np.linalg.norm(t)
+
+                # Find spring forces parallel to tangent               
+                # Improved tangent method
+                if improved_tangent:
+                    F_spring_parallel = k * (np.linalg.norm(tplus) - np.linalg.norm(tminus)) * tangent 
+                else:
+                    F_spring_parallel = k * np.vdot(tplus - tminus, tangent) * tangent
+
+                F_real_parallel = (np.vdot(real_force,tangent)*tangent).reshape((-1,3))
+
+                F_real_perpendicular = real_force - F_real_parallel
+
+                # Set NEB forces
+                forces = F_spring_parallel + F_real_perpendicular
+
+                for j,atom in enumerate(NEB.states[i]):
+                    if j not in spring_atoms: continue
+                    atom.fx, atom.fy, atom.fz = forces[j][0], forces[j][1], forces[j][2]
 
             # Remove net translation forces from the gradient
             #if fit_rigid is not None:
@@ -339,6 +367,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 print("Step\tRMS_F (eV/Ang)\tMAX_F (eV/Ang)\tMAX_E (kT_300)\tMAX Translational Force (eV/Ang)\tEnergies (kT_300)\n----")
             print("%d\t%s\t\t%s\t\t%s\t\t%.4f" % (NEB.step, rms, max_f, max_e, max_translation_force)),
             print '    \t\t\t\t', '%7.5g +' % V[0], ('%5.1f '*len(V[1:])) % tuple(V[1:])
+            
+            sys.stdout.flush()
             
             if NEB.prv_RMS is None: NEB.prv_RMS = RMS_force
             NEB.prv_RMS = min(RMS_force, NEB.prv_RMS)
