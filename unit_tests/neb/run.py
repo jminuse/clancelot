@@ -163,7 +163,7 @@ frames = files.read_xyz('/fs/home/$USER$/clancelot/unit_tests/neb/xyz/'+fptr+'.x
 opt = '$OPT$'
 route = '$ROUTE$'
 
-run_name = fptr[:fptr.find('.xyz')] + '_' + opt
+run_name = fptr[:fptr.find('.xyz')+1] + '_' + opt
 neb.neb(run_name, frames, route, opt=opt, maxiter=$MAXITER$, gtol=$GTOL$, DFT='$DFT$', alpha=$ALPHA$, dt=$DT$, mem=$MEM$, Nmax=$NMAX$, fit_rigid=$FIT_RIGID$, linesearch='$LINESEARCH$')'''
 
 		# Replace with defined test

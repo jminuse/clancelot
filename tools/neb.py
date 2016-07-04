@@ -468,8 +468,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             if fit_rigid: r = align_coordinates(r)
             step += 1
 
-        if NEB.RMS_force > gtol: return GTOL_CONVERGENCE
-        if step < maxiter: return MAXITER_CONVERGENCE
+        if NEB.RMS_force <= gtol: return GTOL_CONVERGENCE
+        if step >= maxiter: return MAXITER_CONVERGENCE
         return FAIL_CONVERGENCE
 
     def quick_min_optimizer(f, r, nframes, fprime, dt=0.1, step_max=0.1, euler=False, viscosity=0.1, maxiter=1000, gtol=1E-3, fit_rigid=True): # dt = fs, step_max = angstroms, viscosity = 1/fs
@@ -553,8 +553,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             if fit_rigid: r = align_coordinates(r)
 
             step += 1
-        if NEB.RMS_force > gtol: return GTOL_CONVERGENCE
-        if step < maxiter: return MAXITER_CONVERGENCE
+        if NEB.RMS_force <= gtol: return GTOL_CONVERGENCE
+        if step >= maxiter: return MAXITER_CONVERGENCE
         return FAIL_CONVERGENCE
 
     def fire_optimizer(f, r, nframes, fprime, dt = 0.1, dtmax = 1.0, step_max = 0.2, maxiter=1000, gtol=1E-3,
@@ -601,8 +601,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
 
             step += 1
 
-        if NEB.RMS_force > gtol: return GTOL_CONVERGENCE
-        if step < maxiter: return MAXITER_CONVERGENCE
+        if NEB.RMS_force <= gtol: return GTOL_CONVERGENCE
+        if step >= maxiter: return MAXITER_CONVERGENCE
         return FAIL_CONVERGENCE
 
     def lbfgs_optimizer(target_function, initial_coordinates, target_gradient,
@@ -889,6 +889,10 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 print("         Iterations: %d" % loop_counter)
                 print("         Function evaluations: %d" % function_call_counter)
 
+        if NEB.RMS_force <= gtol: return GTOL_CONVERGENCE
+        if loop_counter >= maxiter: return MAXITER_CONVERGENCE
+        return FAIL_CONVERGENCE
+
 
 ######################################################################################################
 ######################################################################################################
@@ -1110,8 +1114,8 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 print("         Iterations: %d" % loop_counter)
                 print("         Function evaluations: %d" % function_call_counter)
 
-        if NEB.RMS_force > gtol: return GTOL_CONVERGENCE
-        if step < maxiter: return MAXITER_CONVERGENCE
+        if NEB.RMS_force <= gtol: return GTOL_CONVERGENCE
+        if loop_counter >= maxiter: return MAXITER_CONVERGENCE
         return FAIL_CONVERGENCE
 
 ######################################################################################################
