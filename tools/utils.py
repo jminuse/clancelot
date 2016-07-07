@@ -3,6 +3,8 @@ import math, copy, subprocess, time, numpy, re
 import files, constants
 from units import elem_i2s
 from warnings import warn, simplefilter
+from sysconst import opls_path
+
 simplefilter('always', DeprecationWarning)
 
 class Struct:
@@ -255,7 +257,7 @@ def rot_xyz(alpha, beta, gamma):
 	return M
 
 class Molecule():
-	def __init__(self, atoms_or_filename_or_all, bonds=None, angles=None, dihedrals=None, parameter_file='oplsaa.prm', extra_parameters={}, test_charges=True, allow_errors=False): #set atoms, bonds, etc, or assume 'atoms' contains all those things if only one parameter is passed in
+	def __init__(self, atoms_or_filename_or_all, bonds=None, angles=None, dihedrals=None, parameter_file=opls_path, extra_parameters={}, test_charges=True, allow_errors=False): #set atoms, bonds, etc, or assume 'atoms' contains all those things if only one parameter is passed in
 		if type(atoms_or_filename_or_all)==type('string'):
 			self.filename = atoms_or_filename_or_all
 			atoms, bonds, angles, dihedrals = files.read_cml(self.filename, parameter_file=parameter_file, extra_parameters=extra_parameters, test_charges=test_charges, allow_errors=allow_errors)
@@ -403,78 +405,39 @@ def angle_size(a,center,b):
 	return 180/math.pi*math.acos((A**2+B**2-N**2)/(2*A*B))
 
 def dihedral_angle(a,b,c,d):
-	cache_key = a.x+b.x+c.x+d.x
+    """Praxeolitic formula
+    1 sqrt, 1 cross product
+    http://stackoverflow.com/a/34245697"""
+    from numpy import array, dot, degrees, arctan2, cross, cos
+    from numpy.linalg import norm
+    p0 = array([a.x,a.y,a.z])
+    p1 = array([b.x,b.y,b.z])
+    p2 = array([c.x,c.y,c.z])
+    p3 = array([d.x,d.y,d.z])
 
-	sqrt = math.sqrt
-	cos = math.cos
+    b0 = -1.0*(p1 - p0)
+    b1 = p2 - p1
+    b2 = p3 - p2
 
-	#a,b,c,d = d,c,b,a
+    # normalize b1 so that it does not influence magnitude of vector
+    # rejections that come next
+    b1 /= norm(b1)
 
-	vb1x, vb1y, vb1z = a.x-b.x, a.y-b.y, a.z-b.z
-	vb2x, vb2y, vb2z = c.x-b.x, c.y-b.y, c.z-b.z
-	vb3x, vb3y, vb3z = d.x-c.x, d.y-c.y, d.z-c.z
+    # vector rejections
+    # v = projection of b0 onto plane perpendicular to b1
+    #   = b0 minus component that aligns with b1
+    # w = projection of b2 onto plane perpendicular to b1
+    #   = b2 minus component that aligns with b1
+    v = b0 - dot(b0, b1)*b1
+    w = b2 - dot(b2, b1)*b1
 
-	# c0 calculation
+    # angle between v and w in a plane is the torsion angle
+    # v and w may not be normalized but that's fine since tan is y/x
+    x = dot(v, w)
+    y = dot(cross(b1, v), w)
 
-	sb1 = 1.0 / (vb1x*vb1x + vb1y*vb1y + vb1z*vb1z)
-	sb2 = 1.0 / (vb2x*vb2x + vb2y*vb2y + vb2z*vb2z)
-	sb3 = 1.0 / (vb3x*vb3x + vb3y*vb3y + vb3z*vb3z)
-
-	rb1 = sqrt(sb1)
-	rb3 = sqrt(sb3)
-
-	c0 = (vb1x*vb3x + vb1y*vb3y + vb1z*vb3z) * rb1*rb3
-
-	# 1st and 2nd angle
-
-	b1mag2 = vb1x*vb1x + vb1y*vb1y + vb1z*vb1z
-	b1mag = sqrt(b1mag2)
-	b2mag2 = vb2x*vb2x + vb2y*vb2y + vb2z*vb2z
-	b2mag = sqrt(b2mag2)
-	b3mag2 = vb3x*vb3x + vb3y*vb3y + vb3z*vb3z
-	b3mag = sqrt(b3mag2)
-
-	ctmp = vb1x*vb2x + vb1y*vb2y + vb1z*vb2z
-	r12c1 = 1.0 / (b1mag*b2mag)
-	c1mag = ctmp * r12c1
-
-	ctmp = vb2x*vb3x + vb2y*vb3y + vb2z*vb3z
-	r12c2 = 1.0 / (b2mag*b3mag)
-	c2mag = -ctmp * r12c2
-
-	# cos and sin of 2 angles and final c
-
-	sin2 = max(1.0 - c1mag*c1mag,0.0)
-	sc1 = sqrt(sin2)
-	#if sc1 < SMALL: sc1 = SMALL
-	sc1 = 1.0/sc1
-
-	sin2 = max(1.0 - c2mag*c2mag,0.0)
-	sc2 = sqrt(sin2)
-	#if sc2 < SMALL: sc2 = SMALL
-	sc2 = 1.0/sc2
-
-	s1 = sc1 * sc1
-	s2 = sc2 * sc2
-	s12 = sc1 * sc2
-	c = (c0 + c1mag*c2mag) * s12
-
-	cx = vb1y*vb2z - vb1z*vb2y
-	cy = vb1z*vb2x - vb1x*vb2z
-	cz = vb1x*vb2y - vb1y*vb2x
-	cmag = sqrt(cx*cx + cy*cy + cz*cz)
-	dx = (cx*vb3x + cy*vb3y + cz*vb3z)/cmag/b3mag
-
-
-	if c>1.0: c = 1.0
-	if c<-1.0: c = -1.0
-
-	phi = math.acos(c)
-	if dx < 0.0:
-		phi *= -1.0
-	phi *= -1.0
-
-	return phi, math.cos(phi), math.cos(2*phi), math.cos(3*phi), math.cos(4*phi)
+    phi = arctan2(y, x)
+    return phi, cos(phi), cos(2*phi), cos(3*phi), cos(4*phi) 
 
 # A test procrustes code to remove possibility of reflection
 def orthogonal_procrustes(A, ref_matrix, reflection=False):
@@ -789,7 +752,7 @@ def strip_color(s):
 	return s
 strip_colour = strip_color
 
-def opls_options(molecule, parameter_file='oplsaa.prm'):
+def opls_options(molecule, parameter_file=opls_path):
 	elements, atom_types, bond_types, angle_types, dihedral_types = files.read_opls_parameters(parameter_file)
 
 	elements_by_structure_indices = dict( [ (t.index2, elem_i2s(t.element) ) for t in atom_types ] )
@@ -843,7 +806,7 @@ def opls_options(molecule, parameter_file='oplsaa.prm'):
 		print '\t\t', options
 
 
-def opt_opls(molecule, parameter_file='oplsaa.prm', taboo_time=100):
+def opt_opls(molecule, parameter_file=opls_path, taboo_time=100):
 	elements, atom_types, bond_types, angle_types, dihedral_types = files.read_opls_parameters(parameter_file)
 	atoms, bonds, angles, dihedrals = files.read_cml(molecule, parameter_file=None)
 

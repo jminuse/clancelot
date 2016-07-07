@@ -3,9 +3,10 @@ import xml.etree.ElementTree as xml
 import utils
 import datetime
 from warnings import warn
+from sysconst import opls_path
 
 # Read the Chemical Markup Language (CML)
-def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, test_charges=True, allow_errors=False, pair_style='lj/cut'):
+def read_cml(name, parameter_file=opls_path, extra_parameters={}, test_charges=True, allow_errors=False, pair_style='lj/cut'):
 	if not name.endswith('.cml'):
 		name += '.cml'
 	tree = xml.parse(name)
@@ -267,7 +268,7 @@ def write_xyz(frames_or_system, name_or_file=None, ID='Atoms'):
 	if type(name_or_file)==str: #close file if we opened it
 		f.close()
 
-def read_opls_parameters(parameter_file='oplsaa.prm', pair_style='lj/cut'):
+def read_opls_parameters(parameter_file=opls_path, pair_style='lj/cut'):
 	if read_opls_parameters.atom_types is None:
 		elements = {}; atom_types = []; bond_types = []; angle_types = []; dihedral_types = []
 		for line in open(parameter_file):
@@ -308,7 +309,7 @@ read_opls_parameters.bond_types = None
 read_opls_parameters.angle_types = None
 read_opls_parameters.dihedral_types = None
 
-def set_forcefield_parameters(atoms, bonds=[], angles=[], dihedrals=[], parameter_file='oplsaa.prm', name='unnamed', extra_parameters={}, test_consistency=True, test_charges=True, allow_errors=False, pair_style='lj/cut'):
+def set_forcefield_parameters(atoms, bonds=[], angles=[], dihedrals=[], parameter_file=opls_path, name='unnamed', extra_parameters={}, test_consistency=True, test_charges=True, allow_errors=False, pair_style='lj/cut'):
 	elements, atom_types, bond_types, angle_types, dihedral_types = [], [], [], [], []
 
 	# If parameter_file=None, only extra parameters will be passed.
