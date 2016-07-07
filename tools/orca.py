@@ -292,6 +292,7 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 	elif queue=='debug':
 		print 'Would run', run_name
 	else: #details copied from g09sub
+		
 		NBS = '''#!/bin/sh
 ##NBS-fdisk: 8192
 ##NBS-fmemory: '''+str(mem)+'''
@@ -302,7 +303,7 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 ##NBS-name: '''+run_name+'''
 ##NBS-nproc: '''+str(procs)+'''
 ##NBS-queue: '''+queue+'''
-##NBS-priority: '''+priority+'''
+##NBS-priority: '''+str(priority)+'''
 
 ##NBS-input: *.orca
 '''+('##NBS-input: previous.gbw' if os.path.exists('previous.gbw') else '')+'''
