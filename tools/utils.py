@@ -277,6 +277,19 @@ class Molecule():
 		rand_m = rand_rotation()
 		self.rotate(rand_m)
 
+	def get_com(self, skip_H=True):
+		if skip_H: n = float(len([a for a in self.atoms if a.element != "H"]))
+		else: n = float(len(self.atoms))
+		if skip_H:
+			x = sum([a.x for a in self.atoms if a.element != "H"])/n
+			y = sum([a.y for a in self.atoms if a.element != "H"])/n
+			z = sum([a.z for a in self.atoms if a.element != "H"])/n
+		else:
+			x = sum([a.x for a in self.atoms])/n
+			y = sum([a.y for a in self.atoms])/n
+			z = sum([a.z for a in self.atoms])/n
+		return (x,y,z)
+
 	# Print all atoms
 	def to_string(self):
 		text = ''
@@ -970,3 +983,31 @@ def spaced_print(sOut,delim=['\t',' '],buf=4):
 
 	return '\n'.join(sOut)
 
+# Pass a list of atoms, return a list of lists of atoms
+def rotate_xyz(frame, theta_0=0, theta_n=360, dt=1, axis=[0,0,1], com=True):
+	from numpy import cross, eye, dot, array, arange, cos, radians
+	from scipy.linalg import expm, norm, block_diag
+
+	# http://stackoverflow.com/questions/6802577/python-rotation-of-3d-vector/25709323#25709323
+	def rotation_matrix(axis, theta):
+	    return expm(cross(eye(3), axis/norm(axis)*theta))
+
+	frames, image = [], array([[a.x,a.y,a.z] for a in frame]).flatten()
+	elements = [a.element for a in frame]
+	natoms = len(frame)
+
+	if com:
+		image = image.reshape((-1,3))
+		translate = image.sum(axis=0) / float(natoms)
+		image -= translate
+		image = image.flatten()
+
+	for theta in arange(theta_0, theta_n, dt):
+		r = rotation_matrix(axis, radians(theta))
+		R = block_diag(*[r for i in range(natoms)])
+		rotated = dot(R,image).reshape((-1,3))
+		if com:
+			rotated += translate
+		frames.append([Atom(e,a[0],a[1],a[2]) for e,a in zip(elements, rotated)])
+
+	return frames

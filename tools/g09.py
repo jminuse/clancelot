@@ -1,6 +1,6 @@
 import os, string, sys, re, shutil, copy
 from subprocess import Popen
-import utils, units, log, files
+import utils, units, log, files, constants
 
 # Function that parses the route into the following situations
 	# func/basis
@@ -215,7 +215,7 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, check_convergence=T
 				columns = line.split()
 				element = columns[1]
 				x,y,z = [float(s) for s in columns[3:6]]
-				atoms[-1].append( utils.Atom(element=utils.elements_by_atomic_number[int(columns[1])], x=x, y=y, z=z, index=len(atoms[-1])+1) )
+				atoms[-1].append( utils.Atom(element=constants.PERIODIC_TABLE[int(columns[1])]['sym'], x=x, y=y, z=z, index=len(atoms[-1])+1) )
 		
 		if get_energy:
 			return energy, atoms
@@ -286,7 +286,7 @@ def parse_atoms(input_file, get_atoms=True, get_energy=True, check_convergence=T
 		columns = line.split()
 		element = columns[1]
 		x,y,z = [float(s) for s in columns[3:6]]
-		atoms.append( utils.Atom(element=utils.elements_by_atomic_number[int(columns[1])], x=x, y=y, z=z, index=len(atoms)+1) )
+		atoms.append( utils.Atom(element=constants.PERIODIC_TABLE[int(columns[1])]['sym'], x=x, y=y, z=z, index=len(atoms)+1) )
 	
 	#get forces
 	if 'Forces (Hartrees/Bohr)' in contents:
@@ -375,7 +375,7 @@ def parse_scan(input_file):
 			columns = line.split()
 			element = columns[1]
 			x,y,z = [float(s) for s in columns[3:6]]
-			atoms.append( utils.Atom(element=utils.elements_by_atomic_number[int(columns[1])], x=x, y=y, z=z) )
+			atoms.append( utils.Atom(element=constants.PERIODIC_TABLE[int(columns[1])]['sym'], x=x, y=y, z=z) )
 		energy_list.append(energy)
 		atoms_list.append(atoms)
 	return energy_list, atoms_list
