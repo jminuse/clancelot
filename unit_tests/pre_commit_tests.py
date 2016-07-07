@@ -30,7 +30,8 @@ def test_lammps():
 	system = utils.System(box_size=[20.0,20.0,20.0], name='test')
 	system.add(molecule)
 	files.packmol(system, (molecule,), molecule_ratio=(1,), density=0.1)
-	shutil.rmtree('lammps')
+	if os.path.isdir("lammps"):
+		shutil.rmtree('lammps')
 	os.mkdir('lammps')
 	os.chdir('lammps')
 	files.write_lammps_data(system, pair_coeffs_included=True)
