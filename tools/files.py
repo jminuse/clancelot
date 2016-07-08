@@ -492,8 +492,9 @@ Masses
 						t.vdw_e, t.vdw_r))+"\n")
 		else:
 			#Assume lj/cut potential since no hybrids are included
-			f.write(("%d\t%f\t%f" % (t.lammps_type,
-				t.vdw_e, t.vdw_r))+"\n")
+			for t in atom_types:
+				f.write(("%d\t%f\t%f" % (t.lammps_type,
+					t.vdw_e, t.vdw_r))+"\n")
 
 	if bonds: f.write("\n\nBond Coeffs\n\n"+'\n'.join(["%d\t%f\t%f" % (t.lammps_type, t.e, t.r) for t in bond_types]))
 	if angles: 

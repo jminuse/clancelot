@@ -6,6 +6,8 @@ from shutil import copyfile
 import re
 from warnings import warn
 
+#Testing
+
 # This module provides a framework for submitting and reading lammps jobs sent through the NBS queue.
 # LAMMPS is inherently flexible. However, in order to provide a smooth user experience, this module expects certain dump files and formats.
 # 1) The job will be created in lammps/run_name/
