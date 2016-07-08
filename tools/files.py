@@ -3,10 +3,9 @@ import xml.etree.ElementTree as xml
 import utils
 import datetime
 from warnings import warn
-from sysconst import opls_path
 
 # Read the Chemical Markup Language (CML)
-def read_cml(name, parameter_file=opls_path, extra_parameters={}, test_charges=True, allow_errors=False, pair_style='lj/cut'):
+def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, test_charges=True, allow_errors=False, pair_style='lj/cut'):
 	if not name.endswith('.cml'):
 		name += '.cml'
 	tree = xml.parse(name)
@@ -75,8 +74,9 @@ def write_cml(atoms_or_molecule_or_system, bonds=[], name=None):
 		a.index_from_1 = i+1
 	bond_indices = [ (b.atoms[0].index_from_1 , b.atoms[1].index_from_1) for b in bonds ]
 	bond_indices.sort()
-
-	f = open(name, 'w')
+	#path = os.path.join(os.path.expanduser('~'), 'Projects/Graphene_Substrate/struct_files')
+	#f = open(path + "/"+  name, 'w')
+	f = open(name,'w')
 	f.write('<molecule>\n')
 
 	# Write crystal information if provided. Assign it is a crystal if it is periodic
@@ -112,7 +112,7 @@ def write_cml(atoms_or_molecule_or_system, bonds=[], name=None):
 def read_lammpstrj(name, read_atoms=True, read_timesteps=True, read_num_atoms=True, read_box_bounds=True):
 	if not name.endswith('.lammpstrj') and '.' not in name:
 		name += '.lammpstrj'
-
+	print "Checking that os.path.isfile("+name+")"
 	# If file does not exist, return empty lammpstrj object
 	if not os.path.isfile(name):
 		warn('Expected lammps trajectory file does not exist at %s' % (name))
@@ -268,9 +268,12 @@ def write_xyz(frames_or_system, name_or_file=None, ID='Atoms'):
 	if type(name_or_file)==str: #close file if we opened it
 		f.close()
 
-def read_opls_parameters(parameter_file=opls_path, pair_style='lj/cut'):
+def read_opls_parameters(parameter_file='oplsaa.prm', pair_style='lj/cut'):
+	"""
+	Reads an opls parameter file, default with path 'oplsaa.prm'. 
+	"""
 	if read_opls_parameters.atom_types is None:
-		elements = {}; atom_types = []; bond_types = []; angle_types = []; dihedral_types = []
+		elements = {}; atom_types = []; bond_types = []; angle_types = []; dihedral_types = []; pair_types = []
 		for line in open(parameter_file):
 			columns = line.split()
 			if not columns: continue
@@ -295,13 +298,16 @@ def read_opls_parameters(parameter_file=opls_path, pair_style='lj/cut'):
 				dihedral_types.append( utils.Struct(index2s=tuple([int(s) for s in columns[1:5]]),e=tuple([float(s) for s in columns[5::3]]),style='opls') )
 				if len(dihedral_types[-1].e)==3:
 					dihedral_types[-1].e = dihedral_types[-1].e + (0.,)
+			elif columns[0]=='pair_type':
+				pass
 		read_opls_parameters.elements = elements
 		read_opls_parameters.atom_types = atom_types
 		read_opls_parameters.bond_types = bond_types
 		read_opls_parameters.angle_types = angle_types
 		read_opls_parameters.dihedral_types = dihedral_types
+		#read_opls_parameters.pair_types = pair_types
 
-	return read_opls_parameters.elements, read_opls_parameters.atom_types, read_opls_parameters.bond_types, read_opls_parameters.angle_types, read_opls_parameters.dihedral_types
+	return read_opls_parameters.elements, read_opls_parameters.atom_types, read_opls_parameters.bond_types, read_opls_parameters.angle_types, read_opls_parameters.dihedral_types#, read_opls_parameters.pair_types
 #store these values between calls:
 read_opls_parameters.elements = None
 read_opls_parameters.atom_types = None
@@ -309,7 +315,7 @@ read_opls_parameters.bond_types = None
 read_opls_parameters.angle_types = None
 read_opls_parameters.dihedral_types = None
 
-def set_forcefield_parameters(atoms, bonds=[], angles=[], dihedrals=[], parameter_file=opls_path, name='unnamed', extra_parameters={}, test_consistency=True, test_charges=True, allow_errors=False, pair_style='lj/cut'):
+def set_forcefield_parameters(atoms, bonds=[], angles=[], dihedrals=[], parameter_file='oplsaa.prm', name='unnamed', extra_parameters={}, test_consistency=True, test_charges=True, allow_errors=False, pair_style='lj/cut'):
 	elements, atom_types, bond_types, angle_types, dihedral_types = [], [], [], [], []
 
 	# If parameter_file=None, only extra parameters will be passed.
@@ -409,7 +415,19 @@ def check_consistency(atoms, bonds, angles, dihedrals, name='', allow_errors=Fal
 			else: print 'Exit'; exit()
 
 #@profile
-def write_lammps_data(system, pair_coeffs_included=False, hybrid_angle=False):
+def write_lammps_data(system, pair_coeffs_included=False, hybrid_angle=False,
+					  hybrid_pair=False):
+	"""
+	Writes a lammps data file from the given system.
+	Set pair_coeffs_included to True to write pair_coeffs in data file.
+	Set hybrid_angle to True to detect different treatment of angles among
+	different atom types.
+	Set hybrid_pair to True to detect different treatment of pairing interactions
+	among different atom types.
+	
+	Precondition: system is a utils.System object. pair_coeffs_included, hybrid_angle,
+	and hybrid_pair are all bools.
+	"""
 	#unpack values from system
 	atoms, bonds, angles, dihedrals, box_size, box_angles, run_name = system.atoms, system.bonds, system.angles, system.dihedrals, system.box_size, system.box_angles, system.name
 	#unpack lammps box parameters from system
@@ -419,7 +437,12 @@ def write_lammps_data(system, pair_coeffs_included=False, hybrid_angle=False):
 	angles = [ang for ang in angles if (ang.type.e > 1 or ang.type.e < -1)]
 	#ignore dihedrals with no energy
 	dihedrals = [d for d in dihedrals if any(d.type.e)]
-
+	
+	#Print atom's properties
+	#for property, value in vars(atoms[-1]).iteritems():
+		#print property, ": ", value
+	
+	
 	#get list of unique atom types
 	atom_types = dict( [(t.type,True) for t in atoms] ).keys() #unique set of atom types
 	bond_types = dict( [(t.type,True) for t in bonds] ).keys()
@@ -453,8 +476,24 @@ def write_lammps_data(system, pair_coeffs_included=False, hybrid_angle=False):
 Masses
 
 '''+('\n'.join(["%d\t%f" % (t.lammps_type, t.mass) for t in atom_types]))+'\n')
-
-	if pair_coeffs_included: f.write('\nPair Coeffs\n\n'+('\n'.join(["%d\t%f\t%f" % (t.lammps_type, t.vdw_e, t.vdw_r) for t in atom_types])) )
+	if pair_coeffs_included:
+		f.write('\nPair Coeffs\n\n')
+		if hybrid_pair:
+			for t in atom_types:
+				if (hasattr(t,"pair_type") and t.pair_type == "nm/cut"):
+					#hybrid with nm/cut
+					f.write("%d %s %f %f %f %f " % (t.lammps_type,"nm/cut",
+						t.vdw_e, t.r0,t.n,t.m)+"\n")
+				#Update here with elif statements for the syntax of different
+				#pair_styles. Currently only nm and lj are implemented.
+				else:
+					#Assume lj/cut potential 
+					f.write(("%d %s %f %f" % (t.lammps_type, "lj/cut",
+						t.vdw_e, t.vdw_r))+"\n")
+		else:
+			#Assume lj/cut potential since no hybrids are included
+			f.write(("%d\t%f\t%f" % (t.lammps_type,
+				t.vdw_e, t.vdw_r))+"\n")
 
 	if bonds: f.write("\n\nBond Coeffs\n\n"+'\n'.join(["%d\t%f\t%f" % (t.lammps_type, t.e, t.r) for t in bond_types]))
 	if angles: 
