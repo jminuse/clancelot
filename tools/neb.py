@@ -90,7 +90,7 @@ def orca_results(NEB, step_to_use, i, state):
 
 def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queue=None,
         disp=0, k=0.1837, fit_rigid=True, start_job=None, get_results=None,
-        DFT='orca', opt='LBFGS', gtol=1e-3, fmax=None, maxiter=1000,
+        DFT='orca', opt='BFGS', gtol=1e-3, fmax=None, maxiter=1000,
         alpha=0.1, beta=0.5, tau=1E-3, reset=10, H_reset=True, Nmax=20,
         viscosity=0.1, dtmax=1.0, Nmin=5, finc=1.1, fdec=0.5, astart=0.1, fa=0.99,
         step_min=1E-8, step_max=0.2, bt_max=None, linesearch='backtrack', L2norm=True, bt_eps=1E-3,

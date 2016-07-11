@@ -8,6 +8,8 @@ from getpass import getuser
 INSTALL_EVERYTHING=False
 to_install = {
 'vmd':1,
+'ovito':1,
+'debyer':1,
 'pysub':1,
 'qwatch':1,
 'gcube':1,
@@ -81,6 +83,8 @@ for key in to_install: # Make directories for what we want to install
 	if key == 'jdel': continue
 	if key == 'jsub': continue
 	if key == 'vmd': continue
+	if key == 'ovito': continue
+	if key == 'debyer': continue
 	if key == 'view_lmp': continue
 	if key == 'scanDFT': continue
 	if key == 'pysub': continue
@@ -387,6 +391,12 @@ if to_install['vmd default settings']:
 		if reinstall('Previous vmd settings found, backup old ~/.vmdrc to ~/.vmdrc_history?'):
 			os.system('mv ~/.vmdrc ~/.vmdrc_history')
 	os.system('cp vmdrc_default.txt ~/.vmdrc')
+
+if to_install['ovito']:
+	zshrc_check_add('export PATH=/fs/europa/g_pc/ovito-2.6.2-x86_64/bin/:$PATH',ZSHRC,zshrc_string)
+
+if to_install['debyer']:
+	zshrc_check_add('export PATH=/fs/europa/g_pc/debyer/debyer/:$PATH',ZSHRC,zshrc_string)
 
 def anaconda_install():
 	os.system('wget -P ~/lib/ https://repo.continuum.io/archive/Anaconda-2.2.0-Linux-x86_64.sh')
