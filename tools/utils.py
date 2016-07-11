@@ -947,7 +947,7 @@ def spaced_print(sOut,delim=['\t',' '],buf=4):
 	return '\n'.join(sOut)
 
 # Pass a list of atoms, return a list of lists of atoms
-def rotate_xyz(frame, theta_0=0, theta_n=360, dt=1, axis=[0,0,1], com=True):
+def rotate_xyz(frame, theta_0=0, theta_n=360, dt=1, axis=[0,0,1], com=True, last=False):
 	from numpy import cross, eye, dot, array, arange, cos, radians
 	from scipy.linalg import expm, norm, block_diag
 
@@ -965,12 +965,15 @@ def rotate_xyz(frame, theta_0=0, theta_n=360, dt=1, axis=[0,0,1], com=True):
 		image -= translate
 		image = image.flatten()
 
-	for theta in arange(theta_0, theta_n, dt):
+	theta = theta_n if last else theta_0
+	while theta <= theta_n:
 		r = rotation_matrix(axis, radians(theta))
 		R = block_diag(*[r for i in range(natoms)])
 		rotated = dot(R,image).reshape((-1,3))
 		if com:
 			rotated += translate
 		frames.append([Atom(e,a[0],a[1],a[2]) for e,a in zip(elements, rotated)])
+		theta += dt
 
+	if last: return frames[0]
 	return frames
