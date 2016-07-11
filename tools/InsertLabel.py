@@ -84,7 +84,6 @@ def InTextInsert(text):
     labelIndex= text.find("label=")
     if labelIndex != -1:
         return text
-    print "text = "+`text`
     #Check to ensure the element is in eleDict
     assert element in eleDict, "Element "+`element` + " is not in dict "+`eleDict`+"."
     label = eleDict[element]
