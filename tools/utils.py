@@ -1,6 +1,8 @@
 import os, sys
 import math, copy, subprocess, time, numpy, re
 import files, constants
+import numpy as np
+import scipy
 from units import elem_i2s
 from warnings import warn, simplefilter
 from sysconst import opls_path
@@ -44,6 +46,14 @@ class Atom():
 		text += '\n'
 
 		return text
+
+	def flatten(self):
+		return [self.x, self.y, self.z]
+
+	def set_position(self, pos):
+		self.x = pos[0]
+		self.y = pos[1]
+		self.z = pos[2]
 
 	def __str__(self):
 		return self.to_string()
@@ -298,6 +308,18 @@ class Molecule():
 		for atom in self.atoms:
 			text += atom.to_string()
 		return text
+
+	def flatten(self):
+		return np.array([[a.x, a.y, a.z] for a in self.atoms]).flatten()
+
+	def set_positions(self, positions, new_atom_list=False):
+		positions = positions.flatten().reshape((-1,3))
+		if len(positions) != len(self.atoms) and not new_atom_list:
+			raise Exception("position list does not hold the same number of atoms as does this molecule. Consider raising new_atom_list flag in set_positions.")
+		if new_atom_list: self.atoms = [Atom("",p[0],p[1],p[2]) for p in positions]
+		else:
+			for a,b in zip(self.atoms, positions):
+				a.x, a.y, a.z = b[0], b[1], b[2]
 
 	# When printing molecule, print all atoms
 	def __str__(self):
@@ -946,14 +968,18 @@ def spaced_print(sOut,delim=['\t',' '],buf=4):
 
 	return '\n'.join(sOut)
 
+# http://stackoverflow.com/questions/6802577/python-rotation-of-3d-vector/25709323#25709323
+def rotation_matrix(axis, theta, units="deg"):
+	from numpy import cross, eye, radians
+	from scipy.linalg import expm, norm
+	if "deg" in units.lower():
+		theta = radians(theta)
+	return expm(cross(eye(3), axis/norm(axis)*theta))
+
 # Pass a list of atoms, return a list of lists of atoms
 def rotate_xyz(frame, theta_0=0, theta_n=360, dt=1, axis=[0,0,1], com=True, last=False):
-	from numpy import cross, eye, dot, array, arange, cos, radians
-	from scipy.linalg import expm, norm, block_diag
-
-	# http://stackoverflow.com/questions/6802577/python-rotation-of-3d-vector/25709323#25709323
-	def rotation_matrix(axis, theta):
-	    return expm(cross(eye(3), axis/norm(axis)*theta))
+	from numpy import dot, array, radians
+	from scipy.linalg import block_diag
 
 	frames, image = [], array([[a.x,a.y,a.z] for a in frame]).flatten()
 	elements = [a.element for a in frame]
@@ -977,3 +1003,62 @@ def rotate_xyz(frame, theta_0=0, theta_n=360, dt=1, axis=[0,0,1], com=True, last
 
 	if last: return frames[0]
 	return frames
+
+# http://stackoverflow.com/questions/14016898/port-matlab-bounding-ellipsoid-code-to-python/14025140#14025140
+# TODO: Proof read later
+def mvee(points, tol = 0.001):
+    """
+    Find the minimum volume ellipse.
+    Return A, c where the equation for the ellipse given in "center form" is
+    (x-c).T * A * (x-c) = 1
+    """
+    from numpy import asmatrix, column_stack, argmax, diag, asarray, squeeze, ones
+    from numpy.linalg import norm, inv
+    elements = [a.element for a in points]
+    points = Molecule(points).flatten().reshape((-1,3))
+    points = np.asmatrix(points)
+    N, d = points.shape
+    Q = column_stack((points, ones(N))).T
+    err = tol+1.0
+    u = ones(N)/N
+    while err > tol:
+        # assert u.sum() == 1 # invariant
+        X = Q * diag(u) * Q.T
+        M = diag(Q.T * inv(X) * Q)
+        jdx = argmax(M)
+        step_size = (M[jdx]-d-1.0)/((d+1)*(M[jdx]-1.0))
+        new_u = (1-step_size)*u
+        new_u[jdx] += step_size
+        err = norm(new_u-u)
+        u = new_u
+    c = u*points
+    A = inv(points.T*diag(u)*points - c.T*c)/d
+    points = asarray(A).flatten().reshape((-1,3))
+    centroid = squeeze(asarray(c))
+    return points, centroid
+
+# Given a list of atom objects, this will (1) use mvee to generate a minimum centroid around
+# the structure, and (2) rotate the ellipsoid and positions to align along the x-axis
+def align_centroid(points):
+	from scipy.linalg import block_diag
+	# Get points and the ellipsoid
+	A, centroid = mvee(points)
+	points = Molecule(points).flatten().reshape((-1,3))
+	npoints = float(len(points))
+
+	# Rotate the ellipsoid
+	omega, R = np.linalg.eigh(A)
+	A = np.dot(A,R)
+
+	# Rotate the points
+	rotation = block_diag(*[R for a in points])
+	points = points.flatten()
+	points = np.dot(points, rotation).reshape((-1,3))
+
+	# Recenter the points
+	molec = Molecule([])
+	molec.set_positions(points, new_atom_list=True)
+	com = np.array(molec.get_com()) * -1.0
+	molec.translate(com)
+
+	return molec.atoms, A
