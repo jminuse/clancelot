@@ -354,7 +354,28 @@ alias geditl='lgedit'\n''')
 if to_install['merlin']: f.write("alias merlin='python -i "+INSTALLDIR+"tools/merlin.py'\n")
 if to_install['view_lmp']: f.write("alias view_lmp='python "+INSTALLDIR+"console_scripts/view_lmp.py'\n")
 if to_install['scanDFT']: f.write("\nalias scanDFT='python "+INSTALLDIR+"console_scripts/scanDFT.py'\n")
-if to_install['prnt']: f.write('''alias prnt='function _prnt(){ssh asimov "lpr -P hplj4525-365 -o sides=two-sided-long-edge -o InputSlot=Tray2 $PWD/$1;logout";echo "Printed..."};_prnt'\n''')
+if to_install['prnt']: f.write('''
+function _prnt()
+{
+gs \
+ -sOutputFile="'''+HOMEDIR+'''/tmp.pdf" \
+ -sDEVICE=pdfwrite \
+ -sPAPERSIZE=letter \
+ -dCompatibilityLevel=1.4 \
+ -dNOPAUSE \
+ -dBATCH \
+ -dPDFFitPage \
+ "$1"
+
+ssh asimov "lpr -P hplj4525-365 -o sides=two-sided-long-edge -o InputSlot=Tray2 '''+HOMEDIR+'''/tmp.pdf;logout"
+
+rm '''+HOMEDIR+'''/tmp.pdf
+
+echo "Done..."
+}
+
+alias prnt='_prnt'
+''')
 f.write('''\n###############################################################
 ################## END OF THE CLANCELOT CODE ##################
 ###############################################################''')
