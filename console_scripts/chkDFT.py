@@ -8,7 +8,7 @@ USERNAME = getuser()
 
 # One can easily change defaults here (if they do, probably change the
 # help text below accordingly).
-dft, u1, u2, scale, out_name, vmd, me = 'g09', 'Ha', 'Ha', 1.0, 'out', False, False
+dft, u1, u2, scale, out_name, vmd, ovito, me = 'g09', 'Ha', 'Ha', 1.0, 'out', False, False, False
 dft_list = [dft,'orca']
 
 if '-h' in sys.argv or '-help' in sys.argv or len(sys.argv) < 2:
@@ -31,6 +31,7 @@ chkDFT [Sim_Name] [Options]
                           not run. Default output name is 'out.xyz' but user
                           can choose their own using this command. 
 -vmd, -v      :        :  Opens output xyz file in vmd. Flag turns on.
+-ovito, -ov   :        :  Opens output xyz file in ovito. Flag turns on.
 -me           :        :  Forces the .xyz file to be saved to ~/out.xyz
 
 ex. chkDFT water -dft orca -u kT_300
@@ -63,6 +64,9 @@ if len(out_name) < 5 or out_name[-4:] != '.xyz': out_name += '.xyz'
 # Get VMD display status
 if '-vmd' in sys.argv or '-v' in sys.argv:
 	vmd = True
+# Get ovito display status
+if '-ovito' in sys.argv or '-ov' in sys.argv:
+	ovito = True
 # Check if me is forced
 if '-me' in sys.argv:
 	me = True
@@ -128,6 +132,8 @@ try:
 		files.write_xyz(data.frames,me + out_name[:-4])
 		if vmd:
 			os.system('"'+sysconst.vmd_path + '" ' + me + out_name)
+		elif ovito:
+			os.system('"'+sysconst.ovito_path + '" ' + me + out_name)
 except TypeError:
 	print("No atomic coordinates available yet...")
 except:
