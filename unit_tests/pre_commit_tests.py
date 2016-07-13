@@ -27,8 +27,13 @@ def test_g09():
 
 def test_lammps():
 	molecule = utils.Molecule('acetone')
+	molecule2 = utils.Molecule('acetone')
+	assert molecule.equals(molecule2), "Molecule.equals() has failed tests."
 	system = utils.System(box_size=[20.0,20.0,20.0], name='test')
 	system.add(molecule)
+	system2 = utils.System(box_size=[20.0,20.0,20.0], name='test')
+	system2.add(molecule2)
+	assert system.equals(system2), "System.equals() has failed tests."
 	files.packmol(system, (molecule,), molecule_ratio=(1,), density=0.1)
 	if os.path.isdir("lammps"):
 		shutil.rmtree('lammps')

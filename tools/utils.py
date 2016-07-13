@@ -9,13 +9,50 @@ from sysconst import opls_path
 
 simplefilter('always', DeprecationWarning)
 
-class Struct:
+class Struct(object):
 	def __init__(self, **kwargs):
 		self.__dict__.update(kwargs)
 	def __repr__(self):
 		return str( dict([ (a,None) if type(self.__dict__[a]) in (list,dict) else (a,self.__dict__[a]) for a in self.__dict__]) )
 
-class Atom():
+
+class _Physical(object):
+	"""
+	An instance of Physical is a physical object or collection of physical objects,
+	such as a Molecule, Atom, Bond, Dihedral, System, etc.
+	This class is designed as a parent class to Atom, Molecule, Bond, System, and
+	Dihedral to provide a basic equals() method and other shared methods.
+	
+	Invariant: Everything about a _Physical instance must be described by attributes
+	whose order does not vary or whose attributes' equivalence is not defined by
+	their order (e.g. Sets).
+	"""
+	
+	def equals(self, other):
+		"""
+		Basic equivalence of self and other have the same pointer id, or if all
+		non-callable dir entries of the two objects are equivalent.
+		"""
+		
+		if id(self) == id(other):
+			return True
+		
+		#set() is used to compare unordered lists which may have duplicates
+		#Pull out all attributes of other and self which aren't callable functions
+		otherList = [i for i in dir(other) if not i.startswith('__') and
+							not callable(getattr(other,i)) and not type(i)==list]
+		selfList = [j for j in dir(self) if not j.startswith('__') and
+						   not callable(getattr(self,j)) and not type(j)==list]
+		for a in range(len(otherList)):
+			if otherList[a] != selfList[a]:
+				return False
+		return True
+	
+	def __repr__(self):
+		return str(self)
+
+
+class Atom(_Physical):
 	def __init__(self, element, x, y, z, index=None, type=None, molecule_index=1, bonded=[], type_index=None):
 		self.element = element
 		self.x = x
@@ -33,6 +70,8 @@ class Atom():
 		self.x+=v[0]; self.y+=v[1]; self.z+=v[2]
 
 	def to_string(self, verbose=False):
+		if self.index == None:
+			raise ValueError("Atom cannot have index 'None'.")
 		text = '%s, (%3.3f, %3.3f, %3.3f), index: %d' % (self.element, self.x, self.y, self.z, self.index)
 
 		if self.type_index:
@@ -47,36 +86,33 @@ class Atom():
 
 		return text
 
-	def flatten(self):
-		return [self.x, self.y, self.z]
-
-	def set_position(self, pos):
-		self.x = pos[0]
-		self.y = pos[1]
-		self.z = pos[2]
-
 	def __str__(self):
 		return self.to_string()
+	
+	
 
-class Bond():
+		
+
+
+class Bond(_Physical):
 	def __init__(self, a, b, type=None, r=None):
 		self.atoms = (a,b)
 		self.type = type
 		self.r = r
 
-class Angle():
+class Angle(_Physical):
 	def __init__(self, a, b, c, type=None, theta=None):
 		self.atoms = (a,b,c)
 		self.type = type
 		self.theta = theta
 
-class Dihedral():
+class Dihedral(_Physical):
 	def __init__(self, a, b, c, d, type=None, theta=None):
 		self.atoms = (a,b,c,d)
 		self.type = type
 		self.theta = theta
 
-class Job(): #a job on the queue
+class Job(object): #a job on the queue
 	def __init__(self, name):
 		self.name = name
 	def wait(self):
@@ -87,7 +123,7 @@ class Job(): #a job on the queue
 			else: break
 
 # A generic class to hold dft data
-class DFT_out():
+class DFT_out(object):
 	def __init__(self, name, dft='g09'):
 		self.name = name
 		self.dft = dft.lower()
@@ -111,7 +147,7 @@ class DFT_out():
 		self.warnings = None
 
 # A generic class to hold simulation data, aprticularly lammps trajectory files
-class sim_out():
+class sim_out(object):
 	def __init__(self, name, program='lammps'):
 		self.name = name
 		self.program = program.lower()
@@ -266,7 +302,7 @@ def rot_xyz(alpha, beta, gamma):
 	#M = matmat(matmat(rot_z(alpha), rot_y(beta)), rot_x(gamma))
 	return M
 
-class Molecule():
+class Molecule(_Physical):
 	def __init__(self, atoms_or_filename_or_all, bonds=None, angles=None, dihedrals=None, parameter_file=opls_path, extra_parameters={}, test_charges=True, allow_errors=False): #set atoms, bonds, etc, or assume 'atoms' contains all those things if only one parameter is passed in
 		if type(atoms_or_filename_or_all)==type('string'):
 			self.filename = atoms_or_filename_or_all
@@ -309,24 +345,13 @@ class Molecule():
 			text += atom.to_string()
 		return text
 
-	def flatten(self):
-		return np.array([[a.x, a.y, a.z] for a in self.atoms]).flatten()
-
-	def set_positions(self, positions, new_atom_list=False):
-		positions = positions.flatten().reshape((-1,3))
-		if len(positions) != len(self.atoms) and not new_atom_list:
-			raise Exception("position list does not hold the same number of atoms as does this molecule. Consider raising new_atom_list flag in set_positions.")
-		if new_atom_list: self.atoms = [Atom("",p[0],p[1],p[2]) for p in positions]
-		else:
-			for a,b in zip(self.atoms, positions):
-				a.x, a.y, a.z = b[0], b[1], b[2]
-
 	# When printing molecule, print all atoms
 	def __str__(self):
 		return self.to_string()
+	
 
 
-class System():
+class System(_Physical):
 	# Initialize all system variables. Convert to float as necessary to prepare for any needed math
 	def __init__(self, name=None, box_size=(10.0,10.0,10.0), box_angles=(90.0,90.0,90.0), periodic=False):
 		self.atoms, self.bonds, self.angles, self.dihedrals = [], [], [], []
@@ -406,13 +431,30 @@ class System():
 		new_molecule.angles = self.angles[-len(molecule.angles):]
 		new_molecule.dihedrals = self.dihedrals[-len(molecule.dihedrals):]
 		self.molecules.append( new_molecule )
-
+	
+	def remove(self,molecule):
+		"""
+		Removes all atoms, bonds angles and dihedrals of the passed molecule from
+		the system. Yet-to-be implemented.
+		"""
+		pass
+		
+	
+	
 	# Print all atoms
 	def to_string(self):
 		text = ''
 		for atom in self.atoms:
 			text += atom.to_string()
 		return text
+	
+	
+	def __repr__(self):
+		text = ''
+		for atom in self.atoms:
+			text += atom.to_string()
+		return text
+
 
 def dist_squared(a,b):
 	return (a.x-b.x)**2 + (a.y-b.y)**2 + (a.z-b.z)**2
@@ -968,18 +1010,14 @@ def spaced_print(sOut,delim=['\t',' '],buf=4):
 
 	return '\n'.join(sOut)
 
-# http://stackoverflow.com/questions/6802577/python-rotation-of-3d-vector/25709323#25709323
-def rotation_matrix(axis, theta, units="deg"):
-	from numpy import cross, eye, radians
-	from scipy.linalg import expm, norm
-	if "deg" in units.lower():
-		theta = radians(theta)
-	return expm(cross(eye(3), axis/norm(axis)*theta))
-
 # Pass a list of atoms, return a list of lists of atoms
 def rotate_xyz(frame, theta_0=0, theta_n=360, dt=1, axis=[0,0,1], com=True, last=False):
-	from numpy import dot, array, radians
-	from scipy.linalg import block_diag
+	from numpy import cross, eye, dot, array, arange, cos, radians
+	from scipy.linalg import expm, norm, block_diag
+
+	# http://stackoverflow.com/questions/6802577/python-rotation-of-3d-vector/25709323#25709323
+	def rotation_matrix(axis, theta):
+	    return expm(cross(eye(3), axis/norm(axis)*theta))
 
 	frames, image = [], array([[a.x,a.y,a.z] for a in frame]).flatten()
 	elements = [a.element for a in frame]
@@ -1003,62 +1041,3 @@ def rotate_xyz(frame, theta_0=0, theta_n=360, dt=1, axis=[0,0,1], com=True, last
 
 	if last: return frames[0]
 	return frames
-
-# http://stackoverflow.com/questions/14016898/port-matlab-bounding-ellipsoid-code-to-python/14025140#14025140
-# TODO: Proof read later
-def mvee(points, tol = 0.001):
-    """
-    Find the minimum volume ellipse.
-    Return A, c where the equation for the ellipse given in "center form" is
-    (x-c).T * A * (x-c) = 1
-    """
-    from numpy import asmatrix, column_stack, argmax, diag, asarray, squeeze, ones
-    from numpy.linalg import norm, inv
-    elements = [a.element for a in points]
-    points = Molecule(points).flatten().reshape((-1,3))
-    points = np.asmatrix(points)
-    N, d = points.shape
-    Q = column_stack((points, ones(N))).T
-    err = tol+1.0
-    u = ones(N)/N
-    while err > tol:
-        # assert u.sum() == 1 # invariant
-        X = Q * diag(u) * Q.T
-        M = diag(Q.T * inv(X) * Q)
-        jdx = argmax(M)
-        step_size = (M[jdx]-d-1.0)/((d+1)*(M[jdx]-1.0))
-        new_u = (1-step_size)*u
-        new_u[jdx] += step_size
-        err = norm(new_u-u)
-        u = new_u
-    c = u*points
-    A = inv(points.T*diag(u)*points - c.T*c)/d
-    points = asarray(A).flatten().reshape((-1,3))
-    centroid = squeeze(asarray(c))
-    return points, centroid
-
-# Given a list of atom objects, this will (1) use mvee to generate a minimum centroid around
-# the structure, and (2) rotate the ellipsoid and positions to align along the x-axis
-def align_centroid(points):
-	from scipy.linalg import block_diag
-	# Get points and the ellipsoid
-	A, centroid = mvee(points)
-	points = Molecule(points).flatten().reshape((-1,3))
-	npoints = float(len(points))
-
-	# Rotate the ellipsoid
-	omega, R = np.linalg.eigh(A)
-	A = np.dot(A,R)
-
-	# Rotate the points
-	rotation = block_diag(*[R for a in points])
-	points = points.flatten()
-	points = np.dot(points, rotation).reshape((-1,3))
-
-	# Recenter the points
-	molec = Molecule([])
-	molec.set_positions(points, new_atom_list=True)
-	com = np.array(molec.get_com()) * -1.0
-	molec.translate(com)
-
-	return molec.atoms, A
