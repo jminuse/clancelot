@@ -48,7 +48,7 @@ def read(run_name, trj_file='', read_atoms=True, read_timesteps=True, read_num_a
 
 # A function to run an LAMMPS Simulation. Requires a run name and a string of lammps code (run_name and input_script)
 def job(run_name, input_script, system, queue=None, procs=1, email='',
-		pair_coeffs_included=True, hybrid_pair=False):
+		pair_coeffs_included=True, hybrid_pair=False, hybrid_angle=True):
 	if len(run_name) > 31 and queue is not None:
 		raise Exception("Job name too long (%d) for NBS. Max character length is 31." % len(run_name))
 
@@ -58,7 +58,7 @@ def job(run_name, input_script, system, queue=None, procs=1, email='',
 
 	# Generate the lammps data file
 	files.write_lammps_data(system, pair_coeffs_included=pair_coeffs_included,
-							hybrid_pair=hybrid_pair)
+							hybrid_pair=hybrid_pair, hybrid_angle=hybrid_angle)
 
 	# Write the lammps input script. Expects lines of lammps code
 	f = open(run_name+'.in', 'w')
