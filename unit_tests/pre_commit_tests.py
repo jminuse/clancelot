@@ -81,7 +81,6 @@ def test_utils():
 	system3 = utils.System(box_size=[20.0,20.0,20.0], name = 'test')
 	assert system.equals(system3), "System.Remove() has failed tests."
 	
-	print `system2`
 
 def test_files():
 	os.chdir('unit_tests/test_files')
