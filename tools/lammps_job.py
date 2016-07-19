@@ -121,6 +121,113 @@ $NBS_PATH/mpiexec -xlate /usr/common/etc/nbs/mpi.xlate /fs/home/yma3/Software/la
 	else:
 		return utils.Job(run_name)
 
+
+def PotEngSurfaceJob(run_name, input_script, system, domain, spanMolecule, resolution = .1,
+					 queue=None, procs=1, email='', pair_coeffs_included=True,
+					 hybrid_pair=False):
+	"""
+	Runs a set of LAMMPS jobs on the queue, writing one main data file and then
+	modifying it incrementally to move one particular atom, in order to create
+	a potential energy surface. This is faster than running write_lammps_data
+	multiple times, since nearly all information is kept the same. Other than this,
+	this function should be used almost exactly as job().
+	This will dump all results into the lammps folder as separate folders because
+	doing something else would require changing many other functions.
+	
+	Preconditions:
+	run_name is a string of positive length, 31 or smaller.
+	system is a valid utils.System instance.
+	
+	domain is a 3-element list of ints or floats, referring to the XYZ domain
+	in which the molecule spanMolecule must span over. E.g., [0.0,1.0,1.0] will
+	span over a domain which is 1x1 Angstrom box in the positive y and z directions
+	from spanMolecule's original position.
+	
+	spanMolecule is a string which represents a path to a valid cml file, which
+	represents the molecule which will be spanned across a surface in system.
+	
+	increment is an int or float which represents the resolution, in Angstroms,
+	with which the atom will be spanned across the given domain. This span is
+	linear.
+	
+	hybrid_pair is a boolean flag which should be set to True if the system
+	should exhibit hybrid pairing interactions. (e.g. lj/cut and nm/cut)
+	
+	"""
+	if len(run_name) > 31 and queue is not None:
+		raise Exception("Job name too long (%d) for NBS. Max character length is 31." % len(run_name))
+
+	# Change to correct directory
+	os.system('mkdir -p lammps/%s' % run_name)
+	os.chdir('lammps/%s' % run_name)
+	
+	#Generate the list of positions for the molecule to be tried
+	vecList = _GenerateVecList(domain,resolution)
+	
+	#Find the position in the input script which declares the data file name
+	readDataIndex = input_script.find("read_data")
+	if readDataIndex == -1:
+		raise ValueError("Invalid Input Script: no data read.")
+	dotDataIndex = input_script.find(".data")
+	
+	
+	#If the molecule is in the system, in its original position, remove it.
+	if system.Contains(spanMolecule):
+		system.Remove(spanMolecule)
+	
+	#For each and every vector in vecList, create a valid lammps job with the spanMolecule
+	#traslated by that vector and run it. Between steps, remove the older spanMolecule
+	#and add a new spanMolecule to the system which is in a new position, translated
+	#by vec.
+	for vec in vecList:
+		newRunName = run_name + "_" + str(vec[0])+ "x" + str(vec[1]) + "x" + str(vec[2])
+		system.name = newRunName
+		newInputScript = input_script[:readDataIndex+10]+newRunName+input_script[dotDataIndex:]
+		spanMolecule.translate(vec)
+		system.add(spanMolecule)
+		print "Running job " + newRunName
+		job(newRunName, newInputScript, system, queue=queue,procs=procs, email=email,
+			pair_coeffs_included=pair_coeffs_included, hybrid_pair=hybrid_pair)
+		system.Remove(spanMolecule)
+		spanMolecule.translate([-vec[0],-vec[1],-vec[2]])
+
+
+def _GenerateVecList(domain,resolution):
+	"""
+	A helper-function to generate a 2D-list of all translate vectors which should
+	be tried by PotEngSurfaceJob. domain is an domain over which to be
+	spanned (square prismatically) and resolution is the resolution at which the
+	domain should be spanned.
+	Precondition:
+	Domain must be a 3-element list of ints or floats,
+	and resolution must be a positive int or float.
+	"""
+	#Initialize position lists
+	xList= [0.0]
+	yList= [0.0]
+	zList= [0.0]
+	vecList = []
+	
+	#Fill position lists with multiples of resolution up to the maximum domain size
+	while xList[-1]+resolution <= domain[0]:
+		xList.append(xList[-1]+resolution)
+	while yList[-1]+resolution <= domain[1]:
+		yList.append(yList[-1]+resolution)
+	while zList[-1]+resolution <= domain[2]:
+		zList.append(zList[-1]+resolution)
+	
+	#Loop through all elements of all lists and add all of these points to posList
+	for x in xList:
+		for y in yList:
+			for z in zList:
+				vecList.append([x,y,z])
+	
+	return vecList
+
+
+
+
+
 # A function to extract thermo output from lammps log files
 # Automatically removes duplicate timesteps
 # Adapted from log2txt.py from the lammps distribution

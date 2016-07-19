@@ -25,31 +25,107 @@ class _Physical(object):
 	
 	Invariant: Everything about a _Physical instance must be described by attributes
 	whose order does not vary or whose attributes' equivalence is not defined by
-	their order (e.g. Sets).
+	their order (e.g. Sets). No _Physical instance may have a 2-D list as an
+	attribute, or equals() will fail.
 	"""
 	
 	def equals(self, other):
 		"""
-		Basic equivalence of self and other have the same pointer id, or if all
+		Basic equivalence of self and other if they have the same pointer id, or if all
 		non-callable dir entries of the two objects are equivalent.
-		"""
+
+		Since several parameters are not preserved between intuitively equivalent
+		_Physical instances (e.g. Atom.index or Atom.molecule_index, Angle.theta
+		because of how Angles are added to a System), and these must be explicitly
+		discounted in this method.
 		
+		The current list of explicitly discounted parameters are:
+		Angle.theta
+		Atom.index
+		Atom.molecule_index
+		Atom.bonded's Atom identities: the number of atoms in the list is
+		compared instead.
+		"""
+		#Check basic identifiers to see if the two are obviously equal or inequal
 		if id(self) == id(other):
 			return True
+		if type(self) != type(other):
+			return False
 		
-		#set() is used to compare unordered lists which may have duplicates
-		#Pull out all attributes of other and self which aren't callable functions
-		otherList = [i for i in dir(other) if not i.startswith('__') and
-							not callable(getattr(other,i)) and not type(i)==list]
-		selfList = [j for j in dir(self) if not j.startswith('__') and
-						   not callable(getattr(self,j)) and not type(j)==list]
-		for a in range(len(otherList)):
-			if otherList[a] != selfList[a]:
+		#Compare all attributes of the two objects. If they are exactly identical,
+		#Return true.
+		otherDict = other.__dict__
+		selfDict = self.__dict__
+		
+		if selfDict == otherDict:
+			return True
+		
+		#If the two objects don't have the same attribute names, return false
+		if set(selfDict.keys()) != set(otherDict.keys()):
+			return False
+		
+		#Go through each attribute individually, and check equality. If they
+		#are _Physical instances, use .equals() to compare.
+		for a in selfDict:
+			
+			#Simple attribute checking
+			if selfDict[a] == otherDict[a]:
+				continue
+			
+			#Passed-on attributes which are not conserved between atoms
+			elif a == 'theta' and isinstance(self,Angle):
+				continue
+			elif isinstance(self,Atom) and (a=='index' or a=='molecule_index'):
+				continue
+			elif isinstance(self,Atom) and a=='bonded':
+				if len(selfDict[a]) == len(otherDict[a]):
+					continue
+				else:
+					return False
+				
+			#Checking _Physical attributes.
+			elif isinstance(selfDict[a],_Physical):
+				if selfDict[a].equals(otherDict[a]):
+					continue
+				else:
+					return False
+				
+				#If an attribute is a list or tuple, go through it element-by-element,
+				#assuming the order is the same between other and self, and if
+				#any of the lists's elements are _Physical instances, compare them
+				#with .equals()
+				
+				#Exception: If self is an Atom, do not compare the bonded lists.
+				#This would result in an infinite loop.
+			elif isinstance(selfDict[a],list) or isinstance(selfDict[a],
+					tuple):
+				if len(selfDict[a])!= len(otherDict[a]):
+					return False
+				#print "Self "+ `type(selfDict[a])`+ " is "+`selfDict[a]`
+				#print "Other " + `type(otherDict[a])`+ " is "+`otherDict[a]`
+				for b in range(len(selfDict[a])):
+					if selfDict[a][b] == otherDict[a][b]:
+						continue
+					elif isinstance(selfDict[a][b],_Physical):
+						if selfDict[a][b].equals(otherDict[a][b]):
+							continue
+						else:
+							#print "False 1"
+							return False
+					else:
+						#print "False 2"
+						return False
+			else:
+				#print "False 3"
 				return False
+		#print "Passed All Check Blocks. Returning True."
 		return True
 	
 	def __repr__(self):
-		return str(self)
+		text = self.__dict__
+		if "bonded" in text:
+			del text["bonded"]
+		return object.__repr__(self) +" with attributes:\n"+str(text)
 
 
 class Atom(_Physical):
@@ -116,6 +192,11 @@ class Angle(_Physical):
 		self.atoms = (a,b,c)
 		self.type = type
 		self.theta = theta
+		
+	def __repr__(self):
+		text = self.__dict__
+		return object.__repr__(self) +" with attributes:\n"+str(text)
+
 
 class Dihedral(_Physical):
 	def __init__(self, a, b, c, d, type=None, theta=None):
@@ -199,6 +280,8 @@ def get_angles_and_dihedrals(atoms):
 					theta = 180/math.pi*math.acos((A**2+B**2-N**2)/(2*A*B))
 				except: theta = 0.0
 				angles.append( Angle(a,center,b,theta=theta) )
+	#Updated to provide deterministic dihedral order with the same time complexity
+	dihedral_list = []
 	dihedral_set = {}
 	for angle in angles:
 		for a in angle.atoms[0].bonded:
@@ -206,13 +289,16 @@ def get_angles_and_dihedrals(atoms):
 			dihedral = (a,) + angle.atoms
 			if tuple(reversed(dihedral)) not in dihedral_set:
 				dihedral_set[dihedral] = True
+				dihedral_list.append(dihedral)
 
 		for b in angle.atoms[2].bonded:
 			if b is angle.atoms[1]: continue
 			dihedral = angle.atoms + (b,)
 			if tuple(reversed(dihedral)) not in dihedral_set:
 				dihedral_set[dihedral] = True
-	dihedrals = [Dihedral(*d) for d in dihedral_set.keys()]
+				dihedral_list.append(dihedral)
+	dihedral_list = _Uniquify(dihedral_list)
+	dihedrals = [Dihedral(*d) for d in dihedral_list]
 
 	return angles, dihedrals
 
@@ -457,13 +543,122 @@ class System(_Physical):
 		new_molecule.dihedrals = self.dihedrals[-len(molecule.dihedrals):]
 		self.molecules.append( new_molecule )
 	
-	def remove(self,molecule):
+	def Remove(self,molecule):
 		"""
 		Removes all atoms, bonds angles and dihedrals of the passed molecule from
-		the system. Yet-to-be implemented.
-		"""
-		pass
+		the system. Raises a ValueError if not all aspects of molecule are found
+		in the system.
 		
+		Precondition: molecule is a valid Utils.Molecule instance.
+		"""
+		#Make sure all atoms in molecule are in system.
+		if len(molecule.atoms)>0:
+			for a in molecule.atoms:
+				atomCheck = False
+				for b in range(len(self.atoms)):
+					if self.atoms[b].equals(a):
+						del self.atoms[b]
+						atomCheck = True
+						break
+				if not atomCheck:
+					raise ValueError("_Physical instance "+`a`+" wasn't found"+
+									 "in the given system.")
+		
+		#Repeat above for bonds, angles, dihedrals
+		if len(molecule.bonds)>0:
+			for a in molecule.bonds:
+				bondCheck = False
+				for b in range(len(self.bonds)):
+					if self.bonds[b].equals(a):
+						bondCheck = True
+						del self.bonds[b]
+						break
+				if not bondCheck:
+					raise ValueError("_Physical instance "+`a`+" wasn't found"+
+									 "in the given system.")
+		
+		if len(molecule.angles)>0:
+			for a in molecule.angles:
+				angleCheck = False
+				for b in range(len(self.angles)):
+					if self.angles[b].equals(a):
+						angleCheck = True
+						del self.angles[b]
+						break
+				if not angleCheck:
+					raise ValueError("_Physical instance "+`a`+" wasn't found"+
+									 "in the given system.")
+		
+		if len(molecule.dihedrals)>0:
+			for a in molecule.dihedrals:
+				dihedralCheck = False
+				for b in range(len(self.dihedrals)):
+					if self.dihedrals[b].equals(a):
+						dihedralCheck = True
+						del self.dihedrals[b]
+						break
+				if not dihedralCheck:
+					raise ValueError("_Physical instance "+`a`+" wasn't found"+
+									 "in the given system.")
+		
+		for a in range(len(self.molecules)):
+			if self.molecules[a].equals(molecule):
+				del self.molecules[a]
+				break
+	
+	
+	def Contains(self,molecule):
+		"""
+		Returns a boolean, True if the molecule passed as an argument is contained
+		exactly within this system. This implies that all atoms,bonds,angles and
+		dihedrals in molecule are in the system. Matching is checked using the
+		_Physical.equals() method. Returns false if it is not the case that
+		all properties of the molecule are found exactly as given in the current
+		system.
+		"""
+		#Make sure all atoms in molecule are in system.
+		if len(molecule.atoms)>0:
+			for a in molecule.atoms:
+				atomCheck = False
+				for b in self.atoms:
+					if b.equals(a):
+						atomCheck = True
+						break
+				if not atomCheck:
+					return False
+		
+		#Repeat above for bonds, angles, dihedrals
+		if len(molecule.bonds)>0:
+			for a in molecule.bonds:
+				bondCheck = False
+				for b in self.bonds:
+					if b.equals(a):
+						bondCheck = True
+						break
+				if not bondCheck:
+					return False
+		
+		if len(molecule.angles)>0:
+			for a in molecule.angles:
+				angleCheck = False
+				for b in self.angles:
+					if b.equals(a):
+						angleCheck = True
+						break
+				if not angleCheck:
+					return False
+		
+		if len(molecule.dihedrals)>0:
+			for a in molecule.dihedrals:
+				dihedralCheck = False
+				for b in self.dihedrals:
+					if b.equals(a):
+						dihedralCheck = True
+						break
+				if not dihedralCheck:
+					return False
+		#If python gets here, all aspects of molecule are in system.
+		return True
 	
 	
 	# Print all atoms
@@ -484,6 +679,32 @@ class System(_Physical):
 			text += atom.to_string()
 		return text
 
+
+def _Uniquify(givenList,idfun=None):
+	"""
+	Returns the given list with order preserved, with duplicates past the first
+	entry removed.
+	Credits to: https://www.peterbe.com/plog/uniqifiers-benchmark
+	"""
+	# Order preserving
+	return list(_f10(givenList, idfun))
+
+def _f10(seq, idfun=None):
+	"""Helper function to _Uniquify()"""
+	seen = set()
+	if idfun is None:
+		for x in seq:
+			if x in seen:
+				continue
+			seen.add(x)
+			yield x
+	else:
+		for x in seq:
+			x = idfun(x)
+			if x in seen:
+				continue
+			seen.add(x)
+			yield x
 
 def dist_squared(a,b):
 	return (a.x-b.x)**2 + (a.y-b.y)**2 + (a.z-b.z)**2

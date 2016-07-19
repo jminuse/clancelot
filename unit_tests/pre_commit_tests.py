@@ -27,13 +27,8 @@ def test_g09():
 
 def test_lammps():
 	molecule = utils.Molecule('acetone')
-	molecule2 = utils.Molecule('acetone')
-	assert molecule.equals(molecule2), "Molecule.equals() has failed tests."
 	system = utils.System(box_size=[20.0,20.0,20.0], name='test')
 	system.add(molecule)
-	system2 = utils.System(box_size=[20.0,20.0,20.0], name='test')
-	system2.add(molecule2)
-	assert system.equals(system2), "System.equals() has failed tests."
 	files.packmol(system, (molecule,), molecule_ratio=(1,), density=0.1)
 	if os.path.isdir("lammps"):
 		shutil.rmtree('lammps')
@@ -64,12 +59,37 @@ run 10''')
 		raise Exception('LAMMPS test failed: %s != %s' % (str(energies), str(target_energies)) )
 	os.chdir('..')
 
+def test_utils():
+	molecule = utils.Molecule('acetone')
+	molecule2 = utils.Molecule('acetone')
+	assert molecule.equals(molecule2), "Molecule.equals() has failed tests."
+	system = utils.System(box_size=[20.0,20.0,20.0], name='test')
+	system.add(molecule)
+	system2 = utils.System(box_size=[20.0,20.0,20.0], name='test')
+	system2.add(molecule2)
+	assert system.equals(system2), "System.equals() has failed tests."
+	assert system.Contains(molecule), "System.Contains() has failed tests."
+	system.Remove(molecule)
+	molecule.translate([1.0,0.0,0.0])
+
+	assert not molecule.equals(molecule2), "Molecule.equals() has failed tests."
+	assert not system.Contains(molecule), "System.Contains() has failed tests."
+	assert not system2.Contains(molecule), "System.Contains() has failed tests."
+	system.add(molecule)
+	system.Remove(molecule)
+	
+	system3 = utils.System(box_size=[20.0,20.0,20.0], name = 'test')
+	assert system.equals(system3), "System.Remove() has failed tests."
+	
+	print `system2`
+
 def test_files():
 	os.chdir('unit_tests/test_files')
 	test_xyz_cml()
 	test_orca()
 	test_g09()
 	test_lammps()
+	test_utils()
 	os.chdir('..')
 
 test_files()
