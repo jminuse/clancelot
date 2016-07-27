@@ -990,7 +990,7 @@ def center_frames(frames,ids,X_TOL=0.1,XY_TOL=0.1,Z_TOL=0.1,THETA_STEP=0.005,TRA
 
 	if chk: frames = frames[0]
 
-def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTS=False,outName=None,write_xyz=False,verbose=False):
+def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTES=False,outName=None,write_xyz=False,verbose=False):
 	#----------
 	# name = Name of xyz file to read in
 	# R_MAX = maximum motion per frame
@@ -1013,7 +1013,7 @@ def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTS=False,outName=None,write_xyz=Fals
 	# Loop till we're below R_MAX
 	while 1:
 		# Find largest motion_per_frame
-		if PROCRUSTS: procrustes(frames)
+		if PROCRUSTES: procrustes(frames)
 		tmp = motion_per_frame(frames)
 		i = tmp.index(max(tmp))
 
@@ -1049,7 +1049,7 @@ def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTS=False,outName=None,write_xyz=Fals
 
 		if verbose: print "\tInterpolated %d,%d ... %lg" % (i-1,i+1,max(motion_per_frame(frames)))
 
-	if PROCRUSTS: procrustes(frames)
+	if PROCRUSTES: procrustes(frames)
 
 	if write_xyz: files.write_xyz(frames,'pretty_xyz' if outName==None else outName)
 	else: return frames
