@@ -229,8 +229,31 @@ if to_install['pysub']:
 	g = open(INSTALLDIR+'console_scripts/pysub.py','w')
 
         g.write('''#!/usr/bin/env python
-from sys import argv
+from sys import argv, exit
 from os import system
+
+# Default Documentation
+help = \'\'\'
+pysub
+---------
+A command line tool to submit jobs to the queue.
+
+pysub [script.py] [Options]
+
+    Flag          Default     Description
+-help, -h     :            :  Print this help menu
+-n            :     1      :  Number of processors to use
+-q            :    batch   :  Which queue to submit to
+
+Default behaviour is to generate a job with the same name
+as the python script and to generate a .log file with the
+same name as well.
+ \'\'\'
+
+# Parse Arguments
+if '-h' in argv or '-help' in argv or len(argv) < 3:
+	print help
+	exit()
 
 # Parse Arguments
 nprocs = '1'
