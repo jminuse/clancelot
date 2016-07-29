@@ -320,12 +320,15 @@ export LD_LIBRARY_PATH=/fs/europa/g_pc/ompi_1_6_5/lib:$LD_LIBRARY_PATH
 
 /fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca '''+run_name+'''.orca > '''+(os.getcwd()+'/'+run_name)+'''.out
 
+cp /tmp/*/'''+run_name+'''*.engrad '''+(os.getcwd()+'/')+'''
+
 touch '''+run_name+'''.orca.xyz
 touch '''+run_name+'''.orca.trj
 touch '''+run_name+'''.orca.gbw
 touch '''+run_name+'''.orca.engrad
 touch '''+run_name+'''.orca.prop
 touch '''+run_name+'''.orca.opt
+
 ''' # The use of "touch" above is a patch for an NBS bug, where files cannot be missing or they prevent the others from being copied. 
 		f = open(run_name+'.nbs', 'w')
 		f.write(NBS)
