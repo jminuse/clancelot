@@ -229,9 +229,9 @@ if len(sys.argv) < 3:
 	try:
 		plotting_flags = raw_input("\nOutput xyz filename? ").strip()
 		if plotting_flags != "": out_name = plotting_flags
-		if ".xyz" in out_name: out_name = out_name.split(".xyz")[0]
 	except:
 		print("\tDefaulting, xyz filename is \"%s.xyz\"...\n" % out_name)
+	if ".xyz" in out_name: out_name = out_name.split(".xyz")[0]
 
 	# At this point we have all the information we need from the user.  We can now get the starting and ending energies of the NEB
 	first_E, last_E = None, None
@@ -262,11 +262,10 @@ if len(sys.argv) < 3:
 		full_energy_list.append(energies)
 
 	# Save the final iteration xyz
-	files.write_xyz(pathway, "%s.xyz" % out_name)
+	files.write_xyz(pathway, "%s" % out_name)
 
 	# Plot the graph
 	plot(full_energy_list,iterations_to_plot[0],x_label,y_label,title,x_range,y_range, x_low=frames_to_plot[0])
-
 
 else:
 	start = int(sys.argv[2])
