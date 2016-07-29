@@ -2,6 +2,7 @@ from merlin import *
 from subprocess import Popen
 from copy import deepcopy
 from shutil import copyfile
+from time import sleep
 import re
 
 def read(input_file):
@@ -320,7 +321,8 @@ export LD_LIBRARY_PATH=/fs/europa/g_pc/ompi_1_6_5/lib:$LD_LIBRARY_PATH
 
 /fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca '''+run_name+'''.orca > '''+(os.getcwd()+'/'+run_name)+'''.out
 
-cp /tmp/*/'''+run_name+'''*.engrad '''+(os.getcwd()+'/')+'''
+cp /tmp/*/'''+run_name+'''.orca.engrad '''+(os.getcwd()+'/')+'''
+cp /tmp/*/'''+run_name+'''.orca.gbw '''+(os.getcwd()+'/')+'''
 
 touch '''+run_name+'''.orca.xyz
 touch '''+run_name+'''.orca.trj
@@ -334,6 +336,7 @@ touch '''+run_name+'''.orca.opt
 		f.write(NBS)
 		f.close()
 		os.system('jsub %s.nbs -prop orca' % run_name)
+		sleep(0.5)
 
 	# Copy run script
 	fname = sys.argv[0]
