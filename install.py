@@ -457,7 +457,7 @@ def sublime_install():
 	zshrc_check_add("alias subl='~/lib/sublime_text_3/sublime_text",ZSHRC,zshrc_string)
 
 def junest_install():
-	os.system('git clone git://github.com/fsquillace/juju ~/juju --quiet')
+	os.system('git clone https://github.com/fsquillace/junest.git ~/juju --quiet')
 	zshrc_check_add("export PATH=~/juju/bin:$PATH",ZSHRC,zshrc_string)
 	zshrc_check_add("alias juju='junest'",ZSHRC,zshrc_string)
 

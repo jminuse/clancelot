@@ -22,10 +22,13 @@ def plot(yy, start_val, x_label, y_label, title, x_range, y_range, x_low=0):
 			if min(y) < low_y: low_y = min(y)
 			if max(y) > high_y: high_y = max(y)
 
-	plt.xlabel(x_label)
-	plt.ylabel('%s (%s)' % (y_label,u2))
-	plt.title(title)
+	font = {'size'   : 16}
+	plt.rc('font', **font)
 
+	plt.xlabel(x_label, fontsize=18)
+	plt.ylabel('%s (%s)' % (y_label,u2), fontsize=18)
+	plt.title(title, fontsize=20)
+	
 	if x_range is None: x_range = [low_x, high_x]
 	if y_range is None: y_range = [low_y, high_y*1.05]
 

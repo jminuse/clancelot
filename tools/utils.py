@@ -224,6 +224,7 @@ class DFT_out(object):
 		self.route = None
 		self.frames = None
 		self.atoms = None
+		self.gradients = None
 		self.energies = None
 		self.energy = None
 		self.charges_MULLIKEN = None

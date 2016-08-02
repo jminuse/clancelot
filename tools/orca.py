@@ -9,6 +9,8 @@ def read(input_file):
 	# Check file exists, and open
 	if input_file.startswith('/'): #allow absolute paths as filenames
 		input_path = input_file
+	elif os.path.isfile(input_file):
+		input_path = input_file
 	else:
 		input_path = 'orca/%s/%s.out' % (input_file,input_file)
 	if not os.path.isfile(input_path):
@@ -50,6 +52,35 @@ def read(input_file):
 			atoms = frames[ energies.index(energy) ]
 	else:
 		atoms = None
+
+	# Get all the gradients if CARTESIAN GRADIENTS is in the file.
+	# Else, if MP2 gradients is in the file, grab the last gradient
+	s_gradient = "CARTESIAN GRADIENT"
+	s_gradient_2 = "The final MP2 gradient"
+	section, gradients = data, []
+	if s_gradient in section:
+		s = s_gradient
+	elif s_gradient_2 in section:
+		s = s_gradient_2
+	else:
+		s, gradients = None, None
+	if s is not None:
+		while s in section:
+			gradient = []
+			if s == s_gradient:
+				grad_block = section[section.find(s_gradient):].split("\n\n")[1].split("\n")
+				gradient = []
+				for line in grad_block:
+					a = line.split()
+					gradient.append([float(b) for b in a[3:]])
+			elif s == s_gradient_2:
+				grad_block = section[section.find(s_gradient_2):].split("\n\n")[0].split("\n")[1:]
+				gradient = []
+				for line in grad_block:
+					a = line.split()
+					gradient.append([float(b) for b in a[1:]])
+			section = section[section.find(s)+len(s):]
+			gradients.append(gradient)
 
 	# Get charges
 	hold, charges_MULLIKEN = data, []
@@ -154,6 +185,7 @@ def read(input_file):
 	data.route = route
 	data.frames = frames
 	data.atoms = atoms
+	data.gradients = gradients
 	data.energies = energies
 	data.energy = energy
 	data.charges_MULLIKEN = charges_MULLIKEN
