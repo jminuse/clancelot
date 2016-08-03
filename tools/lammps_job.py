@@ -31,20 +31,23 @@ def read(run_name, trj_file='', read_atoms=True, read_timesteps=True, read_num_a
 		lg.last_modified = files.last_modified(log_path)
 
 	# If no trj_file selected, try default name of dump.run_name.lammpstrj
-	if trj_file == '':
-		trj_path = 'lammps/%s/dump.%s.lammpstrj' % (run_name, run_name)
-	# Allow absolute paths as filenames
-	elif run_name.startswith('/'):
-		trj_path = trj_file
-	# Open the specified file in the run_name folder
+	if trj_file is not None:
+		if trj_file == '':
+			trj_path = 'lammps/%s/dump.%s.lammpstrj' % (run_name, run_name)
+		# Allow absolute paths as filenames
+		elif run_name.startswith('/'):
+			trj_path = trj_file
+		# Open the specified file in the run_name folder
+		else:
+			trj_path = 'lammps/%s/%s' % (run_name, trj_file)
+
+		# Try to import lammpstrj file exists
+		data_trj = files.read_lammpstrj(trj_path, read_atoms=read_atoms, read_timesteps=read_timesteps, read_num_atoms=read_num_atoms, read_box_bounds=read_box_bounds)
+		data_trj.last_modified = files.last_modified(trj_path)
+
+		return lg, data_trj
 	else:
-		trj_path = 'lammps/%s/%s' % (run_name, trj_file)
-
-	# Try to import lammpstrj file exists
-	data_trj = files.read_lammpstrj(trj_path, read_atoms=read_atoms, read_timesteps=read_timesteps, read_num_atoms=read_num_atoms, read_box_bounds=read_box_bounds)
-	data_trj.last_modified = files.last_modified(trj_path)
-
-	return lg, data_trj
+		return lg, None
 
 # A function to run an LAMMPS Simulation. Requires a run name and a string of lammps code (run_name and input_script)
 def job(run_name, input_script, system, queue=None, procs=1, email='',
