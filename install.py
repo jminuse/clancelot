@@ -375,7 +375,7 @@ alias viewl='function _viewl(){chkDFT $1 -v $@};_viewl'
 alias lgedit='function _lgedit(){gedit lammps/$1/$1.log &};_lgedit'
 alias geditl='lgedit'\n''')
 if to_install['merlin']: f.write("alias merlin='python -i "+INSTALLDIR+"tools/merlin.py'\n")
-if to_install['view_lmp']: f.write("alias view_lmp='python "+INSTALLDIR+"console_scripts/view_lmp.py'\n")
+if to_install['view_lmp']: f.write("alias view_lmp='function _view_lmp(){python "+INSTALLDIR+"console_scripts/view_lmp.py $1 -ov};_view_lmp'\n")
 if to_install['scanDFT']: f.write("\nalias scanDFT='python "+INSTALLDIR+"console_scripts/scanDFT.py'\n")
 if to_install['prnt']: f.write('''
 function _prnt()
