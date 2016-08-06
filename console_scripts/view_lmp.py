@@ -1,7 +1,12 @@
 import sys, os
 from units import elem_sym_from_weight
+from sysconst import vmd_path, ovito_path
 
 run_name = sys.argv[1]
+
+if "-ov" in sys.argv: display = "ovito"
+else: display = "vmd"
+
 data = open(run_name+'.data').read()
 
 start = data.index('Masses')
@@ -26,5 +31,8 @@ for line in open(run_name+'.xyz'):
 	else: f.write(line)
 f.close()
 
-os.system('/fs/europa/g_pc/vmd-1.9 out.xyz > /dev/null')
+if display == "ovito":
+	os.system('%s out.xyz > /dev/null' % ovito_path)
+else:
+	os.system('%s out.xyz > /dev/null' % vmd_path)
 
