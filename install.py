@@ -375,7 +375,7 @@ alias viewl='function _viewl(){chkDFT $1 -v $@};_viewl'
 alias lgedit='function _lgedit(){gedit lammps/$1/$1.log &};_lgedit'
 alias geditl='lgedit'\n''')
 if to_install['merlin']: f.write("alias merlin='python -i "+INSTALLDIR+"tools/merlin.py'\n")
-if to_install['view_lmp']: f.write("alias view_lmp='function _view_lmp(){python "+INSTALLDIR+"console_scripts/view_lmp.py $1 -ov};_view_lmp'\n")
+if to_install['view_lmp']: f.write("alias view_lmp='function _view_lmp(){python "+INSTALLDIR+"console_scripts/view_lmp.py $1 $@};_view_lmp'\n")
 if to_install['scanDFT']: f.write("\nalias scanDFT='python "+INSTALLDIR+"console_scripts/scanDFT.py'\n")
 if to_install['prnt']: f.write('''
 function _prnt()
@@ -504,6 +504,7 @@ if to_install['junest (formerly juju)']:
 	else:
 		junest_install()
 		print("\nTo finish installing 'junest' please run:\n'pacman -Syyu pacman-mirrorlist && pacman -S gtk2 avogadro grep make ttf-liberation gedit'\n\n(when prompted for GL version, pick option 2, nvidia)\n\n\n")
+		print("\nNote, sometimes avogadro might not work even after this. Run 'pacman -S bumblebee' if this happens.\n\n\n")
 		os.system("zsh -c 'junest -f'")
 else:
 	if os.path.exists(HOMEDIR+'/juju') and os.path.isdir(HOMEDIR+'/juju'):
