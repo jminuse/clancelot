@@ -1,11 +1,14 @@
 import os, sys
-import math, copy, subprocess, time, numpy, re
+import math, copy, subprocess, time, re
+import numpy
 import files, constants
 import numpy as np
 import scipy
 from units import elem_i2s
 from warnings import warn, simplefilter
 from sysconst import opls_path
+import random
+
 
 simplefilter('always', DeprecationWarning)
 
@@ -340,9 +343,9 @@ def matmat(a,b):
 			for k in range(3):
 				product[y][x] += a[y][k]*b[k][x]
 	return product
+	
 
 def rand_rotation(): #http://tog.acm.org/resources/GraphicsGems/, Ed III
-	import random
 	x = (random.random(), random.random(), random.random())
 	theta = x[0] * 2*math.pi
 	phi   = x[1] * 2*math.pi
@@ -414,7 +417,17 @@ class Molecule(_Physical):
 		self.dihedrals = dihedrals
 	def rotate(self, m):
 		for a in self.atoms:
-			a.x, a.y, a.z = matvec(m, (a.x, a.y, a.z))
+			vec = np.array([[a.x],[a.y],[a.z]])
+			rotVec = m*vec
+			a.x,a.y,a.z = rotVec[0]
+	
+	def randRotateInPlace(self):
+		"""Randomly rotates the molecule around its center of mass"""
+		center = self.CalcCenter()
+		self.SetCenter([0.0,0.0,0.0])
+		self.rand_rotate()
+		self.translate(center)
+	
 	def translate(self, v):
 		for a in self.atoms:
 			a.x+=v[0]; a.y+=v[1]; a.z += v[2]
@@ -442,7 +455,6 @@ class Molecule(_Physical):
 			text += atom.to_string()
 		return text
 	
-	
 	def flatten(self):
 		return np.array([[a.x, a.y, a.z] for a in self.atoms]).flatten()
 
@@ -461,7 +473,7 @@ class Molecule(_Physical):
 		yList = []
 		zList = []
 		totalMass = 0.0
-		for a in self.Atoms:
+		for a in self.atoms:
 			xList.append(a.x*a.type.mass)
 			yList.append(a.y*a.type.mass)
 			zList.append(a.z*a.type.mass)
@@ -472,7 +484,8 @@ class Molecule(_Physical):
 	def SetCenter(self,xyz=[0.0,0.0,0.0]):
 		"""
 		Sets the center of mass of the molecule to the given xyz position,
-		in [x,y,z] format. Default resets the center of mass to the origin.
+		in [x,y,z] format. If no xyz is passed, resets the center of mass to the
+		origin.
 		"""
 		center = self.CalcCenter()
 		self.translate([xyz[0]-center[0],xyz[1]-center[1],xyz[2]-center[2]])
