@@ -224,7 +224,6 @@ class DFT_out(object):
 		self.route = None
 		self.frames = None
 		self.atoms = None
-		self.gradients = None
 		self.energies = None
 		self.energy = None
 		self.charges_MULLIKEN = None
@@ -456,6 +455,28 @@ class Molecule(_Physical):
 			for a,b in zip(self.atoms, positions):
 				a.x, a.y, a.z = b[0], b[1], b[2]
 	
+	def CalcCenter(self):
+		"""Returns the center of mass of the molecule in [x,y,z] format."""
+		xList = []
+		yList = []
+		zList = []
+		totalMass = 0.0
+		for a in self.Atoms:
+			xList.append(a.x*a.type.mass)
+			yList.append(a.y*a.type.mass)
+			zList.append(a.z*a.type.mass)
+			totalMass += a.type.mass
+		
+		return [sum(xList)/totalMass,sum(yList)/totalMass,sum(zList)/totalMass]
+		
+	def SetCenter(self,xyz=[0.0,0.0,0.0]):
+		"""
+		Sets the center of mass of the molecule to the given xyz position,
+		in [x,y,z] format. Default resets the center of mass to the origin.
+		"""
+		center = self.CalcCenter()
+		self.translate([xyz[0]-center[0],xyz[1]-center[1],xyz[2]-center[2]])
+		
 	
 	# When printing molecule, print all atoms
 	def __str__(self):
@@ -557,8 +578,10 @@ class System(_Physical):
 			for a in molecule.atoms:
 				atomCheck = False
 				for b in range(len(self.atoms)):
-					if self.atoms[b].equals(a):
-						del self.atoms[b]
+					#Check from the back of the atomlist, because the atom
+					#to be removed was also likely the last one added.
+					if self.atoms[len(self.atoms)-b-1].equals(a):
+						del self.atoms[len(self.atoms)-b-1]
 						atomCheck = True
 						break
 				if not atomCheck:
@@ -570,9 +593,9 @@ class System(_Physical):
 			for a in molecule.bonds:
 				bondCheck = False
 				for b in range(len(self.bonds)):
-					if self.bonds[b].equals(a):
+					if self.bonds[len(self.bonds)-b-1].equals(a):
 						bondCheck = True
-						del self.bonds[b]
+						del self.bonds[len(self.bonds)-b-1]
 						break
 				if not bondCheck:
 					raise ValueError("_Physical instance "+`a`+" wasn't found"+
@@ -582,9 +605,9 @@ class System(_Physical):
 			for a in molecule.angles:
 				angleCheck = False
 				for b in range(len(self.angles)):
-					if self.angles[b].equals(a):
+					if self.angles[len(self.angles)-b-1].equals(a):
 						angleCheck = True
-						del self.angles[b]
+						del self.angles[len(self.angles)-b-1]
 						break
 				if not angleCheck:
 					raise ValueError("_Physical instance "+`a`+" wasn't found"+
@@ -594,9 +617,9 @@ class System(_Physical):
 			for a in molecule.dihedrals:
 				dihedralCheck = False
 				for b in range(len(self.dihedrals)):
-					if self.dihedrals[b].equals(a):
+					if self.dihedrals[len(self.dihedrals)-b-1].equals(a):
 						dihedralCheck = True
-						del self.dihedrals[b]
+						del self.dihedrals[len(self.dihedrals)-b-1]
 						break
 				if not dihedralCheck:
 					raise ValueError("_Physical instance "+`a`+" wasn't found"+
@@ -621,8 +644,8 @@ class System(_Physical):
 		if len(molecule.atoms)>0:
 			for a in molecule.atoms:
 				atomCheck = False
-				for b in self.atoms:
-					if b.equals(a):
+				for b in range(len(self.atoms)):
+					if self.atoms[len(self.atoms)-b-1].equals(a):
 						atomCheck = True
 						break
 				if not atomCheck:
@@ -632,8 +655,8 @@ class System(_Physical):
 		if len(molecule.bonds)>0:
 			for a in molecule.bonds:
 				bondCheck = False
-				for b in self.bonds:
-					if b.equals(a):
+				for b in range(len(self.bonds)):
+					if self.bonds[len(self.bonds)-b-1].equals(a):
 						bondCheck = True
 						break
 				if not bondCheck:
@@ -642,8 +665,8 @@ class System(_Physical):
 		if len(molecule.angles)>0:
 			for a in molecule.angles:
 				angleCheck = False
-				for b in self.angles:
-					if b.equals(a):
+				for b in range(len(self.angles)):
+					if self.angles[len(self.angles)-b-1].equals(a):
 						angleCheck = True
 						break
 				if not angleCheck:
@@ -652,8 +675,8 @@ class System(_Physical):
 		if len(molecule.dihedrals)>0:
 			for a in molecule.dihedrals:
 				dihedralCheck = False
-				for b in self.dihedrals:
-					if b.equals(a):
+				for b in range(len(self.dihedrals)):
+					if self.dihedrals[len(self.dihedrals)-b-1].equals(a):
 						dihedralCheck = True
 						break
 				if not dihedralCheck:
@@ -991,7 +1014,7 @@ def center_frames(frames,ids,X_TOL=0.1,XY_TOL=0.1,Z_TOL=0.1,THETA_STEP=0.005,TRA
 
 	if chk: frames = frames[0]
 
-def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTES=False,outName=None,write_xyz=False,verbose=False):
+def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTS=False,outName=None,write_xyz=False,verbose=False):
 	#----------
 	# name = Name of xyz file to read in
 	# R_MAX = maximum motion per frame
@@ -1014,7 +1037,7 @@ def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTES=False,outName=None,write_xyz=Fal
 	# Loop till we're below R_MAX
 	while 1:
 		# Find largest motion_per_frame
-		if PROCRUSTES: procrustes(frames)
+		if PROCRUSTS: procrustes(frames)
 		tmp = motion_per_frame(frames)
 		i = tmp.index(max(tmp))
 
@@ -1050,7 +1073,7 @@ def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTES=False,outName=None,write_xyz=Fal
 
 		if verbose: print "\tInterpolated %d,%d ... %lg" % (i-1,i+1,max(motion_per_frame(frames)))
 
-	if PROCRUSTES: procrustes(frames)
+	if PROCRUSTS: procrustes(frames)
 
 	if write_xyz: files.write_xyz(frames,'pretty_xyz' if outName==None else outName)
 	else: return frames
