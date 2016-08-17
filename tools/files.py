@@ -112,7 +112,6 @@ def write_cml(atoms_or_molecule_or_system, bonds=[], name=None):
 def read_lammpstrj(name, read_atoms=True, read_timesteps=True, read_num_atoms=True, read_box_bounds=True):
 	if not name.endswith('.lammpstrj') and '.' not in name:
 		name += '.lammpstrj'
-	print "Checking that os.path.isfile("+name+")"
 	# If file does not exist, return empty lammpstrj object
 	if not os.path.isfile(name):
 		warn('Expected lammps trajectory file does not exist at %s' % (name))
@@ -120,9 +119,45 @@ def read_lammpstrj(name, read_atoms=True, read_timesteps=True, read_num_atoms=Tr
 	else:
 		data = open(name,'r').read()
 
+	# Compile data from only the last frame if last_frame=True
+	if last_frame:
+		s = 'ITEM: TIMESTEP'
+		section = data
+		while (s in section):
+			section = section[section.find(s)+len(s):]
+			#progress = (1 - float(len(section)) / float(len(data))) * 100
+			#print('%2.2f' % (progress))
+
+		# Rewrite data to only include last frame
+		data = section
+
+	# Determine coordinate type
+	coords = ''
+	if read_atoms:
+		section = data
+		if 'x y z' in section:
+			if verbose: print('%s: Reading wrapped, unscaled atom coordinates' % (name))
+			coords = 'x y z'
+
+		elif 'xs ys zs' in section:
+			if verbose: print('%s: Reading warpped, scaled atom coordinates' % (name))
+			coords = 'xs ys zs'
+
+		elif 'xu yu zu' in section:
+			if verbose: print('%s: Reading unwrapped, unscaled atom coordinates' % (name))
+			coords = 'xu yu zu'
+
+		elif 'xsu ysu zsu' in section:
+			if verbose: print('%s: Reading unwrapped, scaled atom coordinates' % (name))
+			coords = 'xsu ysu zsu'
+
+		else:
+			print('No valid coordinates found')
+
 	# Get all the positions
 	section, frames = data, []
-	s = 'ITEM: ATOMS id type x y z'
+	s = 'ITEM: ATOMS id type ' + coords
+	pass25, pass50, pass75 = False, False, False
 	while read_atoms and (s in section):
 		section = section[section.find(s)+len(s):]
 		atom_block = section[:section.find('\nITEM: TIMESTEP')].split('\n')[1:]
@@ -138,6 +173,24 @@ def read_lammpstrj(name, read_atoms=True, read_timesteps=True, read_num_atoms=Tr
 
 		frames.append(frame)
 
+		# Output how far along the file has been read
+		if verbose:
+			progress = (1 - float(len(section)) / float(len(data))) * 100
+			#print('%2.2f' % (progress))
+			if pass25 != True and progress > 25.0:
+				print('%s: 25%% read' % (name))
+				pass25 = True
+			elif pass50 != True and progress > 50.0:
+				print('%s: 50%% read' % (name))
+				pass50 = True
+			elif pass75 != True and progress > 75.0:
+				print('%s: 75%% read' % (name))
+				pass75 = True
+
+	# Output after reading atom coordinates
+	if verbose and pass25 and pass50 and pass75:
+		print('%s: 100%% read' % (name))
+
 	if frames:
 		atoms = frames[-1]
 	else:
@@ -146,8 +199,12 @@ def read_lammpstrj(name, read_atoms=True, read_timesteps=True, read_num_atoms=Tr
 	# Get all timesteps
 	section, timesteps = data, []
 	s = 'ITEM: TIMESTEP'
+	if verbose and read_timesteps:
+		print('Reading timesteps')
 	while read_timesteps and (s in section):
-		section = section[section.find(s)+len(s):]
+		num = section.find(s)+len(s)
+		print(num)
+		section = section[num:]
 		tmp = section[:section.find('\nITEM: NUMBER OF ATOMS')].split('\n')[1:]
 		for line in tmp:
 			a = line.split()
@@ -161,6 +218,8 @@ def read_lammpstrj(name, read_atoms=True, read_timesteps=True, read_num_atoms=Tr
 	# Get number of atoms. Useful if number of atoms change during simulation, such as during a deposition
 	section, atom_counts = data, []
 	s = 'ITEM: NUMBER OF ATOMS'
+	if verbose and read_num_atoms:
+		print('Reading number of atoms')
 	while read_num_atoms and (s in section):
 		section = section[section.find(s)+len(s):]
 		tmp = section[:section.find('\nITEM: BOX BOUNDS')].split('\n')[1:]
@@ -177,6 +236,8 @@ def read_lammpstrj(name, read_atoms=True, read_timesteps=True, read_num_atoms=Tr
 	# Currently only imports orthorhombic crystal information aka all angles = 90 degrees
 	section, box_bounds_list = data, []
 	s = 'ITEM: BOX BOUNDS'
+	if verbose and read_box_bounds:
+		print('Reading box bounds')
 	while read_box_bounds and (s in section):
 		section = section[section.find(s)+len(s):]
 		tmp = section[:section.find('\nITEM: ATOMS')].split('\n')[1:]
