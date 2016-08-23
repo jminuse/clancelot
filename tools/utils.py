@@ -1052,6 +1052,8 @@ def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTES=False,outName=None,write_xyz=Fal
 
 	if PROCRUSTES: procrustes(frames)
 
+	if verbose: print("\tThere are now a total of %d frames" % len(frames))
+
 	if write_xyz: files.write_xyz(frames,'pretty_xyz' if outName==None else outName)
 	else: return frames
 
@@ -1357,3 +1359,65 @@ def align_centroid(points):
 	molec.translate(com)
 
 	return molec.atoms, A
+
+def pysub(job_name, nprocs="1", queue="batch", path=os.getcwd(), remove_nbs=False):
+	if ".py" in job_name: job_name = job_name.split(".py")[0]
+
+	# Setup nbs script
+	NBS = '''##NBS-name: "$JOB_NAME$"
+##NBS-nproc: $NPROCS$
+##NBS-queue: "$QUEUE$"
+
+source /fs/home/hch54/.zshrc
+
+/fs/home/hch54/anaconda/bin/python2.7 -u $PY_NAME1$.py >> $PY_NAME2$.log 2>&1
+'''
+
+	NBS = NBS.replace("$JOB_NAME$",job_name)
+	NBS = NBS.replace("$NPROCS$",nprocs)
+	NBS = NBS.replace("$QUEUE$",queue)
+	NBS = NBS.replace("$PY_NAME1$",path + '/' + job_name)
+	NBS = NBS.replace("$PY_NAME2$",path + '/' + job_name)
+
+	NBS_fptr = open(job_name+".nbs",'w')
+	NBS_fptr.write(NBS)
+	NBS_fptr.close()
+
+	# Submit job
+	os.system('jsub ' + job_name + '.nbs')
+	
+	if remove_nbs:
+		os.system('rm ' + job_name + '.nbs')
+
+def get_pdf(frames, start=0.0, stop=10.0, cutoff=3.0, rho=1.0, output=None, persist=False):
+	# If passed frames and not an xyz file name, write to xyz
+	if type(frames) is not str:
+		files.write_xyz(frames, "tmp_for_pdf")
+		file_name = "tmp_for_pdf"
+	else:
+		file_name = frames
+
+	# Else, we want to ensure file_name is correct
+	if file_name.endswith(".xyz"):
+		file_name = file_name.split(".xyz")[0]
+	if output is None:
+		output = file_name
+
+	# Make command for debyer
+	cmd = "debyer -r%.2f -g -f%.2f -t%.2f --ro=%.2f -o %s.g %s.xyz" % (cutoff, start, stop, rho, output, file_name)
+
+	# Run debyer and read in the pdf
+	os.system(cmd)
+	fptr_pdf = open("%s.g" % output, 'r').read().split("\n")
+	i = 0
+	while fptr_pdf[i].strip().startswith("#"): i += 1
+	j = len(fptr_pdf)-1
+	while fptr_pdf[j].strip() == "": j -= 1
+	fptr_pdf = fptr_pdf[i:j+1]
+	
+	pdf = [(float(a.split()[0]), float(a.split()[1])) for a in fptr_pdf]
+
+	if not persist:
+		os.system("rm %s.g" % output)
+
+	return pdf
