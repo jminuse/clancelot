@@ -1,11 +1,14 @@
 import os, sys
-import math, copy, subprocess, time, numpy, re
+import math, copy, subprocess, time, re
+import numpy
 import files, constants
 import numpy as np
 import scipy
 from units import elem_i2s
 from warnings import warn, simplefilter
 from sysconst import opls_path
+import random
+
 
 simplefilter('always', DeprecationWarning)
 
@@ -224,7 +227,7 @@ class DFT_out(object):
 		self.route = None
 		self.frames = None
 		self.atoms = None
-		self.gradients = None
+		self.gradients=None
 		self.energies = None
 		self.energy = None
 		self.charges_MULLIKEN = None
@@ -341,9 +344,9 @@ def matmat(a,b):
 			for k in range(3):
 				product[y][x] += a[y][k]*b[k][x]
 	return product
+	
 
 def rand_rotation(): #http://tog.acm.org/resources/GraphicsGems/, Ed III
-	import random
 	x = (random.random(), random.random(), random.random())
 	theta = x[0] * 2*math.pi
 	phi   = x[1] * 2*math.pi
@@ -416,6 +419,14 @@ class Molecule(_Physical):
 	def rotate(self, m):
 		for a in self.atoms:
 			a.x, a.y, a.z = matvec(m, (a.x, a.y, a.z))
+	
+	def randRotateInPlace(self):
+		"""Randomly rotates the molecule around its center of mass"""
+		center = self.CalcCenter()
+		self.SetCenter([0.0,0.0,0.0])
+		self.rand_rotate()
+		self.translate(center)
+	
 	def translate(self, v):
 		for a in self.atoms:
 			a.x+=v[0]; a.y+=v[1]; a.z += v[2]
@@ -443,7 +454,6 @@ class Molecule(_Physical):
 			text += atom.to_string()
 		return text
 	
-	
 	def flatten(self):
 		return np.array([[a.x, a.y, a.z] for a in self.atoms]).flatten()
 
@@ -456,6 +466,29 @@ class Molecule(_Physical):
 			for a,b in zip(self.atoms, positions):
 				a.x, a.y, a.z = b[0], b[1], b[2]
 	
+	def CalcCenter(self):
+		"""Returns the center of mass of the molecule in [x,y,z] format."""
+		xList = []
+		yList = []
+		zList = []
+		totalMass = 0.0
+		for a in self.atoms:
+			xList.append(a.x*a.type.mass)
+			yList.append(a.y*a.type.mass)
+			zList.append(a.z*a.type.mass)
+			totalMass += a.type.mass
+		
+		return [sum(xList)/totalMass,sum(yList)/totalMass,sum(zList)/totalMass]
+		
+	def SetCenter(self,xyz=[0.0,0.0,0.0]):
+		"""
+		Sets the center of mass of the molecule to the given xyz position,
+		in [x,y,z] format. If no xyz is passed, resets the center of mass to the
+		origin.
+		"""
+		center = self.CalcCenter()
+		self.translate([xyz[0]-center[0],xyz[1]-center[1],xyz[2]-center[2]])
+		
 	
 	# When printing molecule, print all atoms
 	def __str__(self):
@@ -557,8 +590,10 @@ class System(_Physical):
 			for a in molecule.atoms:
 				atomCheck = False
 				for b in range(len(self.atoms)):
-					if self.atoms[b].equals(a):
-						del self.atoms[b]
+					#Check from the back of the atomlist, because the atom
+					#to be removed was also likely the last one added.
+					if self.atoms[len(self.atoms)-b-1].equals(a):
+						del self.atoms[len(self.atoms)-b-1]
 						atomCheck = True
 						break
 				if not atomCheck:
@@ -570,9 +605,9 @@ class System(_Physical):
 			for a in molecule.bonds:
 				bondCheck = False
 				for b in range(len(self.bonds)):
-					if self.bonds[b].equals(a):
+					if self.bonds[len(self.bonds)-b-1].equals(a):
 						bondCheck = True
-						del self.bonds[b]
+						del self.bonds[len(self.bonds)-b-1]
 						break
 				if not bondCheck:
 					raise ValueError("_Physical instance "+`a`+" wasn't found"+
@@ -582,9 +617,9 @@ class System(_Physical):
 			for a in molecule.angles:
 				angleCheck = False
 				for b in range(len(self.angles)):
-					if self.angles[b].equals(a):
+					if self.angles[len(self.angles)-b-1].equals(a):
 						angleCheck = True
-						del self.angles[b]
+						del self.angles[len(self.angles)-b-1]
 						break
 				if not angleCheck:
 					raise ValueError("_Physical instance "+`a`+" wasn't found"+
@@ -594,9 +629,9 @@ class System(_Physical):
 			for a in molecule.dihedrals:
 				dihedralCheck = False
 				for b in range(len(self.dihedrals)):
-					if self.dihedrals[b].equals(a):
+					if self.dihedrals[len(self.dihedrals)-b-1].equals(a):
 						dihedralCheck = True
-						del self.dihedrals[b]
+						del self.dihedrals[len(self.dihedrals)-b-1]
 						break
 				if not dihedralCheck:
 					raise ValueError("_Physical instance "+`a`+" wasn't found"+
@@ -621,8 +656,8 @@ class System(_Physical):
 		if len(molecule.atoms)>0:
 			for a in molecule.atoms:
 				atomCheck = False
-				for b in self.atoms:
-					if b.equals(a):
+				for b in range(len(self.atoms)):
+					if self.atoms[len(self.atoms)-b-1].equals(a):
 						atomCheck = True
 						break
 				if not atomCheck:
@@ -632,8 +667,8 @@ class System(_Physical):
 		if len(molecule.bonds)>0:
 			for a in molecule.bonds:
 				bondCheck = False
-				for b in self.bonds:
-					if b.equals(a):
+				for b in range(len(self.bonds)):
+					if self.bonds[len(self.bonds)-b-1].equals(a):
 						bondCheck = True
 						break
 				if not bondCheck:
@@ -642,8 +677,8 @@ class System(_Physical):
 		if len(molecule.angles)>0:
 			for a in molecule.angles:
 				angleCheck = False
-				for b in self.angles:
-					if b.equals(a):
+				for b in range(len(self.angles)):
+					if self.angles[len(self.angles)-b-1].equals(a):
 						angleCheck = True
 						break
 				if not angleCheck:
@@ -652,8 +687,8 @@ class System(_Physical):
 		if len(molecule.dihedrals)>0:
 			for a in molecule.dihedrals:
 				dihedralCheck = False
-				for b in self.dihedrals:
-					if b.equals(a):
+				for b in range(len(self.dihedrals)):
+					if self.dihedrals[len(self.dihedrals)-b-1].equals(a):
 						dihedralCheck = True
 						break
 				if not dihedralCheck:
