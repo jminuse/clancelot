@@ -577,72 +577,128 @@ class System(_Physical):
 		new_molecule.dihedrals = self.dihedrals[-len(molecule.dihedrals):]
 		self.molecules.append( new_molecule )
 	
-	def Remove(self,molecule):
+	def Remove(self,target):
 		"""
-		Removes all atoms, bonds angles and dihedrals of the passed molecule from
-		the system. Raises a ValueError if not all aspects of molecule are found
-		in the system.
+		If target is a molecule, removes all atoms, bonds angles and dihedrals of
+		the passed molecule from the system. Raises a ValueError if not all aspects
+		of molecule are found in the system.
 		
-		Precondition: molecule is a valid Utils.Molecule instance.
+		If target is an Atom, the atom is removed from the system, and any bonds,
+		angles, and dihedrals which contain the atom are also removed from the system.
+		Raises a ValueError if the Atom is not found in the system.
+		
+		Precondition: molecule is a valid Utils.Molecule instance or a valid
+		Utils.Atom instance.
 		"""
 		#Make sure all atoms in molecule are in system.
-		if len(molecule.atoms)>0:
-			for a in molecule.atoms:
+		if isinstance(target,Molecule):
+			if len(target.atoms)>0:
+				for a in target.atoms:
+					atomCheck = False
+					for b in range(len(self.atoms)):
+						#Check from the back of the atomlist, because the atom
+						#to be removed was also likely the last one added.
+						if self.atoms[len(self.atoms)-b-1].equals(a):
+							del self.atoms[len(self.atoms)-b-1]
+							atomCheck = True
+							break
+					if not atomCheck:
+						raise ValueError("_Physical instance "+`a`+" wasn't found"+
+										 "in the given system.")
+			
+			#Repeat above for bonds, angles, dihedrals
+			if len(target.bonds)>0:
+				for a in target.bonds:
+					bondCheck = False
+					for b in range(len(self.bonds)):
+						if self.bonds[len(self.bonds)-b-1].equals(a):
+							bondCheck = True
+							del self.bonds[len(self.bonds)-b-1]
+							break
+					if not bondCheck:
+						raise ValueError("_Physical instance "+`a`+" wasn't found"+
+										 "in the given system.")
+			
+			if len(target.angles)>0:
+				for a in target.angles:
+					angleCheck = False
+					for b in range(len(self.angles)):
+						if self.angles[len(self.angles)-b-1].equals(a):
+							angleCheck = True
+							del self.angles[len(self.angles)-b-1]
+							break
+					if not angleCheck:
+						raise ValueError("_Physical instance "+`a`+" wasn't found"+
+										 "in the given system.")
+			
+			if len(target.dihedrals)>0:
+				for a in target.dihedrals:
+					dihedralCheck = False
+					for b in range(len(self.dihedrals)):
+						if self.dihedrals[len(self.dihedrals)-b-1].equals(a):
+							dihedralCheck = True
+							del self.dihedrals[len(self.dihedrals)-b-1]
+							break
+					if not dihedralCheck:
+						raise ValueError("_Physical instance "+`a`+" wasn't found"+
+										 "in the given system.")
+			
+			for a in range(len(self.molecules)):
+				if self.molecules[a].equals(target):
+					del self.molecules[a]
+					break
+		
+		elif isinstance(target,Atom):
+			for a in range(len(self.atoms)):
+				#Check from the back of the atomlist, because the atom
+				#to be removed was also likely the last one added.
 				atomCheck = False
-				for b in range(len(self.atoms)):
-					#Check from the back of the atomlist, because the atom
-					#to be removed was also likely the last one added.
-					if self.atoms[len(self.atoms)-b-1].equals(a):
-						del self.atoms[len(self.atoms)-b-1]
-						atomCheck = True
-						break
-				if not atomCheck:
-					raise ValueError("_Physical instance "+`a`+" wasn't found"+
+				if target.equals(self.atoms[-a-1]):
+					del self.atoms[-a-1]
+					atomCheck = True
+					break
+			if not atomCheck:
+				raise ValueError("_Physical instance "+`target`+" wasn't found"+
 									 "in the given system.")
-		
-		#Repeat above for bonds, angles, dihedrals
-		if len(molecule.bonds)>0:
-			for a in molecule.bonds:
-				bondCheck = False
-				for b in range(len(self.bonds)):
-					if self.bonds[len(self.bonds)-b-1].equals(a):
-						bondCheck = True
-						del self.bonds[len(self.bonds)-b-1]
-						break
-				if not bondCheck:
-					raise ValueError("_Physical instance "+`a`+" wasn't found"+
-									 "in the given system.")
-		
-		if len(molecule.angles)>0:
-			for a in molecule.angles:
-				angleCheck = False
-				for b in range(len(self.angles)):
-					if self.angles[len(self.angles)-b-1].equals(a):
-						angleCheck = True
-						del self.angles[len(self.angles)-b-1]
-						break
-				if not angleCheck:
-					raise ValueError("_Physical instance "+`a`+" wasn't found"+
-									 "in the given system.")
-		
-		if len(molecule.dihedrals)>0:
-			for a in molecule.dihedrals:
-				dihedralCheck = False
-				for b in range(len(self.dihedrals)):
-					if self.dihedrals[len(self.dihedrals)-b-1].equals(a):
-						dihedralCheck = True
-						del self.dihedrals[len(self.dihedrals)-b-1]
-						break
-				if not dihedralCheck:
-					raise ValueError("_Physical instance "+`a`+" wasn't found"+
-									 "in the given system.")
-		
-		for a in range(len(self.molecules)):
-			if self.molecules[a].equals(molecule):
-				del self.molecules[a]
-				break
-	
-	
+			
+			delList= []
+			newList= []
+			for a in range(len(self.bonds)):
+				for b in self.bonds[a].atoms:
+					
+					#If a bond has the target atom, mark it
+					if b.equals(target):
+						delList.append(a)
+			
+			#Delete all of the bonds that were marked, from the end of the list
+			#to the front so as to preserve order
+			for a in range(len(self.bonds)):
+				if not a in delList:
+					newList.append(self.bonds[a])
+			self.bonds=newList
+			
+			delList= []
+			newList= []
+			for a in range(len(self.angles)):
+				for b in self.angles[a].atoms:
+					if b.equals(target):
+						delList.append(a)
+			for a in range(len(self.angles)):
+				if not a in delList:
+					newList.append(self.angles[a])
+			self.angles=newList
+			
+			delList= []
+			newList= []
+			for a in range(len(self.dihedrals)):
+				for b in self.dihedrals[a].atoms:
+					if b.equals(target):
+						delList.append(a)
+			for a in range(len(self.dihedrals)):
+				if not a in delList:
+					newList.append(self.dihedrals[a])
+			self.dihedrals=newList
+
 	def Contains(self,molecule):
 		"""
 		Returns a boolean, True if the molecule passed as an argument is contained
@@ -1087,8 +1143,6 @@ def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTES=False,outName=None,write_xyz=Fal
 
 	if PROCRUSTES: procrustes(frames)
 
-	if verbose: print("\tThere are now a total of %d frames" % len(frames))
-
 	if write_xyz: files.write_xyz(frames,'pretty_xyz' if outName==None else outName)
 	else: return frames
 
@@ -1394,70 +1448,3 @@ def align_centroid(points):
 	molec.translate(com)
 
 	return molec.atoms, A
-
-def pysub(job_name, nprocs="1", queue="batch", path=os.getcwd(), remove_nbs=False):
-	if ".py" in job_name: job_name = job_name.split(".py")[0]
-
-	# Setup nbs script
-	NBS = '''##NBS-name: "$JOB_NAME$"
-##NBS-nproc: $NPROCS$
-##NBS-queue: "$QUEUE$"
-
-source /fs/home/hch54/.zshrc
-
-/fs/home/hch54/anaconda/bin/python2.7 -u $PY_NAME1$.py >> $PY_NAME2$.log 2>&1
-'''
-
-	NBS = NBS.replace("$JOB_NAME$",job_name)
-	NBS = NBS.replace("$NPROCS$",nprocs)
-	NBS = NBS.replace("$QUEUE$",queue)
-	NBS = NBS.replace("$PY_NAME1$",path + '/' + job_name)
-	NBS = NBS.replace("$PY_NAME2$",path + '/' + job_name)
-
-	NBS_fptr = open(job_name+".nbs",'w')
-	NBS_fptr.write(NBS)
-	NBS_fptr.close()
-
-	# Submit job
-	os.system('jsub ' + job_name + '.nbs')
-	
-	if remove_nbs:
-		os.system('rm ' + job_name + '.nbs')
-
-def get_pdf(frames, start=0.0, stop=5.0, step=0.1, cutoff=10.0, rho=1.0, quanta=0.001, output=None, persist=False):
-	# If passed frames and not an xyz file name, write to xyz
-	append = str(int(random.random()*1E12))
-	if type(frames) is not str:
-		files.write_xyz(frames, "tmp_for_pdf_%s" % append)
-		file_name = "tmp_for_pdf_%s" % append
-	else:
-		file_name = frames
-
-	# Else, we want to ensure file_name is correct
-	if file_name.endswith(".xyz"):
-		file_name = file_name.split(".xyz")[0]
-	if output is None:
-		output = file_name
-
-	if stop > cutoff:
-		raise Exception("Stopping position should be larger less than or equal to the cutoff.")
-
-	# Make command for debyer
-	cmd = "debyer --cutoff=%.2f --quanta=%.2f -g -f%.2f -t%.2f -s%.2f --ro=%.2f -o %s.g %s.xyz" % (cutoff, quanta, start, stop, step, rho, output, file_name)
-
-	# Run debyer and read in the pdf
-	os.system(cmd)
-	fptr_pdf = open("%s.g" % output, 'r').read().split("\n")
-	i = 0
-	while fptr_pdf[i].strip().startswith("#"): i += 1
-	j = len(fptr_pdf)-1
-	while fptr_pdf[j].strip() == "": j -= 1
-	fptr_pdf = fptr_pdf[i:j+1]
-	
-	pdf = [(float(a.split()[0]), float(a.split()[1])) for a in fptr_pdf]
-
-	if not persist:
-		os.system("rm %s.g" % output)
-		os.system("rm %s.xyz" % file_name)
-
-	return pdf

@@ -4,7 +4,9 @@ from subprocess import Popen
 from copy import deepcopy
 from shutil import copyfile
 import re
+import cPickle as pickle
 from warnings import warn
+import sys
 
 # This module provides a framework for submitting and reading lammps jobs sent through the NBS queue.
 # LAMMPS is inherently flexible. However, in order to provide a smooth user experience, this module expects certain dump files and formats.
@@ -126,8 +128,8 @@ $NBS_PATH/mpiexec -xlate /usr/common/etc/nbs/mpi.xlate /fs/home/yma3/Software/la
 
 
 def PotEngSurfaceJob(run_name, input_script, system, domain, spanMolecule, resolution = .1,
-					 queue=None, procs=1, email='', pair_coeffs_included=True,
-					 hybrid_pair=False):
+					 queue='batch', procs=1, email='', pair_coeffs_included=True,
+					 hybrid_pair=False,split=0,floor=[0.0,0.0,0.0]):
 	"""
 	Runs a set of LAMMPS jobs on the queue, writing one main data file and then
 	modifying it incrementally to move one particular atom, in order to create
@@ -177,53 +179,412 @@ def PotEngSurfaceJob(run_name, input_script, system, domain, spanMolecule, resol
 	#If the molecule is in the system, in its original position, remove it.
 	if system.Contains(spanMolecule):
 		system.Remove(spanMolecule)
+	spanMolecule.SetCenter(floor)
+
+	sys.setrecursionlimit(2000)
+	#Dump to pickle files all global objects
+	os.system('mkdir -p lammps/nbs_scripts')
+	os.chdir('lammps/nbs_scripts')
+	pickle.dump(system,open("system.pickle","wb"))
+	pickle.dump(input_script,open("inputscript.pickle","wb"))
+	pickle.dump(readDataIndex,open("readdataindex.pickle","wb"))
+	pickle.dump(dotDataIndex,open("dotdataindex.pickle","wb"))
+	pickle.dump(spanMolecule,open("spanmolecule.pickle","wb"))
+	pickle.dump(pair_coeffs_included,open("pair_coeffs_included.pickle","wb"))
+	pickle.dump(hybrid_pair,open("hybrid_pair.pickle","wb"))
+
 	
 	#For each and every vector in vecList, create a valid lammps job with the spanMolecule
 	#traslated by that vector and run it. Between steps, remove the older spanMolecule
 	#and add a new spanMolecule to the system which is in a new position, translated
 	#by vec.
-	for vec in vecList:
-		newRunName = run_name + "_" + str(vec[0])+ "x" + str(vec[1]) + "x" + str(vec[2])
+	vecList = [vecList]
+	for vecLine in vecList:
+		newVecs = []
+		if split > 1:
+			splitNum=len(vecLine)/split
+			a = 0
+			while a+splitNum < len(vecLine)-1:
+				newVecs.append(vecLine[a:a+splitNum])
+				a += splitNum
+			newVecs.append(vecLine[a:])
+		else:
+			newVecs.append(vecLine)
+		for b in range(len(newVecs)):
+			lineName = run_name+"_"+str(vecLine[0][1])+"_sp"+str(b)
+			_PotEngLine(lineName,run_name,input_script,spanMolecule,newVecs[b],procs=procs,
+			email=email)
+			#break
+	
+
+
+def PotEngSurfaceJob_v2(run_name, input_script, system, domain, spanMolecule, resolution = .1,
+					 procs=1, email='', pair_coeffs_included=True,
+					 hybrid_pair=False,assortBy='y',floor=[0.0,0.0,0.0]):
+	"""
+	Runs a set of LAMMPS jobs on the queue, writing one main data file and then
+	modifying it incrementally to move one particular atom, in order to create
+	a potential energy surface. This is faster than running write_lammps_data
+	multiple times, since nearly all information is kept the same. Other than this,
+	this function should be used almost exactly as job().
+	
+	This is a more optimized version of the original function, will run on a limited
+	number of cores on the queue, run faster, and have lower overall CPU time.
+	Rather than submitting all jobs independently to the queue, a single row of
+	the PES in dimension assortBy is run locally on each processor. Thus, ~6400
+	jobs running for 10 seconds each becomes ~80 jobs running for less than 800
+	seconds each. 
+	
+	Preconditions:
+	run_name is a string of positive length, 31 or smaller.
+	system is a valid utils.System instance.
+	
+	domain is a 3-element list of ints or floats, referring to the XYZ domain
+	in which the molecule spanMolecule must span over. E.g., [0.0,1.0,1.0] will
+	span over a domain which is 1x1 Angstrom box in the positive y and z directions
+	from spanMolecule's original position.
+	
+	spanMolecule is a string which represents a path to a valid cml file, which
+	represents the molecule which will be spanned across a surface in system.
+	
+	increment is an int or float which represents the resolution, in Angstroms,
+	with which the atom will be spanned across the given domain. This span is
+	linear.
+	
+	hybrid_pair is a boolean flag which should be set to True if the system
+	should exhibit hybrid pairing interactions. (e.g. lj/cut and nm/cut)
+	
+	assortBy is a string, one of ("x","y", or "z").
+	
+	"""
+	if len(run_name) > 31 and queue is not None:
+		raise Exception("Job name too long (%d) for NBS. Max character length is 31." % len(run_name))
+
+	# Change to correct directory
+	os.system('mkdir -p lammps/%s' % run_name)
+	os.chdir('lammps/%s' % run_name)
+	
+	#Generate the list of positions for the molecule to be tried
+	vecList = _GenerateVecList(domain, resolution, plotting=True, assortBy=assortBy)
+	#Find the position in the input script which declares the data file name
+	readDataIndex = input_script.find("read_data")
+	if readDataIndex == -1:
+		raise ValueError("Invalid Input Script: no data read.")
+	dotDataIndex = input_script.find(".data")
+	
+	
+	#If the molecule is in the system, in its original position, remove it.
+	if system.Contains(spanMolecule):
+		system.Remove(spanMolecule)
+	spanMolecule.SetCenter(floor)
+	
+	sys.setrecursionlimit(2000)
+	#Dump to pickle files all global objects
+	os.system('mkdir -p lammps/nbs_scripts')
+	os.chdir('lammps/nbs_scripts')
+	pickle.dump(system,open("system.pickle","wb"))
+	pickle.dump(input_script,open("inputscript.pickle","wb"))
+	pickle.dump(readDataIndex,open("readdataindex.pickle","wb"))
+	pickle.dump(dotDataIndex,open("dotdataindex.pickle","wb"))
+	pickle.dump(spanMolecule,open("spanmolecule.pickle","wb"))
+	pickle.dump(pair_coeffs_included,open("pair_coeffs_included.pickle","wb"))
+	pickle.dump(hybrid_pair,open("hybrid_pair.pickle","wb"))
+	
+	#For every vector line in vecList, run a job to acquire a processor to run it,
+	#and run a lammps job for each one.
+	for vecLine in vecList:
+		lineName = run_name+"_"+str(vecLine[0][1])
+		_PotEngLine(lineName,run_name,input_script,spanMolecule,vecLine,procs=procs,
+			email=email,pair_coeffs_included=pair_coeffs_included,hybrid_pair=hybrid_pair)
+		#break
+		
+
+
+def _PotEngLine(lineName,run_name,input_script, spanMolecule, vecLine, procs=1, email='',
+			pair_coeffs_included=True,hybrid_pair=False):
+	"""
+	A helper function to PotEngSurfaceJob_v2(). Writes a python script to be
+	run by the ICSE servers and submits a valid NBS job to run that python script.
+	The ICSE processor which is grabbed will then run a series of lammps runs,
+	each of which involving translating spanMolecule by a vector in vecLine, and
+	then resetting its position after the run.
+	"""
+	currdir = os.getcwd()
+	pickle.dump(vecLine,open("vec_"+lineName+".pickle","wb"))
+	pickle.dump(spanMolecule,open("spanMolecule_"+lineName+".pickle","wb"))
+	
+	NBS = open(lineName+".nbs",'w')
+	NBStext='''#!/bin/sh
+##NBS-name: \''''+lineName+'''\'
+##NBS-nproc: 1
+##NBS-queue: batch
+##NBS-email: ''
+source /fs/home/aec253/.zshrc
+
+# Shared LAMMPS Library Configuration
+export PYTHONPATH=/fs/home/yma3/Software/lammps_git/python:$PYTHONPATH
+export PYTHONPATH=/fs/home/yma3/Projects/Forcefields/OPLS:$PYTHONPATH
+export LD_LIBRARY_PATH=/fs/home/yma3/Software/lammps_git/src:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/usr/local/mpich2/icse/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/fs/home/yma3/usr/local/lib/fftw3/lib:$LD_LIBRARY_PATH
+
+/fs/home/aec253/anaconda/bin/python -u '''+lineName+'''.py >> '''+lineName+'''.log 2>&1
+'''
+	NBS.write(NBStext)
+	NBS.close()
+	
+	pyScript = open(lineName+'.py','w')
+	pyScriptText = '''from lammps_job import job
+import cPickle as pickle
+import os
+from merlin import *
+os.chdir(\''''+currdir+'''\')
+
+run_name = "'''+run_name+'''"
+system = pickle.load(open("system.pickle","rb"))
+vecLine = pickle.load(open("vec_"+"'''+lineName+'''.pickle","rb"))
+input_script = pickle.load(open("inputscript.pickle","rb"))
+readDataIndex = pickle.load(open("readdataindex.pickle","rb"))
+dotDataIndex = pickle.load(open("dotdataindex.pickle","rb"))
+spanMolecule = pickle.load(open("spanmolecule.pickle","rb"))
+pair_coeffs_included = pickle.load(open("pair_coeffs_included.pickle","rb"))
+hybrid_pair = pickle.load(open("hybrid_pair.pickle","rb"))
+
+
+os.chdir("..")
+os.chdir("..")
+spanLog = open("lammps/nbs_scripts/spanLog.txt","w")
+for vec in vecLine:
+	spanLog.write(str(vec)+"\\n")
+	newRunName = run_name + "_" + str(vec[0])+ "x" + str(vec[1]) + "x" + str(vec[2])
+	system.name = newRunName
+	spanLog.write("Pre-Translated at "+`vec`+": "+`spanMolecule`+"\\n")
+	newInputScript = input_script[:readDataIndex+10]+newRunName+input_script[dotDataIndex:]
+	spanMolecule.translate(vec)
+	spanLog.write("Post-Translated at "+`vec`+": "+`spanMolecule`+"\\n")
+	system.add(spanMolecule)
+	print "Running job " + newRunName
+	job(newRunName, newInputScript, system, 
+		pair_coeffs_included=pair_coeffs_included, hybrid_pair=hybrid_pair,
+		hybrid_angle=False)
+	system.Remove(spanMolecule)
+	spanMolecule.translate([-vec[0],-vec[1],-vec[2]])
+	#if vecLine.index(vec)>5:
+		#break
+spanLog.close()'''
+
+	
+	pyScript.write(pyScriptText)
+	pyScript.close()
+	
+	os.system("jsub "+lineName+".nbs")
+
+
+def OptJob(run_name, input_script, system, domain, spanMolecule, resolution = .1,
+					 procs=1, email='', pair_coeffs_included=True,
+					 hybrid_pair=False,assortBy='y',orientations=10,split=1,
+					 floor=[0.0,0.0,0.0]):
+	"""
+	Runs a series of lammps jobs in a space defined by domain and resolution,
+	at each position performing a rand_rotation of the spanMolecule. Runs the
+	simulation at that position orienations many times. Each simulation line
+	will be split over split many jobs. Other than this, this function can be
+	used as PotEngSurfJob() and job().
+	"""
+	if len(run_name) > 31 and queue is not None:
+		raise Exception("Job name too long (%d) for NBS. Max character length is 31." % len(run_name))
+	
+	# Change to correct directory
+	os.system('mkdir -p lammps/%s' % run_name)
+	os.chdir('lammps/%s' % run_name)
+	
+	#Generate the list of positions for the molecule to be tried
+	vecList = _GenerateVecList(domain, resolution, plotting=False, assortBy=assortBy)
+	#Find the position in the input script which declares the data file name
+	readDataIndex = input_script.find("read_data")
+	if readDataIndex == -1:
+		raise ValueError("Invalid Input Script: no data read.")
+	dotDataIndex = input_script.find(".data")
+	
+	
+	#If the molecule is in the system, in its original position, remove it.
+	if system.Contains(spanMolecule):
+		system.Remove(spanMolecule)
+	
+	spanMolecule.SetCenter(floor)
+	
+	sys.setrecursionlimit(2000)
+	#Dump to pickle files all global objects
+	os.system('mkdir -p lammps/nbs_scripts')
+	os.chdir('lammps/nbs_scripts')
+	pickle.dump(system,open("system.pickle","wb"))
+	pickle.dump(input_script,open("inputscript.pickle","wb"))
+	pickle.dump(readDataIndex,open("readdataindex.pickle","wb"))
+	pickle.dump(dotDataIndex,open("dotdataindex.pickle","wb"))
+	pickle.dump(spanMolecule,open("spanmolecule.pickle","wb"))
+	pickle.dump(pair_coeffs_included,open("pair_coeffs_included.pickle","wb"))
+	pickle.dump(hybrid_pair,open("hybrid_pair.pickle","wb"))
+	pickle.dump(orientations,open("orientations.pickle","wb"))
+	
+	#For every vector line in vecList, run a job to acquire a processor to run it,
+	#and run a lammps job for each one.
+	
+	vecLine = vecList
+	newVecs = []
+	if split > 1:
+		splitNum=len(vecLine)/split
+		a = 0
+		while a+splitNum < len(vecLine)-1:
+			newVecs.append(vecLine[a:a+splitNum])
+			a += splitNum
+		newVecs.append(vecLine[a:])
+	else:
+		newVecs.append(vecLine)
+	for b in range(len(newVecs)):
+		lineName = run_name+"_"+str(vecLine[0][1])+"_sp"+str(b)
+		_OptEngLine(lineName,run_name,input_script,spanMolecule,newVecs[b],procs=procs,
+		email=email)
+		#break
+
+
+def _OptEngLine(lineName,run_name,input_script, spanMolecule, vecLine, procs=1, email='',
+			orientations=10,split=1):
+	"""
+	A helper function to PotEngSurfaceJob_v2(). Writes a python script to be
+	run by the ICSE servers and submits a valid NBS job to run that python script.
+	The ICSE processor which is grabbed will then run a series of lammps runs,
+	each of which involving translating spanMolecule by a vector in vecLine, and
+	then resetting its position after the run.
+	"""
+	print "Running OptEngLine"
+	currdir = os.getcwd()
+	pickle.dump(vecLine,open("vec_"+lineName+".pickle","wb"))
+	pickle.dump(spanMolecule,open("spanMolecule_"+lineName+".pickle","wb"))
+	
+	NBS = open(lineName+".nbs",'w')
+	NBStext='''#!/bin/sh
+##NBS-name: \''''+lineName+'''\'
+##NBS-nproc: '''+str(procs)+'''
+##NBS-queue: batch
+##NBS-email: ''
+source /fs/home/aec253/.zshrc
+
+# Shared LAMMPS Library Configuration
+export PYTHONPATH=/fs/home/yma3/Software/lammps_git/python:$PYTHONPATH
+export PYTHONPATH=/fs/home/yma3/Projects/Forcefields/OPLS:$PYTHONPATH
+export LD_LIBRARY_PATH=/fs/home/yma3/Software/lammps_git/src:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/usr/local/mpich2/icse/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/fs/home/yma3/usr/local/lib/fftw3/lib:$LD_LIBRARY_PATH
+
+/fs/home/aec253/anaconda/bin/python -u '''+lineName+'''.py >> '''+lineName+'''.log 2>&1
+'''
+	NBS.write(NBStext)
+	NBS.close()
+	
+	pyScript = open(lineName+'.py','w')
+	pyScriptText = '''from lammps_job import job
+import cPickle as pickle
+import os
+from merlin import *
+os.chdir(\''''+currdir+'''\')
+
+run_name = "'''+run_name+'''"
+system = pickle.load(open("system.pickle","rb"))
+vecLine = pickle.load(open("vec_"+"'''+lineName+'''.pickle","rb"))
+input_script = pickle.load(open("inputscript.pickle","rb"))
+readDataIndex = pickle.load(open("readdataindex.pickle","rb"))
+dotDataIndex = pickle.load(open("dotdataindex.pickle","rb"))
+spanMolecule = pickle.load(open("spanmolecule.pickle","rb"))
+pair_coeffs_included = pickle.load(open("pair_coeffs_included.pickle","rb"))
+hybrid_pair = pickle.load(open("hybrid_pair.pickle","rb"))
+orientations = pickle.load(open("orientations.pickle","rb"))
+
+
+os.chdir("..")
+os.chdir("..")
+spanLog = open("lammps/nbs_scripts/spanLog.txt","w")
+for vec in vecLine:
+	for a in range(orientations):
+		spanLog.write(str(vec)+"at orientation "+str(a)+"\\n")
+		newRunName = run_name + "_" + str(vec[0])+ "x" + str(vec[1]) + "x" + (str(vec[2])
+			+"_"+str(a))
 		system.name = newRunName
+		spanLog.write("Pre-Translated at "+`vec`+": "+`spanMolecule`+"\\n")
+		spanMolecule.randRotateInPlace()
 		newInputScript = input_script[:readDataIndex+10]+newRunName+input_script[dotDataIndex:]
 		spanMolecule.translate(vec)
+		spanLog.write("Post-Translated at "+`vec`+": "+`spanMolecule`+"\\n")
 		system.add(spanMolecule)
 		print "Running job " + newRunName
-		job(newRunName, newInputScript, system, queue=queue,procs=procs, email=email,
-			pair_coeffs_included=pair_coeffs_included, hybrid_pair=hybrid_pair)
+		job(newRunName, newInputScript, system, 
+			pair_coeffs_included=pair_coeffs_included, hybrid_pair=hybrid_pair,
+			hybrid_angle=False)
 		system.Remove(spanMolecule)
 		spanMolecule.translate([-vec[0],-vec[1],-vec[2]])
+		#if vecLine.index(vec)>5:
+			#break
+spanLog.close()'''
+
+	
+	pyScript.write(pyScriptText)
+	pyScript.close()
+	
+	os.system("jsub "+lineName+".nbs")
 
 
-def _GenerateVecList(domain,resolution):
+def _GenerateVecList(domain,resolution,plotting = False,assortBy='y'):
 	"""
 	A helper-function to generate a 2D-list of all translate vectors which should
 	be tried by PotEngSurfaceJob. domain is an domain over which to be
 	spanned (square prismatically) and resolution is the resolution at which the
 	domain should be spanned.
+	If plotting a 2d surface using this method, set plotting to True and the result
+	will be a 3d-list, the outer of whihch will hold individual column's data.
 	Precondition:
-	Domain must be a 3-element list of ints or floats,
+	domain must be a 3-element list of ints or floats,
 	and resolution must be a positive int or float.
+	plotting is a bool, or is not passed.
 	"""
 	#Initialize position lists
 	xList= [0.0]
 	yList= [0.0]
 	zList= [0.0]
 	vecList = []
-	
+
 	#Fill position lists with multiples of resolution up to the maximum domain size
-	while xList[-1]+resolution <= domain[0]:
+	while abs(xList[-1]+resolution) <= abs(domain[0]):
 		xList.append(xList[-1]+resolution)
-	while yList[-1]+resolution <= domain[1]:
+	while abs(yList[-1]+resolution) <= abs(domain[1]):
 		yList.append(yList[-1]+resolution)
-	while zList[-1]+resolution <= domain[2]:
+	while abs(zList[-1]+resolution) <= abs(domain[2]):
 		zList.append(zList[-1]+resolution)
-	
-	#Loop through all elements of all lists and add all of these points to posList
-	for x in xList:
+	if not plotting:
+		#Loop through all elements of all lists and add all of these points to posList
+		for x in xList:
+			for y in yList:
+				for z in zList:
+					vecList.append([x,y,z])
+	elif assortBy=='y':
+		for x in xList:
+			for y in yList:
+				addList = []
+				for z in zList:
+					addList.append([x,y,z])
+				vecList.append(addList)
+	elif assortBy == 'x':
+		for z in zList:
+			for x in xList:
+				addList = []
+				for y in yList:
+					addList.append([x,y,z])
+				vecList.append(addList)
+	elif assortBy == 'z':
 		for y in yList:
 			for z in zList:
-				vecList.append([x,y,z])
+				addList = []
+				for x in xList:
+					addList.append([x,y,z])
+				vecList.append(addList)
 	
 	return vecList
 
