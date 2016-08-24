@@ -729,11 +729,11 @@ Masses
 			#Assume lj/cut potential since no hybrids are included
 			for t in atom_types:
 				if (hasattr(t,"pair_type") and t.pair_type == "nm/cut"):
--					f.write("%d %f %f %f %f " % (t.lammps_type,
--						t.vdw_e, t.r0,t.n,t.m)+"\n")
--				else:
--					f.write(("%d\t%f\t%f" % (t.lammps_type,
--						t.vdw_e, t.vdw_r))+"\n")
+					f.write("%d %f %f %f %f " % (t.lammps_type,
+						t.vdw_e, t.r0,t.n,t.m)+"\n")
+				else:
+					f.write(("%d\t%f\t%f" % (t.lammps_type,
+						t.vdw_e, t.vdw_r))+"\n")
 
 	if bonds: f.write("\n\nBond Coeffs\n\n"+'\n'.join(["%d\t%f\t%f" % (t.lammps_type, t.e, t.r) for t in bond_types]))
 	if angles: 
@@ -800,9 +800,9 @@ def packmol(system, molecules, molecule_ratio=(1,), density=1.0, seed=1): #densi
 
 def inp_to_xyz(name, write=False, outName=None):
 	warn(
-        "this function is not used and will be removed soon.",
-        DeprecationWarning
-    )
+		"this function is not used and will be removed soon.",
+		DeprecationWarning
+	)
 	data = open("gaussian/"+name+".inp",'r').read().split('\n')
 
 	# Get start of data
