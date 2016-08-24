@@ -32,7 +32,7 @@ USER = getpass.getuser()
 while 1:
 	# Get input from jlist as a string
 	p = Popen(['jlist','-all'], stdout=PIPE)
-	output = p.stdout.read().split('\n')[5:-2]
+	output = p.stdout.read().split('\n')[4:-2]
 
 	# Get user data
 	usr_cnt = {}

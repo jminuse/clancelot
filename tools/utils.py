@@ -1424,11 +1424,12 @@ source /fs/home/hch54/.zshrc
 	if remove_nbs:
 		os.system('rm ' + job_name + '.nbs')
 
-def get_pdf(frames, start=0.0, stop=10.0, cutoff=3.0, rho=1.0, output=None, persist=False):
+def get_pdf(frames, start=0.0, stop=5.0, step=0.1, cutoff=10.0, rho=1.0, quanta=0.001, output=None, persist=False):
 	# If passed frames and not an xyz file name, write to xyz
+	append = str(int(random.random()*1E12))
 	if type(frames) is not str:
-		files.write_xyz(frames, "tmp_for_pdf")
-		file_name = "tmp_for_pdf"
+		files.write_xyz(frames, "tmp_for_pdf_%s" % append)
+		file_name = "tmp_for_pdf_%s" % append
 	else:
 		file_name = frames
 
@@ -1438,8 +1439,11 @@ def get_pdf(frames, start=0.0, stop=10.0, cutoff=3.0, rho=1.0, output=None, pers
 	if output is None:
 		output = file_name
 
+	if stop > cutoff:
+		raise Exception("Stopping position should be larger less than or equal to the cutoff.")
+
 	# Make command for debyer
-	cmd = "debyer -r%.2f -g -f%.2f -t%.2f --ro=%.2f -o %s.g %s.xyz" % (cutoff, start, stop, rho, output, file_name)
+	cmd = "debyer --cutoff=%.2f --quanta=%.2f -g -f%.2f -t%.2f -s%.2f --ro=%.2f -o %s.g %s.xyz" % (cutoff, quanta, start, stop, step, rho, output, file_name)
 
 	# Run debyer and read in the pdf
 	os.system(cmd)
@@ -1454,5 +1458,6 @@ def get_pdf(frames, start=0.0, stop=10.0, cutoff=3.0, rho=1.0, output=None, pers
 
 	if not persist:
 		os.system("rm %s.g" % output)
+		os.system("rm %s.xyz" % file_name)
 
 	return pdf
