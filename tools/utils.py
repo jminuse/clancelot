@@ -556,11 +556,12 @@ class System(_Physical):
 		self.yz = (b*c*math.cos(math.radians(alpha)) - self.xy * self.xz)/ self.yhi
 		self.zhi = math.sqrt(c**2 - self.xz**2 - self.yz**2)
 
-	def add(self, molecule, x=0.0, y=0.0, z=0.0):
+	def add(self, molecule, x=0.0, y=0.0, z=0.0, scale_x=1, scale_y=1, scale_z=1):
 		atom_offset = len(self.atoms)
 		for a in molecule.atoms:
 			new_atom = copy.copy(a)
 			new_atom.index=a.index+atom_offset
+			new_atom.x*=scale_x; new_atom.y*=scale_y; new_atom.z*=scale_z
 			new_atom.x+=x; new_atom.y+=y; new_atom.z+=z
 			new_atom.molecule_index=len(self.molecules)+1
 			self.atoms.append( new_atom )
