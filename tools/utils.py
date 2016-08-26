@@ -1461,3 +1461,24 @@ def get_pdf(frames, start=0.0, stop=5.0, step=0.1, cutoff=10.0, rho=1.0, quanta=
 		os.system("rm %s.xyz" % file_name)
 
 	return pdf
+
+def clean_up_folder(path, files_to_remove=[], remove_empty_folders=False, verbose=False):
+	if len(files_to_remove) == 0 and remove_empty_folders is False:
+		raise Exception("clean_up_folders requires either a file identifier to remove files or the remove_empty_folders flag to be set to True.")
+	if path[0] != "/":
+		raise Exception("For safety reasons, we require a full path to be used in clean_up_folders.")
+
+	if verbose: print("\n---------------------\nCleaning up folder %s" % path)
+	if len(files_to_remove) > 0:
+		# Remove all empty folders
+		ids = " -o -name ".join( map(lambda x: '"' + x + '" -delete ', files_to_remove) )
+		ids = "-name " + ids
+		cmd_delete_files = "find %s -type f %s" % (path, ids)
+		if verbose: print("Running command: %s" % cmd_delete_files)
+		os.system(cmd_delete_files)
+
+	if remove_empty_folders:
+		cmd_delete_folders = "find %s -type d -empty -delete" % path
+		if verbose: print("Running command: %s" % cmd_delete_folders)
+		os.system(cmd_delete_folders)
+	if verbose: print("Done cleaning folder %s\n---------------------\n\n" % path)
