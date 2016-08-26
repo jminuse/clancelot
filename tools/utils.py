@@ -1525,6 +1525,8 @@ def clean_up_folder(path, files_to_remove=[], remove_empty_folders=False, verbos
 	if path[0] != "/":
 		raise Exception("For safety reasons, we require a full path to be used in clean_up_folders.")
 
+	if path.endswith("/"): path = path[:-1]
+
 	if verbose: print("\n---------------------\nCleaning up folder %s" % path)
 	if len(files_to_remove) > 0:
 		# Remove all empty folders
