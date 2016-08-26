@@ -556,11 +556,12 @@ class System(_Physical):
 		self.yz = (b*c*math.cos(math.radians(alpha)) - self.xy * self.xz)/ self.yhi
 		self.zhi = math.sqrt(c**2 - self.xz**2 - self.yz**2)
 
-	def add(self, molecule, x=0.0, y=0.0, z=0.0):
+	def add(self, molecule, x=0.0, y=0.0, z=0.0, scale_x=1, scale_y=1, scale_z=1):
 		atom_offset = len(self.atoms)
 		for a in molecule.atoms:
 			new_atom = copy.copy(a)
 			new_atom.index=a.index+atom_offset
+			new_atom.x*=scale_x; new_atom.y*=scale_y; new_atom.z*=scale_z
 			new_atom.x+=x; new_atom.y+=y; new_atom.z+=z
 			new_atom.molecule_index=len(self.molecules)+1
 			self.atoms.append( new_atom )
@@ -577,72 +578,128 @@ class System(_Physical):
 		new_molecule.dihedrals = self.dihedrals[-len(molecule.dihedrals):]
 		self.molecules.append( new_molecule )
 	
-	def Remove(self,molecule):
+	def Remove(self,target):
 		"""
-		Removes all atoms, bonds angles and dihedrals of the passed molecule from
-		the system. Raises a ValueError if not all aspects of molecule are found
-		in the system.
+		If target is a molecule, removes all atoms, bonds angles and dihedrals of
+		the passed molecule from the system. Raises a ValueError if not all aspects
+		of molecule are found in the system.
 		
-		Precondition: molecule is a valid Utils.Molecule instance.
+		If target is an Atom, the atom is removed from the system, and any bonds,
+		angles, and dihedrals which contain the atom are also removed from the system.
+		Raises a ValueError if the Atom is not found in the system.
+		
+		Precondition: molecule is a valid Utils.Molecule instance or a valid
+		Utils.Atom instance.
 		"""
 		#Make sure all atoms in molecule are in system.
-		if len(molecule.atoms)>0:
-			for a in molecule.atoms:
+		if isinstance(target,Molecule):
+			if len(target.atoms)>0:
+				for a in target.atoms:
+					atomCheck = False
+					for b in range(len(self.atoms)):
+						#Check from the back of the atomlist, because the atom
+						#to be removed was also likely the last one added.
+						if self.atoms[len(self.atoms)-b-1].equals(a):
+							del self.atoms[len(self.atoms)-b-1]
+							atomCheck = True
+							break
+					if not atomCheck:
+						raise ValueError("_Physical instance "+`a`+" wasn't found"+
+										 "in the given system.")
+			
+			#Repeat above for bonds, angles, dihedrals
+			if len(target.bonds)>0:
+				for a in target.bonds:
+					bondCheck = False
+					for b in range(len(self.bonds)):
+						if self.bonds[len(self.bonds)-b-1].equals(a):
+							bondCheck = True
+							del self.bonds[len(self.bonds)-b-1]
+							break
+					if not bondCheck:
+						raise ValueError("_Physical instance "+`a`+" wasn't found"+
+										 "in the given system.")
+			
+			if len(target.angles)>0:
+				for a in target.angles:
+					angleCheck = False
+					for b in range(len(self.angles)):
+						if self.angles[len(self.angles)-b-1].equals(a):
+							angleCheck = True
+							del self.angles[len(self.angles)-b-1]
+							break
+					if not angleCheck:
+						raise ValueError("_Physical instance "+`a`+" wasn't found"+
+										 "in the given system.")
+			
+			if len(target.dihedrals)>0:
+				for a in target.dihedrals:
+					dihedralCheck = False
+					for b in range(len(self.dihedrals)):
+						if self.dihedrals[len(self.dihedrals)-b-1].equals(a):
+							dihedralCheck = True
+							del self.dihedrals[len(self.dihedrals)-b-1]
+							break
+					if not dihedralCheck:
+						raise ValueError("_Physical instance "+`a`+" wasn't found"+
+										 "in the given system.")
+			
+			for a in range(len(self.molecules)):
+				if self.molecules[a].equals(target):
+					del self.molecules[a]
+					break
+		
+		elif isinstance(target,Atom):
+			for a in range(len(self.atoms)):
+				#Check from the back of the atomlist, because the atom
+				#to be removed was also likely the last one added.
 				atomCheck = False
-				for b in range(len(self.atoms)):
-					#Check from the back of the atomlist, because the atom
-					#to be removed was also likely the last one added.
-					if self.atoms[len(self.atoms)-b-1].equals(a):
-						del self.atoms[len(self.atoms)-b-1]
-						atomCheck = True
-						break
-				if not atomCheck:
-					raise ValueError("_Physical instance "+`a`+" wasn't found"+
+				if target.equals(self.atoms[-a-1]):
+					del self.atoms[-a-1]
+					atomCheck = True
+					break
+			if not atomCheck:
+				raise ValueError("_Physical instance "+`target`+" wasn't found"+
 									 "in the given system.")
-		
-		#Repeat above for bonds, angles, dihedrals
-		if len(molecule.bonds)>0:
-			for a in molecule.bonds:
-				bondCheck = False
-				for b in range(len(self.bonds)):
-					if self.bonds[len(self.bonds)-b-1].equals(a):
-						bondCheck = True
-						del self.bonds[len(self.bonds)-b-1]
-						break
-				if not bondCheck:
-					raise ValueError("_Physical instance "+`a`+" wasn't found"+
-									 "in the given system.")
-		
-		if len(molecule.angles)>0:
-			for a in molecule.angles:
-				angleCheck = False
-				for b in range(len(self.angles)):
-					if self.angles[len(self.angles)-b-1].equals(a):
-						angleCheck = True
-						del self.angles[len(self.angles)-b-1]
-						break
-				if not angleCheck:
-					raise ValueError("_Physical instance "+`a`+" wasn't found"+
-									 "in the given system.")
-		
-		if len(molecule.dihedrals)>0:
-			for a in molecule.dihedrals:
-				dihedralCheck = False
-				for b in range(len(self.dihedrals)):
-					if self.dihedrals[len(self.dihedrals)-b-1].equals(a):
-						dihedralCheck = True
-						del self.dihedrals[len(self.dihedrals)-b-1]
-						break
-				if not dihedralCheck:
-					raise ValueError("_Physical instance "+`a`+" wasn't found"+
-									 "in the given system.")
-		
-		for a in range(len(self.molecules)):
-			if self.molecules[a].equals(molecule):
-				del self.molecules[a]
-				break
-	
-	
+			
+			delList= []
+			newList= []
+			for a in range(len(self.bonds)):
+				for b in self.bonds[a].atoms:
+					
+					#If a bond has the target atom, mark it
+					if b.equals(target):
+						delList.append(a)
+			
+			#Delete all of the bonds that were marked, from the end of the list
+			#to the front so as to preserve order
+			for a in range(len(self.bonds)):
+				if not a in delList:
+					newList.append(self.bonds[a])
+			self.bonds=newList
+			
+			delList= []
+			newList= []
+			for a in range(len(self.angles)):
+				for b in self.angles[a].atoms:
+					if b.equals(target):
+						delList.append(a)
+			for a in range(len(self.angles)):
+				if not a in delList:
+					newList.append(self.angles[a])
+			self.angles=newList
+			
+			delList= []
+			newList= []
+			for a in range(len(self.dihedrals)):
+				for b in self.dihedrals[a].atoms:
+					if b.equals(target):
+						delList.append(a)
+			for a in range(len(self.dihedrals)):
+				if not a in delList:
+					newList.append(self.dihedrals[a])
+			self.dihedrals=newList
+
 	def Contains(self,molecule):
 		"""
 		Returns a boolean, True if the molecule passed as an argument is contained
@@ -1086,7 +1143,6 @@ def pretty_xyz(name,R_MAX=1,F_MAX=50,PROCRUSTES=False,outName=None,write_xyz=Fal
 		if verbose: print "\tInterpolated %d,%d ... %lg" % (i-1,i+1,max(motion_per_frame(frames)))
 
 	if PROCRUSTES: procrustes(frames)
-
 	if verbose: print("\tThere are now a total of %d frames" % len(frames))
 
 	if write_xyz: files.write_xyz(frames,'pretty_xyz' if outName==None else outName)
@@ -1394,6 +1450,7 @@ def align_centroid(points):
 	molec.translate(com)
 
 	return molec.atoms, A
+
 
 def pysub(job_name, nprocs="1", queue="batch", path=os.getcwd(), remove_nbs=False):
 	if ".py" in job_name: job_name = job_name.split(".py")[0]
