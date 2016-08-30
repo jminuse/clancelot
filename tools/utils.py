@@ -418,7 +418,7 @@ class Molecule(_Physical):
 		self.dihedrals = dihedrals
 	def rotate(self, m):
 		for a in self.atoms:
-			a.x, a.y, a.z = matvec(m, (a.x, a.y, a.z))
+			a.x, a.y, a.z = np.dot(np.asarray(m),np.array([a.x,a.y,a.z]))
 	
 	def randRotateInPlace(self):
 		"""Randomly rotates the molecule around its center of mass"""
