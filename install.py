@@ -244,10 +244,13 @@ pysub [script.py] [Options]
 -help, -h     :            :  Print this help menu
 -n            :     1      :  Number of processors to use
 -q            :    batch   :  Which queue to submit to
+-xhost, -x    :            :  If needed, specify computer
 
 Default behaviour is to generate a job with the same name
 as the python script and to generate a .log file with the
-same name as well.
+same name as well.  NOTE! If using xhost, make sure it is
+the last flag used as we assume all remaining inputs are
+the desired computers.
  \'\'\'
 
 # Parse Arguments
@@ -258,18 +261,24 @@ if '-h' in argv or '-help' in argv or len(argv) < 3:
 # Parse Arguments
 nprocs = '1'
 queue = 'batch'
+xhost = None
+debug = False
 path = argv[1]
 job_name = argv[2]
 if ".py" in job_name: job_name = job_name.split(".py")[0]
 
 if "-n" in argv[2:]: nprocs = argv[argv.index('-n')+1]
 if "-q" in argv[2:]: queue = argv[argv.index('-q')+1]
+if "-x" in argv[2:]: xhost = argv[argv.index('-x')+1:]
+elif "-xhost" in argv[2:]: xhost = argv[argv.index('-xhost')+1:]
+if "-debug" in argv[2:]: debug = True
+elif "-d" in argv[2:]: debug = True
 
 # Setup nbs script
 NBS = \'\'\'##NBS-name: "$JOB_NAME$"
 ##NBS-nproc: $NPROCS$
 ##NBS-queue: "$QUEUE$"
-
+$XHOST$
 source '''+HOMEDIR+'''/.zshrc
 
 '''+HOMEDIR+'''/anaconda/bin/python2.7 -u $PY_NAME1$.py >> $PY_NAME2$.log 2>&1
@@ -280,6 +289,12 @@ NBS = NBS.replace("$NPROCS$",nprocs)
 NBS = NBS.replace("$QUEUE$",queue)
 NBS = NBS.replace("$PY_NAME1$",path + job_name)
 NBS = NBS.replace("$PY_NAME2$",path + job_name)
+
+if xhost is None:
+	NBS = NBS.replace("$XHOST$","")
+else:
+	xhosts = ", ".join( map(lambda x: '"' + x + '"', xhost) )
+	NBS = NBS.replace("$XHOST$","##NBS-xhost: %s" % xhosts)
 
 NBS_fptr = open(job_name+".nbs",'w')
 NBS_fptr.write(NBS)
