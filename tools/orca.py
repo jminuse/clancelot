@@ -248,7 +248,7 @@ def engrad_read(input_file, force='Ha/Bohr', pos='Bohr'):
 	return atoms, energy
 
 # A function to run an Orca DFT Simulation
-def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, procs=1, charge=None, multiplicity=None, charge_and_multiplicity='0 1', previous=None, mem=4000,priority=100):
+def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, procs=1, charge=None, multiplicity=None, charge_and_multiplicity='0 1', previous=None, mem=4000,priority=100, xhost=None):
 	if len(run_name) > 31 and queue is not None:
 		raise Exception("Job name too long (%d) for NBS. Max character length is 31." % len(run_name))
 
@@ -273,6 +273,14 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
  	# One can specify how much memory they want (in MB) per core
  	if mem is not None:
  		extra_section = extra_section.strip() + '\n%maxcore ' + str(mem).strip()
+
+ 	if xhost is not None:
+ 		if type(xhost) is str:
+ 			xhosts = "##NBS-xhost: \"%s\"" % xhost
+ 		else:
+ 			xhosts = "##NBS-xhost: " + ", ".join( map(lambda x: '"' + x + '"', xhost) )
+ 	else:
+ 		xhosts = ""
 
  	# Add moread if a previous orca job was provided
  	if previous is not None:
@@ -337,6 +345,7 @@ def job(run_name, route, atoms=[], extra_section='', grad=False, queue=None, pro
 ##NBS-nproc: '''+str(procs)+'''
 ##NBS-queue: '''+queue+'''
 ##NBS-priority: '''+str(priority)+'''
+'''+xhosts+'''
 
 ##NBS-input: *.orca
 '''+('##NBS-input: previous.gbw' if os.path.exists('previous.gbw') else '')+'''
