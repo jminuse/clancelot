@@ -1,6 +1,6 @@
 import cPickle as pickle
 import re, shutil
-import getpass
+import os
 from merlin import *
 
 def test_xyz_cml():
@@ -14,11 +14,14 @@ def test_xyz_cml():
 			raise Exception(filetype+' filetype test failed')
 
 def test_orca():
-	orca.job('test', 'HF-3c', previous='H2').wait()
-	result = orca.read('test')
-	target_result = orca.read('H2')
-	if result.energy != target_result.energy:
-		raise Exception('Wrong orca energy: %f vs %f' % (result.energy, target_result.energy))
+	if not os.path.isfile("/fs/europa/g_pc/orca_3_0_3_linux_x86-64/orca"):
+		print("Warning - Skipping orca pre-commit test due to unknown orca file path")
+	else:
+		orca.job('test', 'HF-3c', previous='H2').wait()
+		result = orca.read('test')
+		target_result = orca.read('H2')
+		if result.energy != target_result.energy:
+			raise Exception('Wrong orca energy: %f vs %f' % (result.energy, target_result.energy))
 
 def test_g09():
 	result = g09.read('PbCl2_0_vac')
@@ -86,10 +89,7 @@ def test_utils():
 def test_files():
 	os.chdir('unit_tests/test_files')
 	test_xyz_cml()
-
-	if getpass.getuser() not in ["aec253", "yma3"]:
-		test_orca()
-
+	test_orca()
 	test_g09()
 	test_lammps()
 	test_utils()
