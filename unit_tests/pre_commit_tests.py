@@ -1,5 +1,6 @@
 import cPickle as pickle
 import re, shutil
+import getpass
 from merlin import *
 
 def test_xyz_cml():
@@ -85,7 +86,10 @@ def test_utils():
 def test_files():
 	os.chdir('unit_tests/test_files')
 	test_xyz_cml()
-	test_orca()
+
+	if getpass.getuser() not in ["aec253", "yma3"]:
+		test_orca()
+
 	test_g09()
 	test_lammps()
 	test_utils()
