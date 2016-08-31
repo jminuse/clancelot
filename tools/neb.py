@@ -94,7 +94,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         alpha=0.1, beta=0.5, tau=1E-3, reset=10, H_reset=True, Nmax=20,
         viscosity=0.1, dtmax=1.0, Nmin=5, finc=1.1, fdec=0.5, astart=0.1, fa=0.99,
         step_min=1E-8, step_max=0.2, bt_max=None, linesearch='backtrack', L2norm=True, bt_eps=1E-3,
-        dt = 0.3, euler=True, force=True, mem=25, blurb=None, initial_guess=None): 
+        dt = 0.3, euler=True, force=True, mem=25, blurb=None, initial_guess=None, start_from=0): 
     
     DFT = DFT.lower().strip()
     if DFT=='orca':
@@ -168,7 +168,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         name, states, theory, k = None, None, None, None
         error, gradient = None, None
         step = 0
-        def __init__(self, name, states, theory, extra_section='', k=0.1837, fmax=None):
+        def __init__(self, name, states, theory, extra_section='', k=0.1837, fmax=None, start_from=0):
             NEB.name = name
             NEB.states = states
             NEB.theory = theory
@@ -182,6 +182,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
             NEB.MAX_force = float('inf')
             NEB.MAX_energy = float('inf')
             NEB.FMAX = fmax
+            NEB.step = start_from
 
             # In all cases, optimize the path via rigid rotations first
             # Set to only if fit_rigid for comparison purposes
@@ -1137,7 +1138,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
     #######################################################################################################################
     #######################################################################################################################
 
-    n = NEB(name, states, theory, extra_section, k, fmax)
+    n = NEB(name, states, theory, extra_section, k, fmax, start_from=start_from)
 
     # Output for user
     if opt == 'BROYDEN_ROOT':
