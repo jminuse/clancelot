@@ -25,7 +25,8 @@ to_install = {
 'file_browser':1, 			# set the file browser not to open a new window per folder
 'merlin':1,
 'sublime_text_3_build_3083':0,
-'prnt':1 # ONLY install if lpstat -p -d returns no available printers
+'prnt':1, # ONLY install if lpstat -p -d returns no available printers
+'chrome':1
 }
 
 ####################################################################################################################
@@ -102,6 +103,7 @@ for key in to_install: # Make directories for what we want to install
 	if key == 'sublime_text_3_build_3083': continue
 	if key == 'merlin': continue
 	if key == 'prnt': continue
+	if key == 'chrome': continue
 	if to_install[key]: os.system('mkdir -p '+INSTALLDIR+key+'/')
 
 
@@ -211,13 +213,42 @@ case "$cur" in
 COMPREPLY=( $( compgen -W '$ORCALIST' $cur ) );;
 esac
 return 0
-}''')
+}
+
+''')
 f.close
 
 
 f = open(ZSH_CLANCELOT,'a')
 f.write('\n\n')
 
+if to_install['chrome']: f.write('''
+# Chrome Alias
+alias chrome="/fs/europa/g_pc/chrome/opt/google/chrome/google-chrome --no-sandbox"
+
+## Dependencies
+# DOXYGEN
+export PATH=/fs/home/hch54/Programs/doxygen/build/bin/:$PATH
+
+# Binutils
+export PATH=/fs/home/hch54/Programs/binutils/bin/:$PATH
+export LIBRARY_PATH=/fs/home/hch54/Programs/binutils/lib/:$LIBRARY_PATH
+export INCLUDE_PATH=/fs/home/hch54/Programs/binutils/include/:$INCLUDE_PATH
+
+# Updated GCC and G++
+export PATH=/fs/home/hch54/Programs/gcc_build/bin/:$PATH
+export LIBRARY_PATH=/fs/home/hch54/Programs/gcc_build/lib/:$PATH
+export LIBRARY_PATH=/fs/home/hch54/Programs/gcc_build/lib64/:$LIBRARY_PATH
+export LD_LIBRARY_PATH=/fs/home/hch54/Programs/gcc_build/lib64/:$LD_LIBRARY_PATH
+export INCLUDE_PATH=/fs/home/hch54/Programs/gcc_build/include/:$PATH
+
+export LD_LIBRARY_PATH=/fs/home/hch54/Programs/gmp/lib/:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/fs/home/hch54/Programs/mpfr/lib/:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/fs/home/hch54/Programs/mpc/lib/:$LD_LIBRARY_PATH
+
+
+
+''')
 if to_install['vmd']: f.write("alias vmd='/fs/europa/g_pc/vmd/bin/vmd'\n\n")
 if to_install['qwatch']: f.write("alias qwatch='python "+INSTALLDIR+"console_scripts/qwatch.py'\n\n")
 if to_install['pysub']:
