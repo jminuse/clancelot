@@ -651,7 +651,7 @@ def check_consistency(atoms, bonds, angles, dihedrals, name='', allow_errors=Fal
 
 #@profile
 def write_lammps_data(system, pair_coeffs_included=False, hybrid_angle=False,
-					  hybrid_pair=False):
+					  hybrid_pair=False, default_angles=None):
 	"""
 	Writes a lammps data file from the given system.
 	Set pair_coeffs_included to True to write pair_coeffs in data file.
@@ -668,16 +668,21 @@ def write_lammps_data(system, pair_coeffs_included=False, hybrid_angle=False,
 	#unpack lammps box parameters from system
 	xlo, ylo, zlo, xhi, yhi, zhi, xy, xz, yz = system.xlo, system.ylo, system.zlo, system.xhi, system.yhi, system.zhi, system.xy, system.xz, system.yz
 
+	# If requested, default None types to whatever we specified
+	if default_angles is not None:
+		for ang in angles:
+			if ang.type==None:
+				ang.type=default_angles["type"]
+				ang.type.angle=default_angles["angle"]
+				ang.type.style=default_angles["style"]
+				ang.type.e=default_angles["e"]
+				ang.type.index2s=default_angles["index2s"]
+
 	#ignore angles with no energy (~0 energy)
 	angles = [ang for ang in angles if (ang.type.e > 1 or ang.type.e < -1)]
 	#ignore dihedrals with no energy
 	dihedrals = [d for d in dihedrals if any(d.type.e)]
-	
-	#Print atom's properties
-	#for property, value in vars(atoms[-1]).iteritems():
-		#print property, ": ", value
-	
-	
+		
 	#get list of unique atom types
 	atom_types = dict( [(t.type,True) for t in atoms] ).keys() #unique set of atom types
 	bond_types = dict( [(t.type,True) for t in bonds] ).keys()
@@ -689,11 +694,7 @@ def write_lammps_data(system, pair_coeffs_included=False, hybrid_angle=False,
 	# get type numbers to identify types to LAMMPS
 	for i,t in enumerate(atom_types): t.lammps_type = i+1
 	for i,t in enumerate(bond_types): t.lammps_type = i+1
-	for i,t in enumerate(angle_types):
-		#print(angle_types)
-		#print(t)
-		#print(t.lammps_type)
-		t.lammps_type = i+1
+	for i,t in enumerate(angle_types): t.lammps_type = i+1
 	for i,t in enumerate(dihedral_types): t.lammps_type = i+1
 
 	#start writing file

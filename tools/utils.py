@@ -1452,24 +1452,30 @@ def align_centroid(points):
 	return molec.atoms, A
 
 
-def pysub(job_name, nprocs="1", queue="batch", path=os.getcwd(), remove_nbs=False):
+def pysub(job_name, nprocs="1", queue="batch", xhost=None, path=os.getcwd(), remove_nbs=False):
+	if type(xhost) is str:
+		xhost = [xhost]
 	if ".py" in job_name: job_name = job_name.split(".py")[0]
-
+	xhosts = ""
+	if xhost is not None:
+		xhosts = "##NBS-xhost: " + ", ".join( map(lambda x: '"' + x + '"', xhost) )
+	
 	# Setup nbs script
 	NBS = '''##NBS-name: "$JOB_NAME$"
 ##NBS-nproc: $NPROCS$
 ##NBS-queue: "$QUEUE$"
+$XHOST$
+source /fs/home/$USER/.zshrc
 
-source /fs/home/hch54/.zshrc
-
-/fs/home/hch54/anaconda/bin/python2.7 -u $PY_NAME1$.py >> $PY_NAME2$.log 2>&1
+/fs/home/$USER/anaconda/bin/python2.7 -u $PY_NAME1$.py >> $PY_NAME2$.log 2>&1
 '''
 
 	NBS = NBS.replace("$JOB_NAME$",job_name)
-	NBS = NBS.replace("$NPROCS$",nprocs)
+	NBS = NBS.replace("$NPROCS$",str(nprocs))
 	NBS = NBS.replace("$QUEUE$",queue)
 	NBS = NBS.replace("$PY_NAME1$",path + '/' + job_name)
 	NBS = NBS.replace("$PY_NAME2$",path + '/' + job_name)
+	NBS = NBS.replace("$XHOST$",xhosts)
 
 	NBS_fptr = open(job_name+".nbs",'w')
 	NBS_fptr.write(NBS)
