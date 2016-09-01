@@ -76,7 +76,7 @@ def orca_start_job(NEB, i, state, procs, queue, force, initial_guess, extra_sect
                 previous = initial_guess
         else:
             previous = None
-    return orca.job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory, state, extra_section=extra_section, grad=True, procs=procs, queue=queue, previous=previous)
+    return orca.job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory, state, extra_section=extra_section, grad=True, procs=procs, queue=queue, previous=previous, mem=mem)
 
 
 def orca_results(NEB, step_to_use, i, state):
@@ -94,7 +94,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
         alpha=0.1, beta=0.5, tau=1E-3, reset=10, H_reset=True, Nmax=20,
         viscosity=0.1, dtmax=1.0, Nmin=5, finc=1.1, fdec=0.5, astart=0.1, fa=0.99,
         step_min=1E-8, step_max=0.2, bt_max=None, linesearch='backtrack', L2norm=True, bt_eps=1E-3,
-        dt = 0.3, euler=True, force=True, mem=25, blurb=None, initial_guess=None, start_from=0): 
+        dt = 0.3, euler=True, force=True, mem=2000, blurb=None, initial_guess=None, start_from=0): 
     
     DFT = DFT.lower().strip()
     if DFT=='orca':
