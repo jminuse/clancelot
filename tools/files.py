@@ -162,7 +162,6 @@ def read_lammpstrj(name, read_atoms=True, read_timesteps=True, read_num_atoms=Tr
 	# Get all the positions
 	section, frames = data, []
 	s = 'ITEM: ATOMS id type ' + coords
-	pass25, pass50, pass75 = False, False, False
 	while read_atoms and (s in section):
 		section = section[section.find(s)+len(s):]
 		atom_block = section[:section.find('\nITEM: TIMESTEP')].split('\n')[1:]
@@ -177,24 +176,6 @@ def read_lammpstrj(name, read_atoms=True, read_timesteps=True, read_num_atoms=Tr
 				print('Atom skipped due to missing information')
 
 		frames.append(frame)
-
-		# Output how far along the file has been read
-		if verbose:
-			progress = (1 - float(len(section)) / float(len(data))) * 100
-			#print('%2.2f' % (progress))
-			if pass25 != True and progress > 25.0:
-				print('%s: 25%% read' % (name))
-				pass25 = True
-			elif pass50 != True and progress > 50.0:
-				print('%s: 50%% read' % (name))
-				pass50 = True
-			elif pass75 != True and progress > 75.0:
-				print('%s: 75%% read' % (name))
-				pass75 = True
-
-	# Output after reading atom coordinates
-	if verbose and pass25 and pass50 and pass75:
-		print('%s: 100%% read' % (name))
 
 	if frames:
 		atoms = frames[-1]
