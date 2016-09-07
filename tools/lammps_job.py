@@ -53,7 +53,7 @@ def read(run_name, trj_file='', read_atoms=True, read_timesteps=True, read_num_a
 
 # A function to run an LAMMPS Simulation. Requires a run name and a string of lammps code (run_name and input_script)
 def job(run_name, input_script, system, queue=None, procs=1, email='',
-		pair_coeffs_included=True, hybrid_pair=False, hybrid_angle=True):
+		pair_coeffs_included=True, hybrid_pair=False, hybrid_angle=True, TIP4P=False):
 	if len(run_name) > 31 and queue is not None:
 		raise Exception("Job name too long (%d) for NBS. Max character length is 31." % len(run_name))
 
@@ -64,6 +64,19 @@ def job(run_name, input_script, system, queue=None, procs=1, email='',
 	# Generate the lammps data file
 	files.write_lammps_data(system, pair_coeffs_included=pair_coeffs_included,
 							hybrid_pair=hybrid_pair, hybrid_angle=hybrid_angle)
+
+	# If TIP4P water is used, read the data file for the correct TIP4P types then inject into the input script
+	if TIP4P:
+		otype, htype, btype, atype = read_TIP4P_types(run_name+'.data')
+
+		# Looking for TIP4P related strings:
+		# pair_style lj/cut/tip4p/long -1 -1 -1 -1 0.1250 12.0
+		new_text = 'lj/cut/tip4p/long %d %d %d %d' % (otype, htype, btype, atype)
+		input_script = input_script.replace('lj/cut/tip4p/long -1 -1 -1 -1', new_text)
+
+		# fix RIGID_WATER all shake 0.0001 20 1000 b -1 a -1
+		new_text = 'b %d a %d' % (btype, atype)
+		input_script = input_script.replace('b -1 a -1', new_text)
 
 	# Write the lammps input script. Expects lines of lammps code
 	f = open(run_name+'.in', 'w')
@@ -98,8 +111,6 @@ export LD_LIBRARY_PATH=/fs/home/yma3/Software/lammps_git/src:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=/usr/local/mpich2/icse/lib:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=/fs/home/yma3/usr/local/lib/fftw3/lib:$LD_LIBRARY_PATH
 
-#$NBS_PATH/mpiexec -xlate /usr/common/etc/nbs/mpi.xlate /fs/home/yma3/Software/lammps_git/src/lmp_g++ -partition 1x'''+str(procs)+''' -in ''' + (os.getcwd()+'/'+run_name) + '''.in -log ''' + (os.getcwd()+'/'+run_name) + '''.log > ''' + (os.getcwd()+'/'+run_name) + '''.out
-
 $NBS_PATH/mpiexec -xlate /usr/common/etc/nbs/mpi.xlate /fs/home/yma3/Software/lammps_git/src/lmp_g++ -in ''' + (os.getcwd()+'/'+run_name) + '''.in -echo log -log ''' + (os.getcwd()+'/'+run_name) + '''.log
 
 '''
@@ -125,6 +136,35 @@ $NBS_PATH/mpiexec -xlate /usr/common/etc/nbs/mpi.xlate /fs/home/yma3/Software/la
 		#return process_handle
 	else:
 		return utils.Job(run_name)
+
+def read_TIP4P_types(data_file):
+	otype, htype, btype, atype = -1, -1, -1, -1
+
+	# Iterate file line by line. This reduces the memory required since it only loads the current line
+	with open(data_file) as f:
+		for line in f:
+			a = line.split()
+
+			if len(a) == 3:
+				# Check for oxygen
+				if a[1] == '0.162750' and a[2] == '3.164350':
+					otype = int(a[0])
+
+				# Check for hydrogen
+				if a[1] == '0.000000' and a[2] == '0.000000':
+					htype = int(a[0])
+
+				# Check for TIP4P bond
+				if a[1] == '7777.000000' and a[2] == '0.957200':
+					btype = int(a[0])
+
+				# Check for TIP4P angle
+				if a[1] == '7777.000000' and a[2] == '104.520000':
+					atype = int(a[0])
+
+			# Check if all types have been found. Return values if found
+			if otype > -1 and htype > -1 and btype > -1 and atype > -1:
+				return otype, htype, btype, atype
 
 
 def PotEngSurfaceJob(run_name, input_script, system, domain, spanMolecule, resolution = .1,

@@ -130,8 +130,6 @@ def read_lammpstrj(name, read_atoms=True, read_timesteps=True, read_num_atoms=Tr
 		section = data
 		while (s in section):
 			section = section[section.find(s)+len(s):]
-			#progress = (1 - float(len(section)) / float(len(data))) * 100
-			#print('%2.2f' % (progress))
 
 		# Rewrite data to only include last frame
 		data = section
@@ -663,7 +661,7 @@ def write_lammps_data(system, pair_coeffs_included=False, hybrid_angle=False,
 	angles = [ang for ang in angles if (ang.type.e > 1 or ang.type.e < -1)]
 	#ignore dihedrals with no energy
 	dihedrals = [d for d in dihedrals if any(d.type.e)]
-		
+
 	#get list of unique atom types
 	atom_types = dict( [(t.type,True) for t in atoms] ).keys() #unique set of atom types
 	bond_types = dict( [(t.type,True) for t in bonds] ).keys()
@@ -732,7 +730,6 @@ Masses
 	if dihedrals: f.write('\n\nDihedrals\n\n' + '\n'.join( ['\t'.join([str(q) for q in [i+1, d.type.lammps_type]+[atom.index for atom in d.atoms] ]) for i,d in enumerate(dihedrals)]) ) #ID type a b c d
 	f.write('\n\n')
 	f.close()
-
 
 def packmol(system, molecules, molecule_ratio=(1,), density=1.0, seed=1): #density in g/mL
 	try:
