@@ -70,13 +70,10 @@ def job(run_name, input_script, system, queue=None, procs=1, email='',
 		otype, htype, btype, atype = read_TIP4P_types(run_name+'.data')
 
 		# Looking for TIP4P related strings:
-		# pair_style lj/cut/tip4p/long -1 -1 -1 -1 0.1250 12.0
-		new_text = 'lj/cut/tip4p/long %d %d %d %d' % (otype, htype, btype, atype)
-		input_script = input_script.replace('lj/cut/tip4p/long -1 -1 -1 -1', new_text)
-
-		# fix RIGID_WATER all shake 0.0001 20 1000 b -1 a -1
-		new_text = 'b %d a %d' % (btype, atype)
-		input_script = input_script.replace('b -1 a -1', new_text)
+		input_script = input_script.replace('TIP4P_otype', str(otype))
+		input_script = input_script.replace('TIP4P_htype', str(htype))
+		input_script = input_script.replace('TIP4P_btype', str(btype))
+		input_script = input_script.replace('TIP4P_atype', str(atype))
 
 	# Write the lammps input script. Expects lines of lammps code
 	f = open(run_name+'.in', 'w')
