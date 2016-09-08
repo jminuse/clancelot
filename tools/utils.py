@@ -25,13 +25,13 @@ class _Physical(object):
 	such as a Molecule, Atom, Bond, Dihedral, System, etc.
 	This class is designed as a parent class to Atom, Molecule, Bond, System, and
 	Dihedral to provide a basic equals() method and other shared methods.
-	
+
 	Invariant: Everything about a _Physical instance must be described by attributes
 	whose order does not vary or whose attributes' equivalence is not defined by
 	their order (e.g. Sets). No _Physical instance may have a 2-D list as an
 	attribute, or equals() will fail.
 	"""
-	
+
 	def equals(self, other):
 		"""
 		Basic equivalence of self and other if they have the same pointer id, or if all
@@ -41,7 +41,7 @@ class _Physical(object):
 		_Physical instances (e.g. Atom.index or Atom.molecule_index, Angle.theta
 		because of how Angles are added to a System), and these must be explicitly
 		discounted in this method.
-		
+
 		The current list of explicitly discounted parameters are:
 		Angle.theta
 		Atom.index
@@ -54,27 +54,27 @@ class _Physical(object):
 			return True
 		if type(self) != type(other):
 			return False
-		
+
 		#Compare all attributes of the two objects. If they are exactly identical,
 		#Return true.
 		otherDict = other.__dict__
 		selfDict = self.__dict__
-		
+
 		if selfDict == otherDict:
 			return True
-		
+
 		#If the two objects don't have the same attribute names, return false
 		if set(selfDict.keys()) != set(otherDict.keys()):
 			return False
-		
+
 		#Go through each attribute individually, and check equality. If they
 		#are _Physical instances, use .equals() to compare.
 		for a in selfDict:
-			
+
 			#Simple attribute checking
 			if selfDict[a] == otherDict[a]:
 				continue
-			
+
 			#Passed-on attributes which are not conserved between atoms
 			elif a == 'theta' and isinstance(self,Angle):
 				continue
@@ -85,19 +85,19 @@ class _Physical(object):
 					continue
 				else:
 					return False
-				
+
 			#Checking _Physical attributes.
 			elif isinstance(selfDict[a],_Physical):
 				if selfDict[a].equals(otherDict[a]):
 					continue
 				else:
 					return False
-				
+
 				#If an attribute is a list or tuple, go through it element-by-element,
 				#assuming the order is the same between other and self, and if
 				#any of the lists's elements are _Physical instances, compare them
 				#with .equals()
-				
+
 				#Exception: If self is an Atom, do not compare the bonded lists.
 				#This would result in an infinite loop.
 			elif isinstance(selfDict[a],list) or isinstance(selfDict[a],
@@ -123,20 +123,22 @@ class _Physical(object):
 				return False
 		#print "Passed All Check Blocks. Returning True."
 		return True
-	
+
 	def __repr__(self):
 		text = self.__dict__
 		if "bonded" in text:
 			del text["bonded"]
 		return object.__repr__(self) +" with attributes:\n"+str(text)
 
-
 class Atom(_Physical):
-	def __init__(self, element, x, y, z, index=None, type=None, molecule_index=1, bonded=[], type_index=None):
+	def __init__(self, element, x, y, z, v_x=0, v_y=0, v_z=0, index=None, type=None, molecule_index=1, bonded=[], type_index=None):
 		self.element = element
 		self.x = x
 		self.y = y
 		self.z = z
+		self.v_x = v_x
+		self.v_y = v_y
+		self.v_z = v_z
 		self.index = index
 		self.molecule_index = molecule_index
 		self.bonded=bonded
@@ -164,25 +166,17 @@ class Atom(_Physical):
 		text += '\n'
 
 		return text
-	
-	
+
 	def flatten(self):
 		return [self.x,self.y,self.z]
-	
-	
+
 	def set_position(self,pos):
 		self.x = pos[0]
 		self.y = pos[1]
 		self.z = pos[2]
-	
-	
+
 	def __str__(self):
 		return self.to_string()
-	
-	
-
-
-
 
 class Bond(_Physical):
 	def __init__(self, a, b, type=None, r=None):
@@ -195,11 +189,10 @@ class Angle(_Physical):
 		self.atoms = (a,b,c)
 		self.type = type
 		self.theta = theta
-		
+
 	def __repr__(self):
 		text = self.__dict__
 		return object.__repr__(self) +" with attributes:\n"+str(text)
-
 
 class Dihedral(_Physical):
 	def __init__(self, a, b, c, d, type=None, theta=None):
@@ -344,7 +337,7 @@ def matmat(a,b):
 			for k in range(3):
 				product[y][x] += a[y][k]*b[k][x]
 	return product
-	
+
 
 def rand_rotation(): #http://tog.acm.org/resources/GraphicsGems/, Ed III
 	x = (random.random(), random.random(), random.random())
@@ -419,14 +412,14 @@ class Molecule(_Physical):
 	def rotate(self, m):
 		for a in self.atoms:
 			a.x, a.y, a.z = np.dot(np.asarray(m),np.array([a.x,a.y,a.z]))
-	
+
 	def randRotateInPlace(self):
 		"""Randomly rotates the molecule around its center of mass"""
 		center = self.CalcCenter()
 		self.SetCenter([0.0,0.0,0.0])
 		self.rand_rotate()
 		self.translate(center)
-	
+
 	def translate(self, v):
 		for a in self.atoms:
 			a.x+=v[0]; a.y+=v[1]; a.z += v[2]
@@ -453,7 +446,7 @@ class Molecule(_Physical):
 		for atom in self.atoms:
 			text += atom.to_string()
 		return text
-	
+
 	def flatten(self):
 		return np.array([[a.x, a.y, a.z] for a in self.atoms]).flatten()
 
@@ -465,7 +458,7 @@ class Molecule(_Physical):
 		else:
 			for a,b in zip(self.atoms, positions):
 				a.x, a.y, a.z = b[0], b[1], b[2]
-	
+
 	def CalcCenter(self):
 		"""Returns the center of mass of the molecule in [x,y,z] format."""
 		xList = []
@@ -477,9 +470,9 @@ class Molecule(_Physical):
 			yList.append(a.y*a.type.mass)
 			zList.append(a.z*a.type.mass)
 			totalMass += a.type.mass
-		
+
 		return [sum(xList)/totalMass,sum(yList)/totalMass,sum(zList)/totalMass]
-		
+
 	def SetCenter(self,xyz=[0.0,0.0,0.0]):
 		"""
 		Sets the center of mass of the molecule to the given xyz position,
@@ -488,12 +481,11 @@ class Molecule(_Physical):
 		"""
 		center = self.CalcCenter()
 		self.translate([xyz[0]-center[0],xyz[1]-center[1],xyz[2]-center[2]])
-		
-	
+
 	# When printing molecule, print all atoms
 	def __str__(self):
 		return self.to_string()
-	
+
 
 
 class System(_Physical):
@@ -577,17 +569,17 @@ class System(_Physical):
 		new_molecule.angles = self.angles[-len(molecule.angles):]
 		new_molecule.dihedrals = self.dihedrals[-len(molecule.dihedrals):]
 		self.molecules.append( new_molecule )
-	
+
 	def Remove(self,target):
 		"""
 		If target is a molecule, removes all atoms, bonds angles and dihedrals of
 		the passed molecule from the system. Raises a ValueError if not all aspects
 		of molecule are found in the system.
-		
+
 		If target is an Atom, the atom is removed from the system, and any bonds,
 		angles, and dihedrals which contain the atom are also removed from the system.
 		Raises a ValueError if the Atom is not found in the system.
-		
+
 		Precondition: molecule is a valid Utils.Molecule instance or a valid
 		Utils.Atom instance.
 		"""
@@ -606,7 +598,7 @@ class System(_Physical):
 					if not atomCheck:
 						raise ValueError("_Physical instance "+`a`+" wasn't found"+
 										 "in the given system.")
-			
+
 			#Repeat above for bonds, angles, dihedrals
 			if len(target.bonds)>0:
 				for a in target.bonds:
@@ -619,7 +611,7 @@ class System(_Physical):
 					if not bondCheck:
 						raise ValueError("_Physical instance "+`a`+" wasn't found"+
 										 "in the given system.")
-			
+
 			if len(target.angles)>0:
 				for a in target.angles:
 					angleCheck = False
@@ -631,7 +623,7 @@ class System(_Physical):
 					if not angleCheck:
 						raise ValueError("_Physical instance "+`a`+" wasn't found"+
 										 "in the given system.")
-			
+
 			if len(target.dihedrals)>0:
 				for a in target.dihedrals:
 					dihedralCheck = False
@@ -643,12 +635,12 @@ class System(_Physical):
 					if not dihedralCheck:
 						raise ValueError("_Physical instance "+`a`+" wasn't found"+
 										 "in the given system.")
-			
+
 			for a in range(len(self.molecules)):
 				if self.molecules[a].equals(target):
 					del self.molecules[a]
 					break
-		
+
 		elif isinstance(target,Atom):
 			for a in range(len(self.atoms)):
 				#Check from the back of the atomlist, because the atom
@@ -661,23 +653,23 @@ class System(_Physical):
 			if not atomCheck:
 				raise ValueError("_Physical instance "+`target`+" wasn't found"+
 									 "in the given system.")
-			
+
 			delList= []
 			newList= []
 			for a in range(len(self.bonds)):
 				for b in self.bonds[a].atoms:
-					
+
 					#If a bond has the target atom, mark it
 					if b.equals(target):
 						delList.append(a)
-			
+
 			#Delete all of the bonds that were marked, from the end of the list
 			#to the front so as to preserve order
 			for a in range(len(self.bonds)):
 				if not a in delList:
 					newList.append(self.bonds[a])
 			self.bonds=newList
-			
+
 			delList= []
 			newList= []
 			for a in range(len(self.angles)):
@@ -688,7 +680,7 @@ class System(_Physical):
 				if not a in delList:
 					newList.append(self.angles[a])
 			self.angles=newList
-			
+
 			delList= []
 			newList= []
 			for a in range(len(self.dihedrals)):
@@ -719,7 +711,7 @@ class System(_Physical):
 						break
 				if not atomCheck:
 					return False
-		
+
 		#Repeat above for bonds, angles, dihedrals
 		if len(molecule.bonds)>0:
 			for a in molecule.bonds:
@@ -730,7 +722,7 @@ class System(_Physical):
 						break
 				if not bondCheck:
 					return False
-		
+
 		if len(molecule.angles)>0:
 			for a in molecule.angles:
 				angleCheck = False
@@ -740,7 +732,7 @@ class System(_Physical):
 						break
 				if not angleCheck:
 					return False
-		
+
 		if len(molecule.dihedrals)>0:
 			for a in molecule.dihedrals:
 				dihedralCheck = False
@@ -752,20 +744,20 @@ class System(_Physical):
 					return False
 		#If python gets here, all aspects of molecule are in system.
 		return True
-	
-	
+
+
 	# Print all atoms
 	def to_string(self):
 		text = ''
 		for atom in self.atoms:
 			text += atom.to_string()
 		return text
-	
-	
+
+
 	def __str__(self):
 		return self.to_string()
-	
-	
+
+
 	def __repr__(self):
 		text = ''
 		for atom in self.atoms:
@@ -844,7 +836,7 @@ def dihedral_angle(a,b,c,d):
     y = dot(cross(b1, v), w)
 
     phi = arctan2(y, x)
-    return phi, cos(phi), cos(2*phi), cos(3*phi), cos(4*phi) 
+    return phi, cos(phi), cos(2*phi), cos(3*phi), cos(4*phi)
 
 # A test procrustes code to remove possibility of reflection
 def orthogonal_procrustes(A, ref_matrix, reflection=False):
@@ -1371,13 +1363,13 @@ def rotate_xyz(frame, theta_0=0, theta_n=360, dt=1, axis=[0,0,1], com=True, last
 	frames,image = [], array([[a.x,a.y,a.z] for a in frame]).flatten()
 	elements = [a.element for a in frame]
 	natoms = len(frame)
-	
+
 	if com:
 		image = image.reshape((-1,3))
 		translate = image.sum(axis=0) / float(natoms)
 		image -= translate
 		image = image.flatten()
-	
+
 	theta = theta_n if last else theta_0
 	while theta <= theta_n:
 		r = rotation_matrix(axis, radians(theta))
@@ -1387,7 +1379,7 @@ def rotate_xyz(frame, theta_0=0, theta_n=360, dt=1, axis=[0,0,1], com=True, last
 			rotated += translate
 		frames.append([Atom(e,a[0],a[1],a[2]) for e,a in zip(elements, rotated)])
 		theta += dt
-	
+
 	if last: return frames[0]
 	return frames
 
@@ -1459,7 +1451,7 @@ def pysub(job_name, nprocs="1", queue="batch", xhost=None, path=os.getcwd(), rem
 	xhosts = ""
 	if xhost is not None:
 		xhosts = "##NBS-xhost: " + ", ".join( map(lambda x: '"' + x + '"', xhost) )
-	
+
 	# Setup nbs script
 	NBS = '''##NBS-name: "$JOB_NAME$"
 ##NBS-nproc: $NPROCS$
@@ -1483,7 +1475,7 @@ source /fs/home/$USER/.zshrc
 
 	# Submit job
 	os.system('jsub ' + job_name + '.nbs')
-	
+
 	if remove_nbs:
 		os.system('rm ' + job_name + '.nbs')
 
@@ -1516,7 +1508,7 @@ def get_pdf(frames, start=0.0, stop=5.0, step=0.1, cutoff=10.0, rho=1.0, quanta=
 	j = len(fptr_pdf)-1
 	while fptr_pdf[j].strip() == "": j -= 1
 	fptr_pdf = fptr_pdf[i:j+1]
-	
+
 	pdf = [(float(a.split()[0]), float(a.split()[1])) for a in fptr_pdf]
 
 	if not persist:

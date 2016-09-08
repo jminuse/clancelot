@@ -10,6 +10,7 @@ def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, test_charge
 		name += '.cml'
 	tree = xml.parse(name)
 	root = tree.getroot()
+	#Test!!!
 
 	# If periodic box information was passed to cml file, first root is the periodic box
 	# If no periodic box info, first root is atomArray
@@ -629,8 +630,8 @@ def check_consistency(atoms, bonds, angles, dihedrals, name='', allow_errors=Fal
 			else: print 'Exit'; exit()
 
 #@profile
-def write_lammps_data(system, pair_coeffs_included=False, hybrid_angle=False,
-					  hybrid_pair=False, default_angles=None):
+def write_lammps_data(system, file_name=None, pair_coeffs_included=False, hybrid_pair=False, hybrid_angle=False,
+					  default_angles=None, velocity_included=False):
 	"""
 	Writes a lammps data file from the given system.
 	Set pair_coeffs_included to True to write pair_coeffs in data file.
@@ -646,6 +647,10 @@ def write_lammps_data(system, pair_coeffs_included=False, hybrid_angle=False,
 	atoms, bonds, angles, dihedrals, box_size, box_angles, run_name = system.atoms, system.bonds, system.angles, system.dihedrals, system.box_size, system.box_angles, system.name
 	#unpack lammps box parameters from system
 	xlo, ylo, zlo, xhi, yhi, zhi, xy, xz, yz = system.xlo, system.ylo, system.zlo, system.xhi, system.yhi, system.zhi, system.xy, system.xz, system.yz
+
+	# If requested, change the data file name to the one specified
+	if file_name is None:
+		file_name = run_name + '.data'
 
 	# If requested, default None types to whatever we specified
 	if default_angles is not None:
@@ -677,7 +682,7 @@ def write_lammps_data(system, pair_coeffs_included=False, hybrid_angle=False,
 	for i,t in enumerate(dihedral_types): t.lammps_type = i+1
 
 	#start writing file
-	f = open(run_name+'.data', 'w')
+	f = open(file_name, 'w')
 	f.write('LAMMPS Description\n\n%d atoms\n%d bonds\n%d angles\n%d dihedrals\n0  impropers\n\n' % (len(atoms), len(bonds), len(angles), len(dihedrals)) )
 	f.write('%d atom types\n%d bond types\n%d angle types\n%d dihedral types\n0  improper types\n' % (len(atom_types), len(bond_types), len(angle_types), len(dihedral_types)) )
 	f.write('%3.5f %3.5f xlo xhi\n' % (xlo, xhi))
@@ -724,6 +729,10 @@ Masses
 	if dihedrals: f.write("\n\nDihedral Coeffs\n\n"+'\n'.join(["%d\t%f\t%f\t%f\t%f" % ((t.lammps_type,)+tuple(t.e)+((0.0,) if len(t.e)==3 else ()) ) for t in dihedral_types]))
 
 	f.write("\n\nAtoms\n\n"+'\n'.join( ['\t'.join( [str(q) for q in [a.index, a.molecule_index, a.type.lammps_type, a.type.charge, a.x, a.y, a.z]] ) for a in atoms]) ) #atom (molecule type charge x y z)
+
+	# Included velocity if requested in the function parameters.
+	if velocity_included:
+		f.write("\n\nVelocities\n\n"+'\n'.join( ['\t'.join( [str(q) for q in [a.index, a.v_x, a.v_y, a.v_z]] ) for a in atoms]) ) #atom (v_x v_y v_z)
 
 	if bonds: f.write('\n\nBonds\n\n' + '\n'.join( ['\t'.join([str(q) for q in [i+1, b.type.lammps_type, b.atoms[0].index, b.atoms[1].index]]) for i,b in enumerate(bonds)]) ) #bond (type a b)
 	if angles: f.write('\n\nAngles\n\n' + '\n'.join( ['\t'.join([str(q) for q in [i+1, a.type.lammps_type]+[atom.index for atom in a.atoms] ]) for i,a in enumerate(angles)]) ) #ID type atom1 atom2 atom3
