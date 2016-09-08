@@ -107,14 +107,219 @@ def write_cml(atoms_or_molecule_or_system, bonds=[], name=None):
 		f.write('  <bond atomRefs2="a%d a%d" order="1"/>\n' % pair )
 	f.write(' </bondArray>\n</molecule>')
 
+# Imports the dump file from lammps. VMD automatically reads this when labelled as .lammpstrj
+# If you set a custom ATOMS section in lammpstrj, clancelot will attemp to parse certain values
+# Currently supports: id, type, x, xs, xu, xsu, vx, fx
+# Default is to import everything but you might get better performance if you turn off the data you do not need
+# This line by line method is more memory efficient for large file sizes
+def read_lammpstrj(name, read_atoms=True, read_timesteps=True, read_num_atoms=True, read_box_bounds=True, verbose=True, last_frame_only=False):
+	if not name.endswith('.lammpstrj') and '.' not in name:
+		name += '.lammpstrj'
+	# If file does not exist, return empty lammpstrj object
+	if not os.path.isfile(name):
+		warn('Expected lammps trajectory file does not exist at %s' % (name))
+		data = ''
+
+	# Initialize variables
+	timesteps, atom_counts, box_bounds_list, frames = [], [], [], []
+
+	# Initialize atom attributes list
+	atom_attrs = []
+
+	# Use these flags to determine what section you are in
+	sect_timesteps, sect_num_atoms, sect_box_bounds, sect_atoms = False, False, False, False
+
+	# Flag to keep track if this is the first step analyzed
+	first_step = True
+
+	# Skip the listed number of frames then reset
+	# Set to 0 for no skpping
+	#skip_set = range(2**5 - 1)
+	#skip_set = [x+2 for x in skip_set]
+
+	skip_set = [0]
+	skip_count = 0
+
+	# Iterate file line by line. This reduces the memory required since it only loads the current line
+	with open(name) as f:
+		for line in f:
+
+			# Check for new section
+			if 'ITEM: TIMESTEP' in line:
+				# If skipped previous frame, reset skip counter
+				if skip_count == max(skip_set):
+					skip_count = 0
+
+				# Increment skip counter and skip if necessary
+				skip_count = skip_count + 1
+				if skip_count in skip_set:
+					continue
+
+				sect_timesteps, sect_num_atoms, sect_box_bounds, sect_atoms = False, False, False, False
+				sect_timesteps = True
+
+				# Add previous timestep to list of frames. Do not try for first time step since you have not read any atoms yet.
+				# Do not add if only looking for final frame
+				if not first_step and not last_frame_only:
+					frames.append(frame)
+
+				continue
+
+			# If it is not the timestep section, and a skip has triggered, skip all lines till next timestep
+			elif skip_count in skip_set:
+					continue
+
+			elif 'ITEM: NUMBER OF ATOMS' in line:
+				sect_timesteps, sect_num_atoms, sect_box_bounds, sect_atoms = False, False, False, False
+				sect_num_atoms = True
+				continue
+
+			elif 'ITEM: BOX BOUNDS' in line:
+				sect_timesteps, sect_num_atoms, sect_box_bounds, sect_atoms = False, False, False, False
+				sect_box_bounds = True
+				box_bounds = utils.Struct(xlo=None, xhi=None, ylo=None, yhi=None, zlo=None, zhi=None)
+				continue
+
+			elif 'ITEM: ATOMS' in line:
+				sect_timesteps, sect_num_atoms, sect_box_bounds, sect_atoms = False, False, False, False
+				sect_atoms = True
+				box_bounds_list.append(box_bounds)
+				frame = []
+
+				# Determine atom attributes in lammpstrj file and add to list
+				if first_step:
+					a = line.split()
+					atom_attrs = a[2:]
+
+				# If this is the first time step analyzed, report the coordinates style
+				if first_step and verbose:
+					if 'x y z' in line:
+						print('%s: Reading wrapped, unscaled atom coordinates' % (name))
+
+					elif 'xs ys zs' in line:
+						print('%s: Reading wrapped, scaled atom coordinates' % (name))
+
+					elif 'xu yu zu' in line:
+						print('%s: Reading unwrapped, unscaled atom coordinates' % (name))
+
+					elif 'xsu ysu zsu' in line:
+						print('%s: Reading unwrapped, scaled atom coordinates' % (name))
+
+					else:
+						print('No valid coordinates found')
+
+				first_step = False
+				continue
+
+			# Record information as required by the section
+			if sect_timesteps and read_timesteps:
+				a = line.split()
+				timesteps.append(int(a[0]))
+
+			if sect_num_atoms and read_num_atoms:
+				a = line.split()
+				atom_counts.append(int(a[0]))
+
+			if sect_box_bounds and read_box_bounds:
+				a = line.split()
+				if box_bounds.xlo is None:
+					box_bounds.xlo = float(a[0])
+					box_bounds.xhi = float(a[1])
+				elif box_bounds.ylo is None:
+					box_bounds.ylo = float(a[0])
+					box_bounds.yhi = float(a[1])
+				elif box_bounds.zlo is None:
+					box_bounds.zlo = float(a[0])
+					box_bounds.zhi = float(a[1])
+
+			if sect_atoms and read_atoms:
+				a = line.split()
+
+				# Initialize all atom values
+				index, lammps_type, x, y, z, vx, vy, vz, fx, fy, fz = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+				# Assign atom attributes
+				for (value, attr) in zip(a, atom_attrs):
+					if attr == 'id':
+						index = int(value)
+					elif attr == 'type':
+						lammps_type = value
+					elif attr in ['x','xs','xu','xsu']:
+						x = float(value)
+					elif attr in ['y','ys','yu','ysu']:
+						y = float(value)
+					elif attr in ['z','zs','zu','zsu']:
+						z = float(value)
+					elif attr == 'vx':
+						vx = float(value)
+					elif attr == 'vy':
+						vy = float(value)
+					elif attr == 'vz':
+						vz = float(value)
+					elif attr == 'fx':
+						fx = float(value)
+					elif attr == 'fy':
+						fy = float(value)
+					elif attr == 'fz':
+						fz = float(value)
+
+				# Check if atom has expected number of characteristics
+				if len(a) == len(atom_attrs):
+					frame.append(utils.Atom(lammps_type,x,y,z,index=index,vx=vx,vy=vy,vz=vz,fx=fx,fy=fy,fz=fz))
+				else:
+					print('Atom skipped due to missing information')
+
+	# Add final frame
+	frames.append(frame)
+
+	# Record final data point as necessary
+	if len(timesteps) > 0:
+		final_timestep = timesteps[-1]
+	else:
+		final_timestep = None
+
+	if len(atom_counts) > 0:
+		atom_count = atom_counts[-1]
+	else:
+		atom_count = None
+
+	if len(box_bounds_list) > 0:
+		box_bounds = box_bounds_list[-1]
+	else:
+		box_bounds = None
+
+	if frames:
+		atoms = frames[-1]
+	else:
+		atoms = None
+
+	# If only looking for final frame, erase all other timesteps
+	if last_frame_only:
+		timesteps = [timesteps[-1]]
+		atom_counts = [atom_counts[-1]]
+		box_bounds_list = [box_bounds_list[-1]]
+		frames = [frames[-1]]
+
+	# Create object to store all results
+	data = utils.sim_out(name, 'lammps')
+
+	# Record all lammps trajectory data into results object
+	data.frames = frames
+	data.atoms = atoms
+	data.timesteps = timesteps
+	data.final_timestep = final_timestep
+	data.atom_counts = atom_counts
+	data.atom_count = atom_count
+	data.box_bounds_list = box_bounds_list
+	data.box_bounds = box_bounds
+	data.last_modified = 'Null' # Stores when lammpstrj was last modified in seconds
+
+	return data
+
 # Imports the atom style dump file from lammps. VMD automatically reads this when labelled as .lammpstrj
-# Default is to import everything but you will get better performance if you turn off the data you do not need
-def read_lammpstrj(name, read_atoms=True, read_timesteps=True, read_num_atoms=True, read_box_bounds=True, verbose=True, last_frame=False, big_file=True):
-	# Unless big_file flag is set to False, send all read_lammpstrj requests to read_lammpstrj_big
-	if big_file:
-		return read_lammpstrj_big(name, read_atoms=read_atoms, read_timesteps=read_timesteps, read_num_atoms=read_num_atoms, read_box_bounds=read_box_bounds, verbose=verbose, last_frame=last_frame)
-
-
+# Default is to import everything but you will get better performance if you turn off the data you do not need.
+# This legacy method is memory intensive. If you need to search for a particular section of the trj file, this code could be modfied
+def read_lammpstrj_legacy(name, read_atoms=True, read_timesteps=True, read_num_atoms=True, read_box_bounds=True, last_frame=False):
 	if not name.endswith('.lammpstrj') and '.' not in name:
 		name += '.lammpstrj'
 	# If file does not exist, return empty lammpstrj object
@@ -183,8 +388,6 @@ def read_lammpstrj(name, read_atoms=True, read_timesteps=True, read_num_atoms=Tr
 	# Get all timesteps
 	section, timesteps = data, []
 	s = 'ITEM: TIMESTEP'
-	if verbose and read_timesteps:
-		print('Reading timesteps')
 	while read_timesteps and (s in section):
 		num = section.find(s)+len(s)
 		print(num)
@@ -202,8 +405,6 @@ def read_lammpstrj(name, read_atoms=True, read_timesteps=True, read_num_atoms=Tr
 	# Get number of atoms. Useful if number of atoms change during simulation, such as during a deposition
 	section, atom_counts = data, []
 	s = 'ITEM: NUMBER OF ATOMS'
-	if verbose and read_num_atoms:
-		print('Reading number of atoms')
 	while read_num_atoms and (s in section):
 		section = section[section.find(s)+len(s):]
 		tmp = section[:section.find('\nITEM: BOX BOUNDS')].split('\n')[1:]
@@ -220,8 +421,6 @@ def read_lammpstrj(name, read_atoms=True, read_timesteps=True, read_num_atoms=Tr
 	# Currently only imports orthorhombic crystal information aka all angles = 90 degrees
 	section, box_bounds_list = data, []
 	s = 'ITEM: BOX BOUNDS'
-	if verbose and read_box_bounds:
-		print('Reading box bounds')
 	while read_box_bounds and (s in section):
 		section = section[section.find(s)+len(s):]
 		tmp = section[:section.find('\nITEM: ATOMS')].split('\n')[1:]
@@ -262,174 +461,90 @@ def read_lammpstrj(name, read_atoms=True, read_timesteps=True, read_num_atoms=Tr
 
 	return data
 
-# Imports the atom style dump file from lammps. VMD automatically reads this when labelled as .lammpstrj
-# Default is to import everything but you will get better performance if you turn off the data you do not need
-def read_lammpstrj_big(name, read_atoms=True, read_timesteps=True, read_num_atoms=True, read_box_bounds=True, verbose=True, last_frame=False):
-	if not name.endswith('.lammpstrj') and '.' not in name:
-		name += '.lammpstrj'
-	# If file does not exist, return empty lammpstrj object
-	if not os.path.isfile(name):
-		warn('Expected lammps trajectory file does not exist at %s' % (name))
-		data = ''
+# Write lammpstrj file from system or from atom frames. Currently supports: id, type, x, xs, xu, xsu, vx, fx
+# VMD automatically reads this when labelled as .lammpstrj
+def write_lammpstrj(frames_or_system, name_or_file=None, timesteps=None, box_bounds_list=None, attrs='id type x y z'):
+	# Set to default filename if not set (out.lammpstrj)
+	if not name_or_file:
+		name_or_file = 'out'
 
-	# Initialize embarrassedly
-	timesteps, atom_counts, box_bounds_list, frames = [], [], [], []
-
-	# Use these flags to determine what section you are in
-	sect_timesteps, sect_num_atoms, sect_box_bounds, sect_atoms = False, False, False, False
-
-	# Flag to keep track if this is the first step analyzed
-	first_step = True
-
-	# Skip the listed number of frames then reset
-	# Set to 0 for no skpping
-	#skip_set = range(2**5 - 1)
-	#skip_set = [x+2 for x in skip_set]
-
-	skip_set = [0]
-	skip_count = 0
-
-	# Iterate file line by line. This reduces the memory required since it only loads the current line
-	with open(name) as f:
-		for line in f:
-
-			# Check for new section
-			if 'ITEM: TIMESTEP' in line:
-				# If skipped previous frame, reset skip counter
-				if skip_count == max(skip_set):
-					skip_count = 0
-
-				# Increment skip counter and skip if necessary
-				skip_count = skip_count + 1
-				if skip_count in skip_set:
-					continue
-
-				sect_timesteps, sect_num_atoms, sect_box_bounds, sect_atoms = False, False, False, False
-				sect_timesteps = True
-
-				# Add previous timestep to list of frames. Do not try for first time step. Do not add if only looking for final frame
-				if not first_step and not last_frame:
-					frames.append(frame)
-
-				continue
-
-			# If it is not the timestep section, and a skip has triggered, skip all lines till next timestep
-			elif skip_count in skip_set:
-					continue
-
-			elif 'ITEM: NUMBER OF ATOMS' in line:
-				sect_timesteps, sect_num_atoms, sect_box_bounds, sect_atoms = False, False, False, False
-				sect_num_atoms = True
-				continue
-
-			elif 'ITEM: BOX BOUNDS' in line:
-				sect_timesteps, sect_num_atoms, sect_box_bounds, sect_atoms = False, False, False, False
-				sect_box_bounds = True
-				box_bounds = utils.Struct(xlo=None, xhi=None, ylo=None, yhi=None, zlo=None, zhi=None)
-				continue
-
-			elif 'ITEM: ATOMS id type ' in line:
-				sect_timesteps, sect_num_atoms, sect_box_bounds, sect_atoms = False, False, False, False
-				sect_atoms = True
-				box_bounds_list.append(box_bounds)
-				frame = []
-
-				# If this is the first time step analyzed, report the coordinates style
-				if first_step and verbose:
-					if 'x y z' in line:
-						print('%s: Reading wrapped, unscaled atom coordinates' % (name))
-
-					elif 'xs ys zs' in line:
-						print('%s: Reading wrapped, scaled atom coordinates' % (name))
-
-					elif 'xu yu zu' in line:
-						print('%s: Reading unwrapped, unscaled atom coordinates' % (name))
-
-					elif 'xsu ysu zsu' in line:
-						print('%s: Reading unwrapped, scaled atom coordinates' % (name))
-
-					else:
-						print('No valid coordinates found')
-
-				first_step = False
-				continue
-
-			# Record information as required by the section
-			if sect_timesteps and read_timesteps:
-				a = line.split()
-				timesteps.append(int(a[0]))
-
-			if sect_num_atoms and read_num_atoms:
-				a = line.split()
-				atom_counts.append(int(a[0]))
-
-			if sect_box_bounds and read_box_bounds:
-				a = line.split()
-				if box_bounds.xlo is None:
-					box_bounds.xlo = float(a[0])
-					box_bounds.xhi = float(a[1])
-				elif box_bounds.ylo is None:
-					box_bounds.ylo = float(a[0])
-					box_bounds.yhi = float(a[1])
-				elif box_bounds.zlo is None:
-					box_bounds.zlo = float(a[0])
-					box_bounds.zhi = float(a[1])
-
-			if sect_atoms and read_atoms:
-				a = line.split()
-
-				# Check if atom has expected number of characteristics
-				if len(a) == 5:
-					frame.append(utils.Atom(a[1],float(a[2]),float(a[3]),float(a[4]),index=a[0]))
-				else:
-					print('Atom skipped due to missing information')
-
-	# Add final frame
-	frames.append(frame)
-
-	# Record final data point as necessary
-	if len(timesteps) > 0:
-		final_timestep = timesteps[-1]
+	# If filename is provided, open it
+	if type(name_or_file)==str:
+		name = name_or_file
+		f = open(name+'.lammpstrj', 'w')
+	# If open file is provided, just append to it
 	else:
-		final_timestep = None
+		f = name_or_file
 
-	if len(atom_counts) > 0:
-		atom_count = atom_counts[-1]
+	print('Writing lammpstrj: %s' % (attrs))
+
+	# Determine whether input is an atom list (frames) or a system object
+	# If it is a system object, compile information to write lammpstrj file
+	if isinstance(frames_or_system, utils.System):
+		system = frames_or_system
+		frames = system.atoms
+		box_bounds_list = utils.Struct(xlo=system.xlo, xhi=system.xhi, ylo=system.ylo, yhi=system.yhi, zlo=system.zlo, zhi=system.zhi)
 	else:
-		atom_count = None
+		frames =  frames_or_system
 
-	if len(box_bounds_list) > 0:
-		box_bounds = box_bounds_list[-1]
-	else:
-		box_bounds = None
+	# Create default box_bounds_list if it was not previously initialized
+	if box_bounds_list is None:
+		box_bounds_list = utils.Struct(xlo=-10.0, xhi=10.0, ylo=-10.0, yhi=10.0, zlo=-10.0, zhi=10.0)
 
-	if frames:
-		atoms = frames[-1]
-	else:
-		atoms = None
+	# Convert to list of frames if it is not
+	if isinstance(frames[0],utils.Atom):
+		frames = [frames]
 
-	# If only looking for final frame, erase all other timesteps
-	if last_frame:
-		timesteps = [timesteps[-1]]
-		atom_counts = [atom_counts[-1]]
-		box_bounds_list = [box_bounds_list[-1]]
-		frames = [frames[-1]]
+	# Convert to list of box_bounds if it is not
+	if not isinstance(box_bounds_list[0],utils.Struct):
+		box_bounds_list = [box_bounds_list]
 
-	# Create object to store all results
-	data = utils.sim_out(name, 'lammps')
+	# Define default timesteps and and expand box_bounds_list to equal number of timesteps if necessary
+	if timesteps is None:
+		timesteps = range(len(frames))
+	if len(box_bounds_list) < len(timesteps):
+		constant_box_bounds = box_bounds_list[0]
+		box_bounds_list = [constant_box_bounds for t in timesteps]
 
-	# Record all lammps trajectory data into results object
-	data.frames = frames
-	data.atoms = atoms
-	data.timesteps = timesteps
-	data.final_timestep = final_timestep
-	data.atom_counts = atom_counts
-	data.atom_count = atom_count
-	data.box_bounds_list = box_bounds_list
-	data.box_bounds = box_bounds
-	data.last_modified = 'Null' # Stores when lammpstrj was last modified in seconds
+	for (atoms, timestep, box_bounds) in zip(frames, timesteps, box_bounds_list):
+		f.write('ITEM: TIMESTEP\n'+str(timestep)+'\n')
+		f.write('ITEM: NUMBER OF ATOMS\n'+str(len(atoms))+'\n')
+		f.write('ITEM: BOX BOUNDS pp pp pp\n')
+		f.write('%3.5f %3.5f\n' % (box_bounds.xlo, box_bounds.xhi))
+		f.write('%3.5f %3.5f\n' % (box_bounds.ylo, box_bounds.yhi))
+		f.write('%3.5f %3.5f\n' % (box_bounds.zlo, box_bounds.zhi))
+		atom_attrs = attrs.split()
+		f.write("ITEM: ATOMS "+' '.join(["%s" % (attr) for attr in atom_attrs]))
+		f.write('\n')
+		for a in atoms:
+			for attr in atom_attrs:
+				if attr == 'id':
+					f.write('%d ' % (a.index))
+				elif attr == 'type':
+					f.write('%s ' % (a.element))
+				elif attr in ['x','xs','xu','xsu']:
+					f.write('%3.5f ' % (a.x))
+				elif attr in ['y','ys','yu','ysu']:
+					f.write('%3.5f ' % (a.y))
+				elif attr in ['z','zs','zu','zsu']:
+					f.write('%3.5f ' % (a.z))
+				elif attr == 'vx':
+					f.write('%3.5f ' % (a.vx))
+				elif attr == 'vy':
+					f.write('%3.5f ' % (a.vy))
+				elif attr == 'vz':
+					f.write('%3.5f ' % (a.vz))
+				elif attr == 'fx':
+					f.write('%3.5f ' % (a.fx))
+				elif attr == 'fy':
+					f.write('%3.5f ' % (a.fy))
+				elif attr == 'fz':
+					f.write('%3.5f ' % (a.fz))
+			f.write('\n')
 
-	return data
+	# Close file if it was opened outside of this function
+	if type(name_or_file)==str: 
+		f.close()
 
 def read_xyz(name):
 	if not name.endswith('.xyz') and '.' not in name:
@@ -594,7 +709,7 @@ def set_forcefield_parameters(atoms, bonds=[], angles=[], dihedrals=[], paramete
 
 			#print([t for t in bond_types+angle_types+dihedral_types if t.index2s==index2s or t.index2s==tuple(reversed(index2s))])
 			#print([t for t in bond_types+angle_types+dihedral_types if t.index2s==index2s or t.index2s==tuple(reversed(index2s))][0])
-			
+
 			#x.type = [t for t in bond_types+angle_types+dihedral_types if t.index2s==index2s or t.index2s==tuple(reversed(index2s))][0]
 		except: pass
 

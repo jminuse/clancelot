@@ -131,14 +131,17 @@ class _Physical(object):
 		return object.__repr__(self) +" with attributes:\n"+str(text)
 
 class Atom(_Physical):
-	def __init__(self, element, x, y, z, v_x=0, v_y=0, v_z=0, index=None, type=None, molecule_index=1, bonded=[], type_index=None):
+	def __init__(self, element, x, y, z, vx=0, vy=0, vz=0, fx=0, fy=0, fz=0, index=None, type=None, molecule_index=1, bonded=[], type_index=None):
 		self.element = element
 		self.x = x
 		self.y = y
 		self.z = z
-		self.v_x = v_x
-		self.v_y = v_y
-		self.v_z = v_z
+		self.vx = vx
+		self.vy = vy
+		self.vz = vz
+		self.fx = fx
+		self.fy = fy
+		self.fz = fz
 		self.index = index
 		self.molecule_index = molecule_index
 		self.bonded=bonded
