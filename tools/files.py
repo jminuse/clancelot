@@ -10,7 +10,6 @@ def read_cml(name, parameter_file='oplsaa.prm', extra_parameters={}, test_charge
 		name += '.cml'
 	tree = xml.parse(name)
 	root = tree.getroot()
-	#Test!!!
 
 	# If periodic box information was passed to cml file, first root is the periodic box
 	# If no periodic box info, first root is atomArray
