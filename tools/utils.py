@@ -644,6 +644,7 @@ class System(_Physical):
 					del self.molecules[a]
 					break
 
+		# Remove single atom
 		elif isinstance(target,Atom):
 			for a in range(len(self.atoms)):
 				#Check from the back of the atomlist, because the atom
@@ -694,6 +695,73 @@ class System(_Physical):
 				if not a in delList:
 					newList.append(self.dihedrals[a])
 			self.dihedrals=newList
+
+		# Remove list of atoms
+		elif isinstance(target[0],Atom):
+			new_atoms = []
+			for a in range(len(self.atoms)):
+				#Check from the back of the atomlist, because the atom
+				#to be removed was also likely the last one added.
+				for rm_atom in target:
+					if self.atoms[len(self.atoms)-a-1].equals(rm_atom):
+						#del self.atoms[len(self.atoms)-a-1]
+						break
+				else:
+					new_atoms.append(self.atoms[len(self.atoms)-a-1])
+
+			print('Initial atoms: %d, Removed atoms: %d, Final atoms: %d' % (len(self.atoms), len(self.atoms)-len(new_atoms), len(new_atoms)))
+			self.atoms = new_atoms
+
+			#Make sure all atoms in molecule are in system.
+			new_bonds = []
+			for a in range(len(self.bonds)):
+				keep = True
+				for b in self.bonds[len(self.bonds)-a-1].atoms:
+					for rm_atom in target:
+						if b.equals(rm_atom):
+							#del self.bonds[len(self.bonds)-a-1]
+							keep = False
+							break
+
+				if keep:
+					new_bonds.append(self.bonds[len(self.bonds)-a-1])
+
+			print('Initial bonds: %d, Removed bonds: %d, Final bonds: %d' % (len(self.bonds), len(self.bonds)-len(new_bonds), len(new_bonds)))
+			self.bonds = new_bonds
+
+			#Make sure all atoms in molecule are in system.
+			new_angles = []
+			for a in range(len(self.angles)):
+				keep = True
+				for b in self.angles[len(self.angles)-a-1].atoms:
+					for rm_atom in target:
+						if b.equals(rm_atom):
+							#del self.angles[len(self.angles)-a-1]
+							keep = False
+							break
+
+				if keep:
+					new_angles.append(self.angles[len(self.angles)-a-1])
+
+			print('Initial angles: %d, Removed angles: %d, Final angles: %d' % (len(self.angles), len(self.angles)-len(new_angles), len(new_angles)))
+			self.angles = new_angles
+
+			#Make sure all atoms in molecule are in system.
+			new_dihedrals = []
+			for a in range(len(self.dihedrals)):
+				keep = True
+				for b in self.dihedrals[len(self.dihedrals)-a-1].atoms:
+					for rm_atom in target:
+						if b.equals(rm_atom):
+							#del self.dihedrals[len(self.dihedrals)-a-1]
+							keep = False
+							break
+
+				if keep:
+					new_dihedrals.append(self.dihedrals[len(self.dihedrals)-a-1])
+
+			print('Initial dihedrals: %d, Removed dihedrals: %d, Final dihedrals: %d' % (len(self.dihedrals), len(self.dihedrals)-len(new_dihedrals), len(new_dihedrals)))
+			self.dihedrals = new_dihedrals
 
 	def Contains(self,molecule):
 		"""
@@ -748,6 +816,143 @@ class System(_Physical):
 		#If python gets here, all aspects of molecule are in system.
 		return True
 
+	def remove_atom_type(self, type_indices=[]):
+		"""
+		Removes selected OPLS types from system. Does so by compiling new lists for atoms, bonds, angles, and dihedrals. Will be faster than Remove in cases
+		where you are only keeping a few atoms.
+		"""
+
+		new_atoms = []
+		for a in range(len(self.atoms)):
+			#Check from the back of the atomlist, because the atom
+			#to be removed was also likely the last one added.
+			for index in type_indices:
+				if self.atoms[len(self.atoms)-a-1].type_index == index:
+					#del self.atoms[len(self.atoms)-a-1]
+					break
+			else:
+				new_atoms.append(self.atoms[len(self.atoms)-a-1])
+
+		print('Initial atoms: %d, Removed atoms: %d, Final atoms: %d' % (len(self.atoms), len(self.atoms)-len(new_atoms), len(new_atoms)))
+		self.atoms = new_atoms
+
+		#Make sure all atoms in molecule are in system.
+		new_bonds = []
+		for a in range(len(self.bonds)):
+			keep = True
+			for b in self.bonds[len(self.bonds)-a-1].atoms:
+				for index in type_indices:
+					if b.type_index == index:
+						#del self.bonds[len(self.bonds)-a-1]
+						keep = False
+						break
+
+			if keep:
+				new_bonds.append(self.bonds[len(self.bonds)-a-1])
+
+		print('Initial bonds: %d, Removed bonds: %d, Final bonds: %d' % (len(self.bonds), len(self.bonds)-len(new_bonds), len(new_bonds)))
+		self.bonds = new_bonds
+
+		#Make sure all atoms in molecule are in system.
+		new_angles = []
+		for a in range(len(self.angles)):
+			keep = True
+			for b in self.angles[len(self.angles)-a-1].atoms:
+				for index in type_indices:
+					if b.type_index == index:
+						#del self.angles[len(self.angles)-a-1]
+						keep = False
+						break
+
+			if keep:
+				new_angles.append(self.angles[len(self.angles)-a-1])
+
+		print('Initial angles: %d, Removed angles: %d, Final angles: %d' % (len(self.angles), len(self.angles)-len(new_angles), len(new_angles)))
+		self.angles = new_angles
+
+		#Make sure all atoms in molecule are in system.
+		new_dihedrals = []
+		for a in range(len(self.dihedrals)):
+			keep = True
+			for b in self.dihedrals[len(self.dihedrals)-a-1].atoms:
+				for index in type_indices:
+					if b.type_index == index:
+						#del self.dihedrals[len(self.dihedrals)-a-1]
+						keep = False
+						break
+
+			if keep:
+				new_dihedrals.append(self.dihedrals[len(self.dihedrals)-a-1])
+
+		print('Initial dihedrals: %d, Removed dihedrals: %d, Final dihedrals: %d' % (len(self.dihedrals), len(self.dihedrals)-len(new_dihedrals), len(new_dihedrals)))
+		self.dihedrals = new_dihedrals
+
+	# Assigns a unique molecule index for each molecule and sets each atom.molecule_index to the appropriate index
+	# The algorithm runs by recursively searching through every bonded atom and giving the same molecule index as the origin atom.
+	# Normally, this means that molecules that are not bonded to each other will have a unique molecule index.
+	# Specific elements can be assign a predetermined molecule index by passing a list of element lists. 
+	# For example element_groups=[[6,8], [9]] will give all carbon and oxygen atoms a molecule index of 1 and fluorine atoms will have a molecule index of 2.
+	# It is possible to get different molecule indices within the same bonded compound by giving a specific "bridging" element a
+	# predetermined molecule index. This prevents the molecular index from spreading to the entire bonded structure.
+	def assign_molecules(self, elements=[]):
+		print('Assigning molecules')
+
+		# Create a shorthand for the atoms in the system
+		atom_list = self.atoms
+
+		# Reset molecule indices for all atoms to 0
+		for index, atom in enumerate(atom_list):
+			i_atom = atom_list[index]
+			i_atom.molecule_index = 0
+
+		# Add molecule numbering to different strands
+		# Copper gets a molecule index of 1
+		# BF4 gets a molecule index of 2
+		molecule_count = len(elements) + 1
+		for i_list_index, atom in enumerate(atom_list):
+			i_atom = atom_list[i_list_index]
+
+			# Cycle elements list and assign predetermined molecules:
+			for offset, elem_group in enumerate(elements):
+				if i_atom.type.element in elem_group:
+					i_atom.molecule_index = offset + 1
+
+			# Assign molecule index if it has not been assigned already
+			if i_atom.molecule_index == 0:
+				atom_list = self.assign_molecule_index(atom_list, i_list_index, molecule_count, elements=elements)
+				i_atom = atom_list[i_list_index]
+				molecule_count += 1
+
+		print('Found and assigned %d molecules in system' % (molecule_count))
+
+		self.atoms = atom_list
+
+	# Add molecule index to the atom if it has not already been assigned. Then recursively pass bonded atoms to the function
+	def assign_molecule_index(self, atom_list, i_list_index, molecule_count, elements=[]):
+		i_atom = atom_list[i_list_index]
+
+		# If element is in predefined molecule, skip assignment
+		for offset, elem_group in enumerate(elements):
+			if i_atom.type.element in elem_group:
+				return atom_list
+
+		# If atom does not have a molecule index
+		if i_atom.molecule_index == 0:
+			#print('Assigned atom %d to molecule %d' % (i_atom.index, molecule_count))
+			i_atom.molecule_index = molecule_count
+
+			for index, bondedAtom in enumerate(i_atom.bonded):
+				j_list_index = bondedAtom.index - 1
+				j_atom = atom_list[j_list_index]
+
+				#print('Before bonded atom')
+				#print(j_atom)
+				atom_list = self.assign_molecule_index(atom_list, j_list_index, molecule_count, elements=elements)
+				#print('After bonded atom')
+				j_atom = atom_list[j_list_index]
+				#print(j_atom)
+
+		return atom_list
 
 	# Print all atoms
 	def to_string(self):
