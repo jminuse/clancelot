@@ -30,7 +30,7 @@ FMAX_CONVERGENCE = 1
 GTOL_CONVERGENCE = 2
 
 
-def g09_start_job(NEB, i, state, procs, queue, force, initial_guess, extra_section, mem):
+def g09_start_job(NEB, i, state, procs, queue, force, initial_guess, extra_section, mem, charge_and_multiplicity):
     if NEB.step>0:
         guess = ' Guess=Read'
     else:
@@ -38,7 +38,7 @@ def g09_start_job(NEB, i, state, procs, queue, force, initial_guess, extra_secti
             guess = ' Guess=Read'
         else:
             guess = '' #no previous guess for first step
-    return g09.job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+' Force'+guess, state, procs=procs, queue=queue, force=force, previous=('%s-%d-%d'%(NEB.name,NEB.step-1,i)) if NEB.step>0 else initial_guess, extra_section=extra_section+'\n\n', neb=[True,'%s-%%d-%%d'%(NEB.name),len(NEB.states),i], mem=mem)
+    return g09.job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory+' Force'+guess, state, procs=procs, queue=queue, charge_and_multiplicity=charge_and_multiplicity, force=force, previous=('%s-%d-%d'%(NEB.name,NEB.step-1,i)) if NEB.step>0 else initial_guess, extra_section=extra_section+'\n\n', neb=[True,'%s-%%d-%%d'%(NEB.name),len(NEB.states),i], mem=mem)
 
 
 def g09_results(NEB, step_to_use, i, state):
@@ -65,7 +65,7 @@ def g09_results(NEB, step_to_use, i, state):
     return new_energy, new_atoms
 
 
-def orca_start_job(NEB, i, state, procs, queue, force, initial_guess, extra_section, mem):
+def orca_start_job(NEB, i, state, procs, queue, force, initial_guess, extra_section, mem, charge_and_multiplicity):
     if NEB.step>0:
         previous = '%s-%d-%d' % (NEB.name,NEB.step-1,i)
     else:
@@ -76,7 +76,7 @@ def orca_start_job(NEB, i, state, procs, queue, force, initial_guess, extra_sect
                 previous = initial_guess
         else:
             previous = None
-    return orca.job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory, state, extra_section=extra_section, grad=True, procs=procs, queue=queue, previous=previous, mem=mem)
+    return orca.job('%s-%d-%d'%(NEB.name,NEB.step,i), NEB.theory, state, extra_section=extra_section, charge_and_multiplicity=charge_and_multiplicity, grad=True, procs=procs, queue=queue, previous=previous, mem=mem)
 
 
 def orca_results(NEB, step_to_use, i, state):
@@ -88,7 +88,7 @@ def orca_results(NEB, step_to_use, i, state):
     return new_energy, new_atoms
 
 
-def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queue=None,
+def neb(name, states, theory, extra_section='', charge_and_multiplicity='0 1',spring_atoms=None, procs=1, queue=None,
         disp=0, k=0.1837, fit_rigid=True, start_job=None, get_results=None,
         DFT='orca', opt='BFGS', gtol=1e-3, fmax=None, maxiter=1000,
         alpha=0.1, beta=0.5, tau=1E-3, reset=10, H_reset=True, Nmax=20,
@@ -210,7 +210,7 @@ def neb(name, states, theory, extra_section='', spring_atoms=None, procs=1, queu
                 if (i==0 or i==len(NEB.states)-1) and NEB.step>0:
                     pass # No need to calculate anything for first and last states after the first step
                 else:
-                    running_jobs.append( start_job(NEB, i, state, procs, queue, force, initial_guess, extra_section, mem) )
+                    running_jobs.append( start_job(NEB, i, state, procs, queue, force, initial_guess, extra_section, mem, charge_and_multiplicity) )
             # Wait for jobs to finish
             for j in running_jobs: j.wait()
 
